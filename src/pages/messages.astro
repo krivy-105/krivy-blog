@@ -1,0 +1,439 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+const initialUserId = Astro.url.searchParams.get('user');
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title="私信" />
+  </head>
+  <body>
+    <Header />
+    <main>
+  <div class="chat-container">
+    <div class="chat-sidebar">
+      <div class="sidebar-header">
+        <h3>私信</h3>
+      </div>
+      <div class="user-list" id="userList">
+        <div class="loading">加载中...</div>
+      </div>
+    </div>
+
+    <div class="chat-main">
+      <div class="chat-header" id="chatHeader">
+        <span class="placeholder">选择一个用户开始对话</span>
+      </div>
+      <div class="messages" id="messages">
+        <div class="empty-state">
+          <div class="empty-icon">💬</div>
+          <p>选择左侧用户开始聊天</p>
+        </div>
+      </div>
+      <div class="chat-input-area" id="chatInputArea" style="display:none;">
+        <div class="emoji-panel" id="emojiPanel" style="display:none;"></div>
+        <div class="input-row">
+          <button type="button" class="emoji-btn" id="emojiBtn">😊</button>
+          <textarea id="msgInput" placeholder="输入消息..." rows="1"></textarea>
+          <button type="button" class="btn btn-primary send-btn" id="sendBtn">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style is:global>
+    .chat-container {
+      display: flex;
+      height: calc(100vh - 64px - 80px);
+      max-width: 1100px;
+      margin: 0 auto;
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(126, 166, 184, 0.12);
+    }
+    .chat-sidebar {
+      width: 280px;
+      border-right: 1px solid var(--monet-blue-light);
+      display: flex;
+      flex-direction: column;
+      background: var(--monet-blue-lighter);
+    }
+    .sidebar-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--monet-blue-light);
+    }
+    .sidebar-header h3 {
+      margin: 0;
+      color: var(--monet-blue-dark);
+      font-size: 1.1rem;
+    }
+    .user-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .user-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.85rem 1.25rem;
+      cursor: pointer;
+      transition: var(--transition);
+      border-bottom: 1px solid rgba(126, 166, 184, 0.06);
+    }
+    .user-item:hover { background: var(--monet-blue-light); }
+    .user-item.active { background: var(--monet-blue-light); }
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--monet-blue);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .avatar.admin { background: #e8a838; }
+    .user-info { flex: 1; min-width: 0; }
+    .user-name { font-weight: 500; color: var(--text-dark); font-size: 0.92rem; }
+    .role-tag {
+      font-size: 0.7rem;
+      color: var(--monet-blue-dark);
+      background: var(--monet-blue-light);
+      padding: 1px 6px;
+      border-radius: 8px;
+      margin-left: 4px;
+    }
+    .unread-badge {
+      background: #e74c3c;
+      color: white;
+      font-size: 0.7rem;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 5px;
+    }
+    .loading, .empty-list {
+      padding: 2rem 1rem;
+      text-align: center;
+      color: var(--text-gray);
+      font-size: 0.85rem;
+    }
+    .chat-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--monet-blue-light);
+      font-weight: 600;
+      color: var(--text-dark);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .chat-header .placeholder { color: var(--text-gray); font-weight: 400; }
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .empty-state {
+      margin: auto;
+      text-align: center;
+      color: var(--text-gray);
+    }
+    .empty-icon { font-size: 3rem; margin-bottom: 0.5rem; opacity: 0.5; }
+    .msg {
+      max-width: 70%;
+      padding: 0.6rem 1rem;
+      border-radius: 16px;
+      word-wrap: break-word;
+      font-size: 0.92rem;
+      line-height: 1.5;
+      animation: msgIn 0.2s ease-out;
+    }
+    .msg.self {
+      align-self: flex-end;
+      background: var(--monet-blue);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    .msg.other {
+      align-self: flex-start;
+      background: var(--monet-blue-lighter);
+      color: var(--text-dark);
+      border-bottom-left-radius: 4px;
+    }
+    .msg-time {
+      font-size: 0.7rem;
+      opacity: 0.6;
+      margin-top: 0.25rem;
+      text-align: right;
+    }
+    .msg.other .msg-time { text-align: left; }
+    @keyframes msgIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .chat-input-area { padding: 1rem 1.5rem; border-top: 1px solid var(--monet-blue-light); }
+    .input-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-end;
+    }
+    .emoji-btn {
+      background: none;
+      border: none;
+      font-size: 1.3rem;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 8px;
+      transition: var(--transition);
+    }
+    .emoji-btn:hover { background: var(--monet-blue-light); }
+    #msgInput {
+      flex: 1;
+      padding: 0.6rem 0.9rem;
+      border: 1px solid var(--monet-blue-light);
+      border-radius: 20px;
+      resize: none;
+      font-family: inherit;
+      font-size: 0.92rem;
+      max-height: 120px;
+      outline: none;
+      transition: var(--transition);
+    }
+    #msgInput:focus { border-color: var(--monet-blue); }
+    .send-btn { padding: 0.5rem 1.25rem; border-radius: 20px; }
+    .emoji-panel {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 4px;
+      padding: 0.75rem;
+      margin-bottom: 0.75rem;
+      background: var(--monet-blue-lighter);
+      border-radius: 12px;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+    .emoji-item {
+      font-size: 1.3rem;
+      text-align: center;
+      padding: 4px;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: var(--transition);
+    }
+    .emoji-item:hover { background: var(--monet-blue-light); }
+    @media (max-width: 768px) {
+      .chat-container { flex-direction: column; height: auto; }
+      .chat-sidebar { width: 100%; max-height: 200px; }
+    }
+  </style>
+
+  <script define:vars={{ initialUserId, currentUserId: user!.id }}>
+    const EMOJIS = ['😀','😁','😂','🤣','😊','😍','🥰','😘','😎','🤔','😴','😭','😡','👍','👎','❤️','🔥','🎉','🤝','🙏','👋','💪','🌹','☕','🍺','🎵','📚','✨','💡','🚀','⭐','🌈'];
+
+    let currentReceiver = null;
+    let ws = null;
+    let users = [];
+    const unreadMap = new Map();
+
+    const userListEl = document.getElementById('userList');
+    const messagesEl = document.getElementById('messages');
+    const chatHeaderEl = document.getElementById('chatHeader');
+    const chatInputArea = document.getElementById('chatInputArea');
+    const msgInput = document.getElementById('msgInput');
+    const emojiBtn = document.getElementById('emojiBtn');
+    const emojiPanel = document.getElementById('emojiPanel');
+
+    async function loadUsers() {
+      const res = await fetch('/api/users');
+      users = await res.json();
+      renderUserList();
+      if (initialUserId) {
+        selectUser(Number(initialUserId));
+      }
+    }
+
+    function renderUserList() {
+      if (users.length === 0) {
+        userListEl.innerHTML = '<div class="empty-list">暂无其他用户</div>';
+        return;
+      }
+      userListEl.innerHTML = users.map(u => {
+        const unread = unreadMap.get(u.id) || 0;
+        return '<div class="user-item ' + (currentReceiver === u.id ? 'active' : '') + '" data-id="' + u.id + '">' +
+          '<div class="avatar ' + u.role + '">' + u.username[0].toUpperCase() + '</div>' +
+          '<div class="user-info"><div class="user-name">' + u.username + (u.role === 'admin' ? ' <span class="role-tag">管理员</span>' : '') + '</div></div>' +
+          (unread > 0 ? '<span class="unread-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
+          '</div>';
+      }).join('');
+      userListEl.querySelectorAll('.user-item').forEach(el => {
+        el.addEventListener('click', () => selectUser(Number(el.dataset.id)));
+      });
+    }
+
+    async function selectUser(userId) {
+      currentReceiver = userId;
+      const u = users.find(x => x.id === userId);
+      if (u) {
+        chatHeaderEl.innerHTML = '<div class="avatar ' + u.role + '" style="width:32px;height:32px;font-size:0.85rem;">' + u.username[0].toUpperCase() + '</div><span>' + u.username + '</span>';
+      }
+      chatInputArea.style.display = 'block';
+      unreadMap.delete(userId);
+      renderUserList();
+      await loadMessages(userId);
+      connectWS();
+    }
+
+    async function loadMessages(userId) {
+      const res = await fetch('/api/messages?with=' + userId);
+      const msgs = await res.json();
+      renderMessages(msgs);
+    }
+
+    function renderMessages(msgs) {
+      if (msgs.length === 0) {
+        messagesEl.innerHTML = '<div class="empty-state"><div class="empty-icon">💬</div><p>还没有消息，发送第一条吧</p></div>';
+        return;
+      }
+      messagesEl.innerHTML = msgs.map(m => {
+        const isSelf = m.sender_id === currentUserId;
+        const time = new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        return '<div class="msg ' + (isSelf ? 'self' : 'other') + '">' + escapeHtml(m.content) + '<div class="msg-time">' + time + '</div></div>';
+      }).join('');
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function appendMessage(m) {
+      if (m.sender_id === currentReceiver || m.receiver_id === currentReceiver) {
+        const isSelf = m.sender_id === currentUserId;
+        const time = new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        const div = document.createElement('div');
+        div.className = 'msg ' + (isSelf ? 'self' : 'other');
+        div.innerHTML = escapeHtml(m.content) + '<div class="msg-time">' + time + '</div>';
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function connectWS() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws');
+      ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.type === 'message' || data.type === 'message_sent') {
+          const m = data.message;
+          if (m.sender_id !== currentUserId && m.sender_id !== currentReceiver) {
+            unreadMap.set(m.sender_id, (unreadMap.get(m.sender_id) || 0) + 1);
+            renderUserList();
+            updateHeaderBadge();
+          } else {
+            appendMessage(m);
+            if (m.sender_id === currentReceiver) {
+              fetch('/api/messages?with=' + currentReceiver);
+            }
+          }
+        }
+      };
+      ws.onclose = () => { setTimeout(connectWS, 3000); };
+    }
+
+    async function sendMessage() {
+      const content = msgInput.value.trim();
+      if (!content || !currentReceiver) return;
+      msgInput.value = '';
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'message', receiverId: currentReceiver, content }));
+      } else {
+        const res = await fetch('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ receiverId: currentReceiver, content })
+        });
+        if (res.ok) {
+          const m = await res.json();
+          appendMessage(m);
+        }
+      }
+    }
+
+    document.getElementById('sendBtn').addEventListener('click', sendMessage);
+    msgInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+    msgInput.addEventListener('input', () => {
+      msgInput.style.height = 'auto';
+      msgInput.style.height = Math.min(msgInput.scrollHeight, 120) + 'px';
+    });
+
+    emojiBtn.addEventListener('click', () => {
+      emojiPanel.style.display = emojiPanel.style.display === 'none' ? 'grid' : 'none';
+    });
+    emojiPanel.innerHTML = EMOJIS.map(e => '<span class="emoji-item">' + e + '</span>').join('');
+    emojiPanel.querySelectorAll('.emoji-item').forEach(el => {
+      el.addEventListener('click', () => {
+        msgInput.value += el.textContent;
+        msgInput.focus();
+      });
+    });
+
+    async function pollUnread() {
+      try {
+        const res = await fetch('/api/messages/unread');
+        const data = await res.json();
+        const badge = document.getElementById('unreadBadge');
+        if (badge) {
+          badge.textContent = data.count > 99 ? '99+' : data.count;
+          badge.style.display = data.count > 0 ? 'flex' : 'none';
+        }
+      } catch {}
+    }
+    function updateHeaderBadge() {
+      let total = 0;
+      unreadMap.forEach(v => total += v);
+      const badge = document.getElementById('unreadBadge');
+      if (badge) {
+        badge.textContent = total > 99 ? '99+' : String(total);
+        badge.style.display = total > 0 ? 'flex' : 'none';
+      }
+    }
+    setInterval(pollUnread, 15000);
+    pollUnread();
+    loadUsers();
+  </script>
+    </main>
+    <Footer />
+  </body>
+</html>

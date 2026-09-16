@@ -1,0 +1,223 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+
+const user = Astro.locals.user;
+if (user) {
+  return Astro.redirect('/');
+}
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title="登录 / 注册" description="登录或注册账号" />
+    <style>
+      .auth-wrapper {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        background: linear-gradient(135deg, #E6F0F5 0%, #FFFFFF 100%);
+      }
+      .auth-card {
+        background: #fff;
+        border-radius: 24px;
+        padding: 2.5rem;
+        width: 100%;
+        max-width: 420px;
+        box-shadow: 0 20px 60px rgba(126, 166, 184, 0.15);
+        animation: fadeInUp 0.5s ease;
+      }
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .auth-tabs {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        border-bottom: 2px solid #E6F0F5;
+      }
+      .auth-tab {
+        padding: 0.75rem 1rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+        color: #7F8C8D;
+        font-weight: 500;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.3s ease;
+      }
+      .auth-tab.active {
+        color: #7EA6B8;
+        border-bottom-color: #7EA6B8;
+      }
+      .form-group { margin-bottom: 1.25rem; }
+      .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        color: #2C3E50;
+        font-weight: 500;
+      }
+      .form-group input {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1.5px solid #E6F0F5;
+        border-radius: 12px;
+        outline: none;
+        font-size: 0.95rem;
+        transition: border-color 0.3s ease;
+        box-sizing: border-box;
+      }
+      .form-group input:focus { border-color: #7EA6B8; }
+      .btn-submit {
+        width: 100%;
+        padding: 12px;
+        background: #7EA6B8;
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 1rem;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s ease;
+      }
+      .btn-submit:hover { background: #6A92A4; transform: translateY(-1px); }
+      .error-msg {
+        color: #e74c3c;
+        font-size: 0.85rem;
+        margin-top: 0.5rem;
+        min-height: 1.2rem;
+      }
+      .success-msg {
+        color: #27ae60;
+        font-size: 0.85rem;
+        margin-top: 0.5rem;
+        min-height: 1.2rem;
+      }
+      .switch-hint {
+        text-align: center;
+        margin-top: 1.5rem;
+        font-size: 0.85rem;
+        color: #7F8C8D;
+      }
+      .switch-hint button {
+        background: none;
+        border: none;
+        color: #7EA6B8;
+        cursor: pointer;
+        font-weight: 500;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <Header />
+    <main class="auth-wrapper">
+      <div class="auth-card">
+        <div class="auth-tabs">
+          <button class="auth-tab active" data-tab="login">登录</button>
+          <button class="auth-tab" data-tab="register">注册</button>
+        </div>
+
+        <!-- 登录表单 -->
+        <form id="loginForm">
+          <div class="form-group">
+            <label>用户名或邮箱</label>
+            <input type="text" name="identifier" placeholder="输入用户名或邮箱" required />
+          </div>
+          <div class="form-group">
+            <label>密码</label>
+            <input type="password" name="password" placeholder="输入密码" required />
+          </div>
+          <div class="error-msg" id="loginError"></div>
+          <button type="submit" class="btn-submit">登录</button>
+        </form>
+
+        <!-- 注册表单 -->
+        <form id="registerForm" style="display:none;">
+          <div class="form-group">
+            <label>用户名</label>
+            <input type="text" name="username" placeholder="设置用户名" required />
+          </div>
+          <div class="form-group">
+            <label>邮箱</label>
+            <input type="email" name="email" placeholder="your@email.com" required />
+          </div>
+          <div class="form-group">
+            <label>密码</label>
+            <input type="password" name="password" placeholder="至少 6 位" required minlength="6" />
+          </div>
+          <div class="error-msg" id="registerError"></div>
+          <button type="submit" class="btn-submit">注册并登录</button>
+        </form>
+      </div>
+    </main>
+    <Footer />
+
+    <script>
+      const tabs = document.querySelectorAll('.auth-tab');
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      const loginError = document.getElementById('loginError');
+      const registerError = document.getElementById('registerError');
+
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          const target = tab.dataset.tab;
+          if (target === 'login') {
+            loginForm.style.display = 'block';
+            registerForm.style.display = 'none';
+          } else {
+            loginForm.style.display = 'none';
+            registerForm.style.display = 'block';
+          }
+          loginError.textContent = '';
+          registerError.textContent = '';
+        });
+      });
+
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        loginError.textContent = '';
+        const formData = new FormData(loginForm);
+        try {
+          const res = await fetch('/api/login', { method: 'POST', body: formData });
+          const data = await res.json();
+          if (res.ok) {
+            window.location.href = data.redirect || '/';
+          } else {
+            loginError.textContent = data.error || '登录失败';
+          }
+        } catch {
+          loginError.textContent = '网络错误，请重试';
+        }
+      });
+
+      registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        registerError.textContent = '';
+        const formData = new FormData(registerForm);
+        try {
+          const res = await fetch('/api/register', { method: 'POST', body: formData });
+          if (res.ok) {
+            window.location.href = '/';
+          } else {
+            const data = await res.json();
+            registerError.textContent = data.error || '注册失败';
+          }
+        } catch {
+          registerError.textContent = '网络错误，请重试';
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,5 +1,8 @@
 # build output
 dist/
+
+# database
+data/
 # generated types
 .astro/
 
@@ -22,3 +25,6 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# trae editor
+.trae/

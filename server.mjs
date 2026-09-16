@@ -1,0 +1,146 @@
+// 自定义服务器入口：Astro SSR + WebSocket 聊天
+import { handler } from './dist/server/entry.mjs';
+import { WebSocketServer } from 'ws';
+import { createServer } from 'node:http';
+import { fileURLToPath } from 'node:url';
+import { sessionQueries, messageQueries, userQueries } from './src/lib/db.ts';
+import { createReadStream, existsSync, statSync } from 'node:fs';
+import { join, normalize } from 'node:path';
+
+const PORT = process.env.PORT ? Number(process.env.PORT) : 4321;
+const CLIENT_DIR = join(process.cwd(), 'dist', 'client');
+
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.xml': 'application/xml; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+};
+
+function serveStatic(req, res) {
+  const pathname = new URL(req.url, 'http://localhost').pathname;
+  const filePath = normalize(join(CLIENT_DIR, pathname));
+  // 防止路径穿越
+  if (!filePath.startsWith(CLIENT_DIR)) return false;
+  if (!existsSync(filePath)) return false;
+  let stat;
+  try { stat = statSync(filePath); } catch { return false; }
+  if (!stat.isFile()) return false;
+  const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase();
+  res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
+  createReadStream(filePath).pipe(res);
+  return true;
+}
+
+const server = createServer((req, res) => {
+  if (serveStatic(req, res)) return;
+  handler(req, res);
+});
+
+// ---- WebSocket 聊天服务器 ----
+const wss = new WebSocketServer({ noServer: true });
+
+// userId -> Set<WebSocket>
+const userConnections = new Map();
+
+function getUserIdFromRequest(req) {
+  // 从 cookie 中读取 session token
+  const cookies = req.headers.cookie || '';
+  const match = cookies.match(/blog_session=([^;]+)/);
+  if (!match) return null;
+  const token = match[1];
+  const row = sessionQueries.findByToken.get(token);
+  if (!row) return null;
+  if (row.expires_at < Date.now()) return null;
+  return row.user_id;
+}
+
+server.on('upgrade', (req, socket, head) => {
+  const pathname = new URL(req.url, 'http://localhost').pathname;
+  if (pathname !== '/ws') {
+    socket.destroy();
+    return;
+  }
+
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
+    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    ws.userId = userId;
+    if (!userConnections.has(userId)) {
+      userConnections.set(userId, new Set());
+    }
+    userConnections.get(userId).add(ws);
+
+    wss.emit('connection', ws, req);
+  });
+});
+
+wss.on('connection', (ws) => {
+  ws.on('message', async (data) => {
+    try {
+      const msg = JSON.parse(data.toString());
+      // { type: 'message', receiverId, content }
+      if (msg.type === 'message' && ws.userId) {
+        const receiverId = Number(msg.receiverId);
+        const content = String(msg.content || '').trim();
+        if (!receiverId || !content) return;
+
+        const now = Date.now();
+        const result = messageQueries.create.run(ws.userId, receiverId, content, now);
+        const message = {
+          id: result.lastInsertRowid,
+          sender_id: ws.userId,
+          receiver_id: receiverId,
+          content,
+          is_read: 0,
+          created_at: now,
+        };
+
+        // 发送给接收方的所有在线连接
+        const receiverSockets = userConnections.get(receiverId);
+        if (receiverSockets) {
+          for (const client of receiverSockets) {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify({ type: 'message', message }));
+            }
+          }
+        }
+        // 发送给发送方自己（确认）
+        ws.send(JSON.stringify({ type: 'message_sent', message }));
+      }
+    } catch (e) {
+      // ignore malformed messages
+    }
+  });
+
+  ws.on('close', () => {
+    const conns = userConnections.get(ws.userId);
+    if (conns) {
+      conns.delete(ws);
+      if (conns.size === 0) {
+        userConnections.delete(ws.userId);
+      }
+    }
+  });
+});
+
+server.listen(PORT, () => {
+  console.log(`🚀 博客服务器运行在 http://localhost:${PORT}`);
+});

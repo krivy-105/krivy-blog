@@ -8,17 +8,29 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview",
+    "start": "tsx server.mjs",
+    "preview": "tsx server.mjs",
     "astro": "astro"
   },
   "dependencies": {
     "@astrojs/mdx": "^8.0.1",
+    "@astrojs/node": "^11.1.5",
     "@astrojs/rss": "^4.0.19",
     "@astrojs/sitemap": "^3.7.4",
     "astro": "^7.3.2",
-    "sharp": "^0.35.0"
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
+    "marked": "^18.0.13",
+    "sharp": "^0.35.0",
+    "ws": "^8.21.3"
   },
   "allowScripts": {
-    "esbuild": true
+    "esbuild": true,
+    "better-sqlite3": true
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.23.13"
   }
 }

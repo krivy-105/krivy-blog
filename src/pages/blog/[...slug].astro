@@ -1,20 +1,111 @@
 ---
-import { type CollectionEntry, getCollection, render } from 'astro:content';
-import BlogPost from '../../layouts/BlogPost.astro';
+import BaseHead from '../../components/BaseHead.astro';
+import Footer from '../../components/Footer.astro';
+import Header from '../../components/Header.astro';
+import { postQueries } from '../../lib/db';
+import { marked } from 'marked';
 
-export async function getStaticPaths() {
-	const posts = await getCollection('blog');
-	return posts.map((post) => ({
-		params: { slug: post.id },
-		props: post,
-	}));
+const slug = Astro.params.slug as string;
+const post = postQueries.findBySlug.get(slug) as any;
+
+if (!post || post.status !== 'approved') {
+  return Astro.redirect('/blog');
 }
-type Props = CollectionEntry<'blog'>;
 
-const post = Astro.props;
-const { Content } = await render(post);
+const htmlContent = marked.parse(post.content) as string;
+const author = post.author_name;
+const currentUser = Astro.locals.user;
 ---
 
-<BlogPost {...post.data}>
-	<Content />
-</BlogPost>
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title={`${post.title} - 文章`} description={post.description || ''} />
+    <style>
+      .article-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid var(--border-light);
+      }
+      .article-title {
+        font-size: 2rem;
+        color: var(--text-dark);
+        margin-bottom: 0.75rem;
+        line-height: 1.3;
+      }
+      .article-meta {
+        color: var(--text-gray);
+        font-size: 0.9rem;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .author-badge {
+        color: var(--monet-blue);
+        font-weight: 500;
+      }
+      .article-content {
+        line-height: 1.8;
+        color: var(--text-dark);
+      }
+      .article-content :deep(h1),
+      .article-content :deep(h2),
+      .article-content :deep(h3) {
+        margin-top: 1.8em;
+        margin-bottom: 0.6em;
+      }
+      .article-content :deep(p) {
+        margin-bottom: 1.2em;
+      }
+      .article-content :deep(ul),
+      .article-content :deep(ol) {
+        padding-left: 1.5em;
+        margin-bottom: 1.2em;
+      }
+      .article-content :deep(img) {
+        border-radius: var(--radius-md);
+        margin: 1rem 0;
+      }
+      .article-actions {
+        margin-top: 3rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--border-light);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .back-link {
+        color: var(--text-gray);
+        font-size: 0.9rem;
+      }
+      .back-link:hover { color: var(--monet-blue); }
+    </style>
+  </head>
+  <body>
+    <Header />
+    <main>
+      <article>
+        <header class="article-header">
+          <h1 class="article-title">{post.title}</h1>
+          <div class="article-meta">
+            <span class="author-badge">✍️ {author}</span>
+            <span>{new Date(post.created_at).toLocaleDateString('zh-CN')}</span>
+          </div>
+        </header>
+
+        <div class="article-content" set:html={htmlContent} />
+
+        <div class="article-actions">
+          <a href="/blog" class="back-link">← 返回文章列表</a>
+          {currentUser && currentUser.id !== post.author_id && (
+            <a href={`/messages?user=${post.author_id}`} class="btn btn-outline btn-sm">
+              💬 私信作者
+            </a>
+          )}
+        </div>
+      </article>
+    </main>
+    <Footer />
+  </body>
+</html>

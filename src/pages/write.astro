@@ -1,0 +1,159 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE_TITLE } from '../consts';
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/login');
+}
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title={`写文章 - ${SITE_TITLE}`} description="撰写新文章" />
+    <style>
+      .write-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        min-height: 70vh;
+      }
+      .write-panel, .preview-panel {
+        background: var(--bg-white);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+      }
+      .panel-title {
+        font-size: 0.9rem;
+        color: var(--text-gray);
+        margin-bottom: 1rem;
+        font-weight: 500;
+      }
+      .form-group input,
+      .form-group textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1.5px solid var(--border-light);
+        border-radius: var(--radius-md);
+        outline: none;
+        font-size: 0.95rem;
+        font-family: inherit;
+        transition: border-color 0.2s var(--ease);
+        box-sizing: border-box;
+      }
+      .form-group input:focus,
+      .form-group textarea:focus {
+        border-color: var(--monet-blue);
+      }
+      #content {
+        flex: 1;
+        min-height: 400px;
+        resize: vertical;
+        line-height: 1.6;
+      }
+      .preview-content {
+        flex: 1;
+        overflow-y: auto;
+        line-height: 1.7;
+      }
+      .preview-content :deep(h1),
+      .preview-content :deep(h2),
+      .preview-content :deep(h3) {
+        margin-top: 1em;
+        margin-bottom: 0.5em;
+      }
+      .preview-content :deep(p) {
+        margin-bottom: 1em;
+      }
+      .submit-row {
+        margin-top: 1rem;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+      }
+      .msg {
+        font-size: 0.9rem;
+      }
+      .msg-success { color: #27ae60; }
+      .msg-error { color: #e74c3c; }
+      @media (max-width: 768px) {
+        .write-container { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <Header />
+    <main>
+      <h1 style="font-size:1.8rem; margin-bottom: 1.5rem;">✍️ 写文章</h1>
+      <div class="write-container">
+        <div class="write-panel">
+          <div class="panel-title">编辑</div>
+          <form id="writeForm">
+            <div class="form-group">
+              <input type="text" name="title" placeholder="文章标题" required maxlength="100" />
+            </div>
+            <div class="form-group">
+              <input type="text" name="description" placeholder="一句话描述（可选）" maxlength="200" />
+            </div>
+            <div class="form-group" style="flex:1; display:flex; flex-direction:column;">
+              <textarea id="content" name="content" placeholder="用 Markdown 书写正文..." required></textarea>
+            </div>
+            <div class="submit-row">
+              <button type="submit" class="btn btn-primary">提交审核</button>
+              <span id="submitMsg" class="msg"></span>
+            </div>
+          </form>
+        </div>
+
+        <div class="preview-panel">
+          <div class="panel-title">预览</div>
+          <div id="preview" class="preview-content">
+            <p style="color: var(--text-gray);">开始输入即可预览 Markdown 渲染效果</p>
+          </div>
+        </div>
+      </div>
+    </main>
+    <Footer />
+
+    <script>
+      import { marked } from 'marked';
+
+      const contentEl = document.getElementById('content') as HTMLTextAreaElement;
+      const previewEl = document.getElementById('preview');
+      const form = document.getElementById('writeForm') as HTMLFormElement;
+      const msgEl = document.getElementById('submitMsg');
+
+      contentEl.addEventListener('input', () => {
+        previewEl.innerHTML = marked.parse(contentEl.value) as string;
+      });
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        msgEl.textContent = '';
+        msgEl.className = 'msg';
+        const formData = new FormData(form);
+        try {
+          const res = await fetch('/api/posts', { method: 'POST', body: formData });
+          const data = await res.json();
+          if (res.ok) {
+            msgEl.textContent = data.message || '提交成功';
+            msgEl.classList.add('msg-success');
+            setTimeout(() => { window.location.href = '/'; }, 1500);
+          } else {
+            msgEl.textContent = data.error || '提交失败';
+            msgEl.classList.add('msg-error');
+          }
+        } catch {
+          msgEl.textContent = '网络错误';
+          msgEl.classList.add('msg-error');
+        }
+      });
+    </script>
+  </body>
+</html>
