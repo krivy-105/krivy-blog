@@ -6,137 +6,71 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 import { postQueries } from '../lib/db';
 
 const posts = postQueries.findApproved.all() as any[];
+const recent = posts.slice(0, 6);
 ---
 
 <!doctype html>
 <html lang="zh-CN">
   <head>
     <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
-    <style>
-      .hero {
-        text-align: center;
-        padding: 5rem 2rem 4rem;
-        background: linear-gradient(135deg, #E6F0F5 0%, #FFFFFF 100%);
-        border-radius: 0 0 40px 40px;
-        margin-bottom: 3rem;
-        animation: fadeInUp 0.6s var(--ease);
-      }
-      .hero h1 {
-        font-size: 2.6rem;
-        color: var(--monet-blue);
-        font-weight: 300;
-        letter-spacing: 2px;
-        margin-bottom: 1rem;
-      }
-      .hero p {
-        font-size: 1.1rem;
-        color: var(--text-gray);
-        max-width: 600px;
-        margin: 0 auto 2rem;
-      }
-      .hero-actions {
-        display: flex;
-        justify-content: center;
-        gap: 1rem;
-      }
-
-      .section-title {
-        text-align: center;
-        font-size: 1.6rem;
-        font-weight: 400;
-        color: var(--text-dark);
-        margin-bottom: 2rem;
-      }
-
-      .post-list {
-        display: grid;
-        gap: 1.5rem;
-        grid-template-columns: 1fr;
-        list-style: none;
-        padding: 0;
-        max-width: 800px;
-        margin: 0 auto;
-      }
-      .post-card {
-        border: 1px solid var(--border-light);
-        border-radius: var(--radius-lg);
-        padding: 1.75rem;
-        background: var(--bg-white);
-        transition: var(--transition);
-        display: block;
-        text-decoration: none;
-        color: inherit;
-      }
-      .post-card:hover {
-        transform: translateY(-5px);
-        box-shadow: var(--shadow-lg);
-      }
-      .post-card h2 {
-        margin: 0 0 0.5rem;
-        font-size: 1.4rem;
-        color: var(--text-dark);
-        transition: color 0.2s var(--ease);
-      }
-      .post-card:hover h2 { color: var(--monet-blue); }
-      .post-meta {
-        font-size: 0.85rem;
-        color: var(--monet-blue);
-        margin-bottom: 0.75rem;
-        display: block;
-      }
-      .post-desc {
-        color: var(--text-gray);
-        line-height: 1.6;
-        margin: 0 0 1rem;
-      }
-      .read-more {
-        color: var(--monet-blue);
-        font-weight: 500;
-        font-size: 0.9rem;
-      }
-      .empty-state {
-        text-align: center;
-        padding: 3rem 1rem;
-        color: var(--text-gray);
-      }
-      @media (min-width: 768px) {
-        .post-list { grid-template-columns: 1fr 1fr; }
-      }
-    </style>
   </head>
   <body>
     <Header />
-    <main>
-      <section class="hero">
-        <h1>Krivy 的个人空间</h1>
-        <p>在这里，记录技术成长、生活点滴与思考感悟。欢迎来到这片莫奈蓝色的静谧角落。</p>
+
+    <!-- 首屏 -->
+    <section class="hero">
+      <div class="hero-inner">
+        <span class="hero-eyebrow">KRIVY · CYOU</span>
+        <h1>我的技术日常</h1>
+        <p class="hero-sub">
+          记录技术成长、生活点滴与思考感悟。<br class="br-pc" />
+          欢迎来到这片莫奈蓝色的静谧角落。
+        </p>
         <div class="hero-actions">
           <a href="/blog" class="btn btn-primary">浏览文章</a>
           <a href="/about" class="btn btn-outline">关于我</a>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <section style="max-width: 900px; margin: 0 auto 3rem; padding: 0 1rem;">
-        <h2 class="section-title">最新文章</h2>
-        {posts.length > 0 ? (
-          <ul class="post-list">
-            {posts.map((post) => (
-              <li>
+    <main>
+      <section class="latest">
+        <div class="section-head">
+          <span class="eyebrow">LATEST POSTS</span>
+          <h2>最新文章</h2>
+        </div>
+
+        {recent.length > 0 ? (
+          <ul class="post-grid">
+            {recent.map((post, i) => (
+              <li style={`animation-delay: ${i * 70}ms`}>
                 <a href={`/blog/${post.slug}/`} class="post-card">
-                  <span class="post-meta">
-                    {new Date(post.created_at).toLocaleDateString('zh-CN')} · {post.author_name}
-                  </span>
+                  <div class="post-meta">
+                    <span>{new Date(post.created_at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                    <span class="meta-dot">·</span>
+                    <span>{post.author_name}</span>
+                  </div>
                   <h2>{post.title}</h2>
                   {post.description && <p class="post-desc">{post.description}</p>}
-                  <span class="read-more">阅读全文 →</span>
+                  <span class="read-more">
+                    阅读全文
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                  </span>
                 </a>
               </li>
             ))}
           </ul>
         ) : (
-          <div class="empty-state">
-            <p>暂无文章，敬请期待。</p>
+          <div class="empty-state card">
+            <div class="empty-icon">📝</div>
+            <p>还没有文章，敬请期待。</p>
             {Astro.locals.user && <a href="/write" class="btn btn-primary">发表第一篇</a>}
+          </div>
+        )}
+
+        {posts.length > recent.length && (
+          <div class="more-wrap">
+            <a href="/blog" class="btn btn-outline">查看全部 {posts.length} 篇 →</a>
           </div>
         )}
       </section>
@@ -144,3 +78,126 @@ const posts = postQueries.findApproved.all() as any[];
     <Footer />
   </body>
 </html>
+
+<style>
+  /* ---------- 首屏 ---------- */
+  .hero {
+    padding: 5.5rem 1.5rem 4.5rem;
+    text-align: center;
+    background:
+      radial-gradient(900px 380px at 50% -8%, rgba(126, 166, 184, 0.16), transparent 70%);
+  }
+  .hero-inner {
+    max-width: 720px;
+    margin: 0 auto;
+    animation: fadeInUp 0.7s var(--ease);
+  }
+  .hero-eyebrow {
+    display: inline-block;
+    font-size: 0.76rem;
+    letter-spacing: 0.34em;
+    color: var(--monet-blue-dark);
+    font-weight: 650;
+    margin-bottom: 1.1rem;
+    padding-left: 0.34em;
+  }
+  .hero h1 {
+    font-size: clamp(2.1rem, 5.2vw, 3rem);
+    font-weight: 650;
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+    letter-spacing: 0.03em;
+  }
+  .hero-sub {
+    font-size: clamp(1rem, 2vw, 1.12rem);
+    color: var(--text-gray);
+    line-height: 1.9;
+    margin-bottom: 2.2rem;
+  }
+  .hero-actions {
+    display: flex;
+    justify-content: center;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+  }
+
+  /* ---------- 文章网格 ---------- */
+  .latest { max-width: 920px; margin: 0 auto; }
+  .post-grid {
+    display: grid;
+    gap: 1.4rem;
+    grid-template-columns: 1fr;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .post-grid li {
+    animation: fadeInUp 0.55s var(--ease) both;
+  }
+  .post-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 1.7rem 1.8rem;
+    background: var(--bg-white);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    color: inherit;
+    transition: var(--transition);
+  }
+  .post-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: #d2e3eb;
+  }
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.83rem;
+    color: var(--monet-blue-dark);
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+  }
+  .meta-dot { color: var(--text-light); }
+  .post-card h2 {
+    margin: 0 0 0.55rem;
+    font-size: 1.28rem;
+    line-height: 1.45;
+    color: var(--text-dark);
+    transition: color 0.2s var(--ease);
+  }
+  .post-card:hover h2 { color: var(--monet-blue-dark); }
+  .post-desc {
+    color: var(--text-gray);
+    font-size: 0.95rem;
+    line-height: 1.75;
+    margin: 0 0 1.2rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .read-more {
+    margin-top: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--monet-blue-dark);
+    font-weight: 600;
+    font-size: 0.88rem;
+  }
+  .read-more svg { transition: transform 0.25s var(--ease); }
+  .post-card:hover .read-more svg { transform: translateX(4px); }
+
+  .more-wrap { text-align: center; margin-top: 2.6rem; }
+
+  @media (min-width: 720px) {
+    .post-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 560px) {
+    .hero { padding: 4rem 1.2rem 3.2rem; }
+    .br-pc { display: none; }
+  }
+</style>

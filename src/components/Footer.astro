@@ -4,39 +4,55 @@ const today = new Date();
 ---
 
 <footer>
-  <div class="footer-content">
-    <p class="footer-title">{SITE_TITLE}</p>
-    <p class="footer-text">用心记录，慢慢生长。</p>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="footer-name">{SITE_TITLE}</span>
+      <span class="footer-dot">·</span>
+      <span class="footer-domain">krivy.cyou</span>
+    </div>
+    <p class="footer-slogan">用心记录，慢慢生长。</p>
     <p class="copyright">&copy; {today.getFullYear()} {SITE_TITLE}. All rights reserved.</p>
   </div>
 </footer>
 
 <style>
   footer {
-    margin-top: 4rem;
-    padding: 3rem 1.5rem 2rem;
-    background: var(--monet-blue-lighter);
+    margin-top: auto;
+    padding: 2.8rem 1.5rem 2.2rem;
     border-top: 1px solid var(--border-light);
     text-align: center;
+    background: rgba(243, 248, 251, 0.6);
   }
-  .footer-content {
-    max-width: 960px;
+  .footer-inner {
+    max-width: var(--width-wide);
     margin: 0 auto;
   }
-  .footer-title {
-    font-size: 1.1rem;
-    color: var(--monet-blue);
-    font-weight: 600;
+  .footer-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
     margin-bottom: 0.5rem;
   }
-  .footer-text {
+  .footer-name {
+    font-size: 1.02rem;
+    color: var(--monet-blue-dark);
+    font-weight: 650;
+  }
+  .footer-dot { color: var(--text-light); }
+  .footer-domain {
+    font-size: 0.88rem;
+    color: var(--text-gray);
+    letter-spacing: 0.03em;
+  }
+  .footer-slogan {
     color: var(--text-gray);
     font-size: 0.9rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.9rem;
   }
   .copyright {
     color: var(--text-light);
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     margin: 0;
   }
 </style>

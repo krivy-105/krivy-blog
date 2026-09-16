@@ -9,49 +9,64 @@ import { SITE_TITLE } from '../consts';
 <html lang="zh-CN">
   <head>
     <BaseHead title={`关于我 - ${SITE_TITLE}`} description="关于这个博客和作者" />
-    <style>
-      .about-hero {
-        text-align: center;
-        padding: 3rem 1rem 2rem;
-      }
-      .avatar {
-        width: 100px;
-        height: 100px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, var(--monet-blue) 0%, var(--monet-blue-dark) 100%);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2.5rem;
-        color: white;
-        margin-bottom: 1rem;
-        box-shadow: var(--shadow-md);
-      }
-      .about-content {
-        max-width: 680px;
-        margin: 0 auto;
-        line-height: 1.9;
-        color: var(--text-dark);
-      }
-      .about-content p { margin-bottom: 1.2rem; }
-    </style>
   </head>
   <body>
     <Header />
-    <main>
-      <div class="about-hero">
+    <main class="narrow">
+      <header class="about-hero">
         <div class="avatar">👋</div>
         <h1>关于我</h1>
-      </div>
-      <div class="about-content">
-        <p>你好，欢迎来到我的个人空间。这里是我记录技术成长、生活点滴与思考感悟的地方。</p>
-        <p>我热爱编程，喜欢用代码创造有趣的东西。这个博客使用 Astro 构建，采用莫奈蓝配色，希望带给你舒适的阅读体验。</p>
-        <p>如果你有任何想法或想交流，欢迎注册账号后给我发私信，或者在文章下面留言互动。</p>
-        <p style="text-align:center; color: var(--monet-blue); margin-top: 2rem;">
-          「用心记录，慢慢生长。」
+        <p class="about-sub">你好，很高兴在这里遇见你。</p>
+      </header>
+      <div class="about-content prose">
+        <p>
+          欢迎来到我的个人空间。这里是我记录<strong>技术成长</strong>、<strong>生活点滴</strong>与<strong>思考感悟</strong>的地方——不追逐热点，只留下真实的痕迹。
         </p>
+        <p>
+          我热爱编程，喜欢用代码创造有趣的东西。这个博客采用 Astro 构建，以莫奈蓝为主色调，希望每一次到访都能给你安静、舒适的阅读体验。
+        </p>
+        <p>
+          如果你有任何想法，欢迎<a href="/login">注册账号</a>后给我<a href="/messages">发私信</a>交流，也可以浏览<a href="/blog">文章列表</a>，或在文章页直接与我对话。
+        </p>
+        <blockquote>用心记录，慢慢生长。</blockquote>
       </div>
     </main>
     <Footer />
   </body>
 </html>
+
+<style>
+  .about-hero {
+    text-align: center;
+    padding: 1.5rem 0 2.2rem;
+  }
+  .avatar {
+    width: 92px;
+    height: 92px;
+    margin: 0 auto 1.2rem;
+    border-radius: 28px;
+    background: linear-gradient(135deg, #8fb4c5 0%, #5f889d 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.4rem;
+    color: #fff;
+    box-shadow: 0 12px 30px rgba(95, 136, 157, 0.3);
+    animation: fadeInUp 0.55s var(--ease);
+  }
+  .about-hero h1 { margin-bottom: 0.4rem; }
+  .about-sub {
+    color: var(--text-gray);
+    font-size: 1rem;
+    margin: 0;
+  }
+  .about-content {
+    animation: fadeIn 0.5s var(--ease) 0.1s both;
+  }
+  .about-content blockquote {
+    text-align: center;
+    font-size: 1.05rem;
+    color: var(--monet-blue-dark);
+    background: var(--monet-blue-lighter);
+  }
+</style>

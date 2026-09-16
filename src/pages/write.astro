@@ -15,6 +15,9 @@ if (!user) {
   <head>
     <BaseHead title={`写文章 - ${SITE_TITLE}`} description="撰写新文章" />
     <style>
+      .page-head { margin-bottom: 1.8rem; }
+      .page-head h1 { margin-bottom: 0.35rem; }
+      .page-head p { color: var(--text-gray); font-size: 0.92rem; margin: 0; }
       .write-container {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -60,17 +63,8 @@ if (!user) {
       .preview-content {
         flex: 1;
         overflow-y: auto;
-        line-height: 1.7;
       }
-      .preview-content :deep(h1),
-      .preview-content :deep(h2),
-      .preview-content :deep(h3) {
-        margin-top: 1em;
-        margin-bottom: 0.5em;
-      }
-      .preview-content :deep(p) {
-        margin-bottom: 1em;
-      }
+      .preview-content > :first-child { margin-top: 0; }
       .submit-row {
         margin-top: 1rem;
         display: flex;
@@ -90,7 +84,10 @@ if (!user) {
   <body>
     <Header />
     <main>
-      <h1 style="font-size:1.8rem; margin-bottom: 1.5rem;">✍️ 写文章</h1>
+      <header class="page-head">
+        <h1>✍️ 写文章</h1>
+        <p>支持 Markdown 语法，提交后经管理员审核即可发布。</p>
+      </header>
       <div class="write-container">
         <div class="write-panel">
           <div class="panel-title">编辑</div>
@@ -113,7 +110,7 @@ if (!user) {
 
         <div class="preview-panel">
           <div class="panel-title">预览</div>
-          <div id="preview" class="preview-content">
+          <div id="preview" class="preview-content prose">
             <p style="color: var(--text-gray);">开始输入即可预览 Markdown 渲染效果</p>
           </div>
         </div>

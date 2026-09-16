@@ -9,37 +9,58 @@ const isLoggedIn = !!user;
 <header>
   <nav>
     <div class="nav-left">
-      <h2><a href="/">{SITE_TITLE}</a></h2>
+      <a href="/" class="brand" aria-label={SITE_TITLE}>
+        <span class="brand-mark">K</span>
+        <span class="brand-name">{SITE_TITLE}</span>
+      </a>
     </div>
-    <div class="nav-center">
+
+    <div class="nav-center" id="navCenter">
       <HeaderLink href="/">首页</HeaderLink>
       <HeaderLink href="/blog">文章</HeaderLink>
       <HeaderLink href="/about">关于</HeaderLink>
       {isLoggedIn && <HeaderLink href="/write">写文章</HeaderLink>}
-      {isLoggedIn && <HeaderLink href="/messages">私信<span class="unread-badge" id="unreadBadge" style="display:none;">0</span></HeaderLink>}
+      {isLoggedIn && (
+        <HeaderLink href="/messages">
+          私信<span class="unread-badge" id="unreadBadge" style="display:none;">0</span>
+        </HeaderLink>
+      )}
     </div>
+
     <div class="nav-right">
       {isLoggedIn ? (
         <>
-          <span class="user-name" title={user!.username}>👤 {user!.username}</span>
-          <form method="POST" action="/api/logout" style="display:inline;">
+          <a href="/messages" class="user-name" title={user!.username}>
+            <span class="user-avatar">{user!.username.slice(0, 1).toUpperCase()}</span>
+            <span class="user-text">{user!.username}</span>
+          </a>
+          <form method="POST" action="/api/logout" class="logout-form">
             <button type="submit" class="btn btn-ghost btn-sm">退出</button>
           </form>
         </>
       ) : (
         <a href="/login" class="btn btn-primary btn-sm">登录 / 注册</a>
       )}
+      <button
+        class="nav-toggle"
+        id="navToggle"
+        aria-label="打开菜单"
+        aria-expanded="false"
+        aria-controls="navCenter"
+      >
+        <span></span><span></span><span></span>
+      </button>
     </div>
   </nav>
 </header>
 
 <style>
   header {
-    margin: 0;
     padding: 0 1.5rem;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(12px);
-    box-shadow: 0 2px 12px rgba(126, 166, 184, 0.08);
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(227, 237, 242, 0.7);
     position: sticky;
     top: 0;
     z-index: 100;
@@ -48,73 +69,204 @@ const isLoggedIn = !!user;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    max-width: 1100px;
+    max-width: var(--width-wide);
     margin: 0 auto;
-    height: 64px;
+    height: 66px;
     gap: 1rem;
   }
-  .nav-left h2 {
-    margin: 0;
-    font-size: 1.2rem;
+
+  /* 品牌 */
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
   }
-  .nav-left h2 a {
-    color: var(--monet-blue);
-    text-decoration: none;
-    font-weight: 600;
+  .brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #7aa3b6, #5f889d);
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.05rem;
+    box-shadow: 0 3px 10px rgba(95, 136, 157, 0.3);
   }
+  .brand-name {
+    font-size: 1.08rem;
+    font-weight: 650;
+    color: var(--text-dark);
+    letter-spacing: 0.02em;
+  }
+  .brand:hover .brand-name { color: var(--monet-blue-dark); }
+
+  /* 中部导航 */
   .nav-center {
     display: flex;
-    gap: 0.25rem;
+    align-items: center;
+    gap: 0.15rem;
     flex: 1;
     justify-content: center;
   }
-  .nav-center :deep(a) {
-    padding: 8px 14px;
-    border-radius: var(--radius-md);
+  .nav-center :global(a) {
+    position: relative;
+    padding: 7px 15px;
+    border-radius: 999px;
     color: var(--text-gray);
-    font-size: 0.95rem;
+    font-size: 0.94rem;
+    font-weight: 500;
     transition: var(--transition);
   }
-  .nav-center :deep(a:hover) {
+  .nav-center :global(a:hover) {
     background: var(--monet-blue-lighter);
     color: var(--text-dark);
   }
-  .nav-center :deep(a.active) {
-    color: var(--monet-blue);
+  .nav-center :global(a.active) {
+    color: var(--monet-blue-dark);
     background: var(--monet-blue-light);
+    font-weight: 600;
   }
+
+  /* 右侧用户区 */
   .nav-right {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.6rem;
   }
+  .logout-form { display: inline; margin: 0; }
   .user-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 4px 10px 4px 4px;
+    border-radius: 999px;
+    transition: var(--transition);
+  }
+  .user-name:hover { background: var(--monet-blue-lighter); }
+  .user-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8fb4c5, #6b94a8);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .user-text {
     font-size: 0.9rem;
     color: var(--text-dark);
-    font-weight: 500;
+    font-weight: 550;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .btn-sm {
-    padding: 6px 16px;
-    font-size: 0.85rem;
-  }
+
   .unread-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 16px;
-    height: 16px;
+    min-width: 17px;
+    height: 17px;
     padding: 0 5px;
-    background: #e74c3c;
-    color: white;
-    font-size: 0.65rem;
-    border-radius: 8px;
-    margin-left: 4px;
+    background: #e26d5c;
+    color: #fff;
+    font-size: 0.66rem;
+    font-weight: 600;
+    border-radius: 9px;
+    margin-left: 5px;
     vertical-align: middle;
   }
+
+  /* 汉堡按钮（仅手机显示） */
+  .nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 40px;
+    height: 40px;
+    padding: 9px;
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .nav-toggle:hover { background: var(--monet-blue-lighter); }
+  .nav-toggle span {
+    display: block;
+    height: 2px;
+    width: 100%;
+    background: var(--text-dark);
+    border-radius: 2px;
+    transition: transform 0.28s var(--ease), opacity 0.2s var(--ease);
+  }
+  .nav-toggle.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .nav-toggle.open span:nth-child(2) { opacity: 0; }
+  .nav-toggle.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+  /* 手机端 */
   @media (max-width: 768px) {
-    .nav-center { display: none; }
+    .nav-toggle { display: flex; }
+    .user-text { display: none; }
+    .user-name { padding: 4px; }
+    .logout-form .btn { padding: 7px 12px; }
+
+    .nav-center {
+      position: absolute;
+      top: 66px;
+      left: 0;
+      right: 0;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.25rem;
+      padding: 0.8rem 1.2rem 1rem;
+      background: rgba(255, 255, 255, 0.97);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border-light);
+      box-shadow: var(--shadow-md);
+      transform-origin: top;
+      transform: scaleY(0.96) translateY(-6px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s var(--ease), transform 0.22s var(--ease);
+    }
+    .nav-center.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scaleY(1) translateY(0);
+    }
+    .nav-center :global(a) {
+      padding: 11px 14px;
+      border-radius: var(--radius-md);
+      font-size: 1rem;
+    }
   }
 </style>
+
+<script>
+  // 手机端菜单开合
+  const toggle = document.getElementById('navToggle');
+  const navCenter = document.getElementById('navCenter');
+  toggle?.addEventListener('click', () => {
+    const open = navCenter?.classList.toggle('open');
+    toggle.classList.toggle('open', !!open);
+    toggle.setAttribute('aria-expanded', String(!!open));
+  });
+  // 点击菜单项后自动收起
+  navCenter?.querySelectorAll('a').forEach((a) =>
+    a.addEventListener('click', () => {
+      navCenter.classList.remove('open');
+      toggle?.classList.remove('open');
+      toggle?.setAttribute('aria-expanded', 'false');
+    })
+  );
+</script>
 
 {isLoggedIn && (
   <script>
