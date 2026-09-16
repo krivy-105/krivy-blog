@@ -5,7 +5,6 @@ import Footer from '../components/Footer.astro';
 import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 import { getCollection } from 'astro:content';
 
-// 获取所有博客文章并按照日期倒序排列
 const posts = (await getCollection('blog')).sort(
 	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
 );
@@ -16,95 +15,106 @@ const posts = (await getCollection('blog')).sort(
 	<head>
 		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
 		<style>
-			/* 欢迎区域样式 */
+			:root {
+				--monet-blue: #7EA6B8;
+				--monet-light: #E6F0F5;
+				--text-dark: #2C3E50;
+				--text-gray: #7F8C8D;
+				--white: #FFFFFF;
+			}
+			body { background-color: var(--white); color: var(--text-dark); }
+
+			/* 顶部导航及 Hero */
 			.hero {
 				text-align: center;
-				padding: 4rem 2rem;
-				background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-				border-radius: 16px;
+				padding: 6rem 2rem;
+				background: linear-gradient(135deg, #E6F0F5 0%, #FFFFFF 100%);
+				border-radius: 0 0 40px 40px;
 				margin-bottom: 3rem;
 			}
-			.hero h1 {
-				font-size: 2.5rem;
-				margin-bottom: 1rem;
-				color: #1a1a1a;
+			.hero h1 { font-size: 2.8rem; color: var(--monet-blue); font-weight: 300; letter-spacing: 2px; }
+			.hero p { font-size: 1.1rem; color: var(--text-gray); max-width: 600px; margin: 1rem auto; }
+
+			/* 按钮通用样式 */
+			.btn {
+				padding: 10px 24px;
+				border-radius: 20px;
+				border: none;
+				cursor: pointer;
+				font-size: 0.95rem;
+				transition: all 0.3s ease;
 			}
-			.hero p {
-				font-size: 1.1rem;
-				color: #555;
-				max-width: 600px;
-				margin: 0 auto;
-				line-height: 1.6;
-			}
-			/* 文章列表样式 */
-			.post-list {
-				display: grid;
-				gap: 2rem;
-				grid-template-columns: 1fr;
-				list-style: none;
-				padding: 0;
-			}
+			.btn-primary { background-color: var(--monet-blue); color: white; }
+			.btn-primary:hover { background-color: #6A92A4; transform: translateY(-2px); }
+			.btn-outline { background: transparent; border: 1px solid var(--monet-blue); color: var(--monet-blue); }
+
+			/* 文章列表 */
+			.post-list { display: grid; gap: 2rem; grid-template-columns: 1fr; list-style: none; padding: 0; max-width: 800px; margin: 0 auto; }
 			.post-card {
-				border: 1px solid #e5e5e5;
-				border-radius: 12px;
-				padding: 1.5rem;
-				transition: transform 0.2s, box-shadow 0.2s;
-				background: white;
+				border: 1px solid var(--monet-light);
+				border-radius: 16px;
+				padding: 2rem;
+				background: var(--white);
+				transition: transform 0.3s ease, box-shadow 0.3s ease;
 			}
-			.post-card:hover {
-				transform: translateY(-4px);
-				box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+			.post-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(126, 166, 184, 0.15); }
+			.post-card h2 { margin-top: 0; font-size: 1.6rem; color: var(--text-dark); }
+			.post-card h2 a { text-decoration: none; color: inherit; }
+			.post-meta { font-size: 0.85rem; color: var(--monet-blue); margin-bottom: 0.5rem; display: block; }
+			.read-more { color: var(--monet-blue); text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 5px; }
+
+			/* 模态框/私信窗样式 */
+			.modal-overlay {
+				display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+				background: rgba(44, 62, 80, 0.4); backdrop-filter: blur(4px); z-index: 1000;
+				justify-content: center; align-items: center;
 			}
-			.post-card h2 {
-				margin-top: 0;
-				font-size: 1.5rem;
+			.modal-content {
+				background: var(--white); padding: 2.5rem; border-radius: 20px;
+				width: 90%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+				position: relative;
 			}
-			.post-card h2 a {
-				text-decoration: none;
-				color: #1a1a1a;
+			.modal-close { position: absolute; top: 15px; right: 20px; font-size: 1.5rem; cursor: pointer; color: var(--text-gray); }
+			.form-group { margin-bottom: 1.5rem; }
+			.form-group label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-dark); }
+			.form-group input { width: 100%; padding: 12px; border: 1px solid var(--monet-light); border-radius: 10px; outline: none; }
+			.form-group input:focus { border-color: var(--monet-blue); }
+			
+			/* 悬浮私信按钮 */
+			.chat-widget {
+				position: fixed; bottom: 30px; right: 30px; z-index: 999;
 			}
-			.post-card p {
-				color: #666;
-				line-height: 1.6;
-				margin-bottom: 1rem;
+			.chat-btn {
+				width: 60px; height: 60px; border-radius: 50%; background: var(--monet-blue); color: white;
+				border: none; cursor: pointer; box-shadow: 0 10px 20px rgba(126, 166, 184, 0.4);
+				display: flex; justify-content: center; align-items: center; font-size: 1.5rem;
+				transition: transform 0.3s ease;
 			}
-			.post-meta {
-				font-size: 0.9rem;
-				color: #999;
-				margin-bottom: 0.5rem;
-				display: block;
-			}
-			.read-more {
-				color: #2563eb;
-				text-decoration: none;
-				font-weight: 500;
-			}
-			/* 适配手机屏幕 */
-			@media (min-width: 768px) {
-				.post-list {
-					grid-template-columns: 1fr 1fr;
-				}
-			}
+			.chat-btn:hover { transform: scale(1.1); }
+
+			@media (min-width: 768px) { .post-list { grid-template-columns: 1fr 1fr; } }
 		</style>
 	</head>
 	<body>
 		<Header />
 		<main>
-			<!-- 顶部欢迎区域 -->
 			<section class="hero">
-				<h1>👋 你好，我是krivy</h1>
-				<p>欢迎来到我的个人博客！这里记录我的技术成长、生活点滴和思考感悟。</p>
+				<h1>Krivy 的个人空间</h1>
+				<p>在这里，记录我的技术成长、生活点滴与思考感悟。欢迎来到这片莫奈蓝色的静谧角落。</p>
+				<div style="margin-top: 2rem; display: flex; justify-content: center; gap: 1rem;">
+					<button class="btn btn-primary" id="openLogin">登录 / 注册</button>
+					<a href="/about" class="btn btn-outline">关于我</a>
+				</div>
 			</section>
 
-			<!-- 文章列表区域 -->
-			<section>
-				<h2 style="text-align: center; margin-bottom: 2rem; font-size: 1.8rem;">📝 最新文章</h2>
+			<section style="max-width: 900px; margin: 0 auto 5rem; padding: 0 2rem;">
+				<h2 style="text-align: center; margin-bottom: 2rem; font-weight: 400;">📝 最新文章</h2>
 				<ul class="post-list">
 					{posts.map((post) => (
 						<li class="post-card">
-							<h2><a href={`/blog/${post.slug}/`}>{post.data.title}</a></h2>
 							<span class="post-meta">{post.data.pubDate.toLocaleDateString('zh-CN')}</span>
-							<p>{post.data.description}</p>
+							<h2><a href={`/blog/${post.slug}/`}>{post.data.title}</a></h2>
+							<p style="color: var(--text-gray); line-height: 1.6; margin-bottom: 1.5rem;">{post.data.description}</p>
 							<a href={`/blog/${post.slug}/`} class="read-more">阅读全文 →</a>
 						</li>
 					))}
@@ -112,5 +122,62 @@ const posts = (await getCollection('blog')).sort(
 			</section>
 		</main>
 		<Footer />
+
+		<!-- 悬浮私信按钮 -->
+		<div class="chat-widget">
+			<button class="chat-btn" id="openChat" title="给我发私信">✉️</button>
+		</div>
+
+		<!-- 登录/注册模态框 -->
+		<div class="modal-overlay" id="authModal">
+			<div class="modal-content">
+				<span class="modal-close" id="closeAuth">&times;</span>
+				<h2 style="text-align: center; color: var(--monet-blue); font-weight: 400; margin-bottom: 2rem;">欢迎回来</h2>
+				<div class="form-group">
+					<label>邮箱</label>
+					<input type="email" placeholder="your@email.com" />
+				</div>
+				<div class="form-group">
+					<label>密码</label>
+					<input type="password" placeholder="••••••••" />
+				</div>
+				<button class="btn btn-primary" style="width: 100%;" onclick="alert('由于是纯静态博客，真正的注册需要接入后端服务（如 Supabase）。目前仅为界面演示。')">登录 / 注册</button>
+				<p style="text-align: center; font-size: 0.85rem; color: var(--text-gray); margin-top: 1.5rem;">通过登录即表示同意 <a href="#" style="color: var(--monet-blue);">服务条款</a></p>
+			</div>
+		</div>
+
+		<!-- 私信模态框 -->
+		<div class="modal-overlay" id="chatModal">
+			<div class="modal-content" style="max-width: 450px;">
+				<span class="modal-close" id="closeChat">&times;</span>
+				<h2 style="color: var(--monet-blue); font-weight: 400; margin-bottom: 1rem;">发送私信</h2>
+				<p style="font-size: 0.9rem; color: var(--text-gray); margin-bottom: 1.5rem;">你有任何问题或建议，欢迎给我留言。</p>
+				<div class="form-group">
+					<textarea placeholder="请输入你的留言..." style="width: 100%; height: 120px; padding: 12px; border: 1px solid var(--monet-light); border-radius: 10px; outline: none; resize: vertical; font-family: inherit;"></textarea>
+				</div>
+				<button class="btn btn-primary" style="width: 100%;" onclick="alert('纯静态页面无法直接发送私信。后续可以接入 Formspree（发邮件）或 Supabase（存数据库）来实现真正的发送功能。')">发送消息</button>
+			</div>
+		</div>
+
+		<script>
+			// 简单的交互脚本
+			const authModal = document.getElementById('authModal');
+			const chatModal = document.getElementById('chatModal');
+			const openLogin = document.getElementById('openLogin');
+			const closeAuth = document.getElementById('closeAuth');
+			const openChat = document.getElementById('openChat');
+			const closeChat = document.getElementById('closeChat');
+
+			if (openLogin) openLogin.addEventListener('click', () => authModal.style.display = 'flex');
+			if (closeAuth) closeAuth.addEventListener('click', () => authModal.style.display = 'none');
+			if (openChat) openChat.addEventListener('click', () => chatModal.style.display = 'flex');
+			if (closeChat) closeChat.addEventListener('click', () => chatModal.style.display = 'none');
+
+			// 点击背景关闭
+			window.addEventListener('click', (e) => {
+				if (e.target === authModal) authModal.style.display = 'none';
+				if (e.target === chatModal) chatModal.style.display = 'none';
+			});
+		</script>
 	</body>
 </html>
