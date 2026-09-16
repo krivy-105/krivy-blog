@@ -168,6 +168,7 @@ export const postQueries = {
     'INSERT INTO posts (author_id, slug, title, description, content, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ),
   updateStatus: db.prepare('UPDATE posts SET status = ?, updated_at = ? WHERE id = ?'),
+  countByStatus: db.prepare('SELECT COUNT(*) AS count FROM posts WHERE status = ?'),
   all: db.prepare(
     `SELECT p.*, u.username AS author_name FROM posts p
      JOIN users u ON p.author_id = u.id

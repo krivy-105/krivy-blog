@@ -13,6 +13,20 @@ if (!user || user.role !== 'admin') {
 const pendingPosts = postQueries.findByStatus.all('pending') as any[];
 const allPosts = postQueries.all.all() as any[];
 const users = userQueries.list.all() as any[];
+
+const statusLabel: Record<string, string> = {
+  pending: '待审核',
+  approved: '已发布',
+  rejected: '已驳回',
+};
+const formatTime = (ts: number) =>
+  new Date(ts).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 ---
 
 <!doctype html>
@@ -110,16 +124,28 @@ const users = userQueries.list.all() as any[];
             </thead>
             <tbody>
               {pendingPosts.length === 0 ? (
-                <tr class="empty-row"><td colspan="4">暂无待审核文章</td></tr>
+                <tr class="empty-row">
+                  <td colspan="4">
+                    暂无待审核文章，新提交的文章会出现在这里
+                    <div style="margin-top:0.6rem;">
+                      <a href="/write" class="btn btn-outline btn-sm">去写文章</a>
+                    </div>
+                  </td>
+                </tr>
               ) : pendingPosts.map((p) => (
                 <tr>
-                  <td class="post-title">{p.title}</td>
-                  <td>{p.author_name}</td>
-                  <td>{new Date(p.created_at).toLocaleDateString('zh-CN')}</td>
+                  <td class="post-title">
+                    <a href={`/blog/${p.slug}/`} title="点开预览全文后审核">{p.title}</a>
+                  </td>
+                  <td>
+                    <a href={`/users/${p.author_name}`}>{p.author_name}</a>
+                  </td>
+                  <td>{formatTime(p.created_at)}</td>
                   <td>
                     <div class="action-btns">
-                      <button class="btn btn-primary btn-sm" onclick="reviewPost({p.id}, 'approve')">通过</button>
-                      <button class="btn btn-outline btn-sm" onclick="reviewPost({p.id}, 'reject')">驳回</button>
+                      <a href={`/blog/${p.slug}/`} class="btn btn-ghost btn-sm">预览</a>
+                      <button class="btn btn-primary btn-sm" data-review-post={p.id} data-review-action="approve">通过</button>
+                      <button class="btn btn-outline btn-sm" data-review-post={p.id} data-review-action="reject">驳回</button>
                     </div>
                   </td>
                 </tr>
@@ -134,7 +160,7 @@ const users = userQueries.list.all() as any[];
         <div class="table-card">
           <table>
             <thead>
-              <tr><th>标题</th><th>作者</th><th>状态</th><th>时间</th></tr>
+              <tr><th>标题</th><th>作者</th><th>状态</th><th>提交时间</th></tr>
             </thead>
             <tbody>
               {allPosts.length === 0 ? (
@@ -142,13 +168,13 @@ const users = userQueries.list.all() as any[];
               ) : allPosts.map((p) => (
                 <tr>
                   <td class="post-title">
-                    {p.status === 'approved' ? (
-                      <a href={`/blog/${p.slug}/`}>{p.title}</a>
-                    ) : p.title}
+                    <a href={`/blog/${p.slug}/`} title="管理员预览">{p.title}</a>
                   </td>
-                  <td>{p.author_name}</td>
-                  <td><span class={`tag tag-${p.status}`}>{p.status}</span></td>
-                  <td>{new Date(p.created_at).toLocaleDateString('zh-CN')}</td>
+                  <td>
+                    <a href={`/users/${p.author_name}`}>{p.author_name}</a>
+                  </td>
+                  <td><span class={`tag tag-${p.status}`}>{statusLabel[p.status] || p.status}</span></td>
+                  <td>{formatTime(p.created_at)}</td>
                 </tr>
               ))}
             </tbody>
@@ -168,7 +194,7 @@ const users = userQueries.list.all() as any[];
                 <tr>
                   <td>{u.username}</td>
                   <td>{u.email}</td>
-                  <td><span class={`tag ${u.role === 'admin' ? 'tag-approved' : ''}`}>{u.role}</span></td>
+                  <td><span class={`tag ${u.role === 'admin' ? 'tag-approved' : ''}`}>{u.role === 'admin' ? '管理员' : '用户'}</span></td>
                   <td>{new Date(u.created_at).toLocaleDateString('zh-CN')}</td>
                 </tr>
               ))}
@@ -190,18 +216,27 @@ const users = userQueries.list.all() as any[];
         });
       });
 
-      async function reviewPost(id, action) {
-        try {
-          const res = await fetch(`/api/admin/posts/${id}/${action}`, { method: 'POST' });
-          if (res.ok) {
-            location.reload();
-          } else {
-            alert('操作失败');
+      // 通过 / 驳回（事件委托），驳回需二次确认
+      document.querySelectorAll('button[data-review-post]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.reviewPost;
+          const action = btn.dataset.reviewAction;
+          if (action === 'reject' && !window.confirm('确认驳回这篇文章吗？驳回后不会公开发布。')) {
+            return;
           }
-        } catch {
-          alert('网络错误');
-        }
-      }
+          const row = btn.closest('tr');
+          row?.querySelectorAll('button').forEach((b) => (b.disabled = true));
+          try {
+            const res = await fetch(`/api/admin/posts/${id}/${action}`, { method: 'POST' });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || '操作失败');
+            location.reload();
+          } catch (e) {
+            window.alert(e instanceof Error ? e.message : '网络错误，请重试');
+            row?.querySelectorAll('button').forEach((b) => (b.disabled = false));
+          }
+        });
+      });
     </script>
   </body>
 </html>

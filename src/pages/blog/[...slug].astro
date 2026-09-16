@@ -9,13 +9,16 @@ import { marked } from 'marked';
 const slug = Astro.params.slug as string;
 const post = postQueries.findBySlug.get(slug) as any;
 
-if (!post || post.status !== 'approved') {
+const currentUser = Astro.locals.user;
+const isAdmin = currentUser?.role === 'admin';
+
+// 未发布文章仅管理员可预览，其他访客回到列表
+if (!post || (post.status !== 'approved' && !isAdmin)) {
   return Astro.redirect('/blog');
 }
 
 const htmlContent = marked.parse(post.content) as string;
 const author = post.author_name;
-const currentUser = Astro.locals.user;
 const interactionUser = currentUser
   ? { id: currentUser.id, username: currentUser.username }
   : null;
@@ -34,7 +37,36 @@ const dateStr = new Date(post.created_at).toLocaleDateString('zh-CN', {
   <body>
     <Header />
     <main class="narrow">
-      <a href="/blog" class="back-link">← 返回文章列表</a>
+      <a href={post.status === 'approved' ? '/blog' : '/admin'} class="back-link">
+        {post.status === 'approved' ? '← 返回文章列表' : '← 返回管理后台'}
+      </a>
+
+      {
+        post.status !== 'approved' && (
+          <div class={`review-banner review-${post.status}`} data-post-id={post.id}>
+            <div class="review-banner-info">
+              <strong>
+                {post.status === 'pending' ? '⏳ 待审核文章预览' : '⛔ 已被驳回的文章'}
+              </strong>
+              <span>
+                {post.status === 'pending'
+                  ? '只有管理员能看到此页面，审核通过后才会公开发布。'
+                  : '该文章已被驳回，不会公开展示。'}
+              </span>
+            </div>
+            {post.status === 'pending' && (
+              <div class="review-banner-actions">
+                <button type="button" class="btn btn-primary btn-sm" data-review="approve">
+                  ✓ 通过并发布
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" data-review="reject">
+                  驳回
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      }
 
       <article>
         <header class="article-header">
@@ -51,15 +83,21 @@ const dateStr = new Date(post.created_at).toLocaleDateString('zh-CN', {
 
         <div class="article-content prose" set:html={htmlContent} />
 
-        <PostInteract
-          postId={post.id}
-          slug={post.slug}
-          title={post.title}
-          user={interactionUser}
-        />
+        {
+          post.status === 'approved' && (
+            <PostInteract
+              postId={post.id}
+              slug={post.slug}
+              title={post.title}
+              user={interactionUser}
+            />
+          )
+        }
 
         <div class="article-actions">
-          <a href="/blog" class="back-link">← 返回文章列表</a>
+          <a href={post.status === 'approved' ? '/blog' : '/admin'} class="back-link">
+            {post.status === 'approved' ? '← 返回文章列表' : '← 返回管理后台'}
+          </a>
           {currentUser && currentUser.id !== post.author_id && (
             <a href={`/messages?user=${post.author_id}`} class="btn btn-outline btn-sm">
               💬 私信作者
@@ -69,10 +107,90 @@ const dateStr = new Date(post.created_at).toLocaleDateString('zh-CN', {
       </article>
     </main>
     <Footer />
+
+    {post.status === 'pending' && isAdmin && (
+      <script>
+        document.querySelectorAll<HTMLButtonElement>('[data-review]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const action = btn.dataset.review;
+            const banner = btn.closest('.review-banner') as HTMLElement;
+            const postId = banner.dataset.postId;
+            if (action === 'reject' && !window.confirm('确认驳回这篇文章吗？驳回后不会公开发布。')) {
+              return;
+            }
+            const buttons = banner.querySelectorAll('button');
+            buttons.forEach((b) => (b.disabled = true));
+            try {
+              const res = await fetch(`/api/admin/posts/${postId}/${action}`, { method: 'POST' });
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(data.error || '操作失败');
+              // 重载后服务端按最新状态渲染：通过即公开页，驳回则回管理后台
+              if (action === 'approve') {
+                window.location.reload();
+              } else {
+                window.location.href = '/admin';
+              }
+            } catch (e) {
+              window.alert(e instanceof Error ? e.message : '网络错误，请重试');
+              buttons.forEach((b) => (b.disabled = false));
+            }
+          });
+        });
+      </script>
+    )}
   </body>
 </html>
 
 <style>
+  .review-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 0.9rem 1.2rem;
+    margin-bottom: 1.8rem;
+    border-radius: var(--radius-lg);
+    font-size: 0.9rem;
+    animation: fadeInUp 0.45s var(--ease);
+  }
+  .review-banner strong {
+    display: block;
+    font-size: 0.95rem;
+    margin-bottom: 0.15rem;
+  }
+  .review-banner span {
+    font-size: 0.83rem;
+    opacity: 0.85;
+  }
+  .review-banner-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  .review-banner-actions {
+    display: flex;
+    gap: 0.6rem;
+    flex: none;
+  }
+  .review-pending {
+    background: #fdf6e3;
+    border: 1px solid #f0dfa3;
+    color: #7a5d10;
+  }
+  .review-pending .btn-primary {
+    background: #c9931f;
+    border-color: #c9931f;
+  }
+  .review-pending .btn-primary:hover {
+    background: #b3821a;
+  }
+  .review-rejected {
+    background: #fdecee;
+    border: 1px solid #f3c6cd;
+    color: #8a2c33;
+  }
+
   .back-link {
     display: inline-block;
     color: var(--text-gray);

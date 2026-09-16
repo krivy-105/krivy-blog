@@ -27,6 +27,14 @@ let stats = { posts: 0, likes: 0, comments: 0 };
 const likeMap = new Map<number, number>();
 const commentMap = new Map<number, number>();
 
+// 本人可见的审核中文稿（他人访问时为空）
+let reviewPosts: any[] = [];
+if (profile && isSelf) {
+  reviewPosts = (postQueries.findByAuthor.all(profile.id) as any[]).filter(
+    (p) => p.status !== 'approved'
+  );
+}
+
 if (profile) {
   posts = postQueries.findApprovedByAuthor.all(profile.id) as any[];
   stats = {
@@ -144,6 +152,36 @@ const joinDate = profile
                 </div>
               </div>
             </section>
+
+            {/* 审核中的稿件（仅本人可见） */}
+            {isSelf && reviewPosts.length > 0 && (
+              <section class="review-posts">
+                <h2 class="section-title">我的稿件审核状态</h2>
+                <ul class="rp-list">
+                  {reviewPosts.map((p) => (
+                    <li class:list={['rp-item', `rp-${p.status}`]}>
+                      <span class="rp-title">{p.title}</span>
+                      <span class="rp-meta">
+                        <span class:list={['tag', `tag-${p.status}`]}>
+                          {p.status === 'pending' ? '⏳ 审核中' : '⛔ 已驳回'}
+                        </span>
+                        <time>{new Date(p.created_at).toLocaleDateString('zh-CN')}</time>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p class="rp-hint">
+                  {currentUser?.role === 'admin' ? (
+                    <>
+                      你是管理员，可直接
+                      <a href="/admin" class="rp-link">前往管理后台审核 →</a>
+                    </>
+                  ) : (
+                    '文章通过审核后会公开展示在下方，驳回后可修改内容重新投稿。'
+                  )}
+                </p>
+              </section>
+            )}
 
             <!-- TA 的文章 -->
             <section class="user-posts">
@@ -456,6 +494,53 @@ const joinDate = profile
     width: 100%;
     justify-content: center;
   }
+
+  /* ---------- 审核状态 ---------- */
+  .review-posts {
+    margin-top: 2.2rem;
+  }
+  .rp-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+  .rp-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 0.9rem 1.2rem;
+    background: var(--bg-white);
+    border: 1px solid var(--border-light);
+    border-left-width: 4px;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    animation: fadeInUp 0.45s var(--ease) both;
+  }
+  .rp-pending { border-left-color: #e0a92e; }
+  .rp-rejected { border-left-color: #d76a74; }
+  .rp-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-dark);
+  }
+  .rp-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    font-size: 0.8rem;
+    color: var(--text-light);
+  }
+  .rp-hint {
+    margin: 0.8rem 0 0;
+    font-size: 0.84rem;
+    color: var(--text-light);
+  }
+  .rp-link { font-weight: 600; }
 
   /* ---------- 文章列表 ---------- */
   .user-posts {
