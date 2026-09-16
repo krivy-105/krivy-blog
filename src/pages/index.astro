@@ -1,0 +1,116 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
+import { getCollection } from 'astro:content';
+
+// 获取所有博客文章并按照日期倒序排列
+const posts = (await getCollection('blog')).sort(
+	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+);
+---
+
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+		<style>
+			/* 欢迎区域样式 */
+			.hero {
+				text-align: center;
+				padding: 4rem 2rem;
+				background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+				border-radius: 16px;
+				margin-bottom: 3rem;
+			}
+			.hero h1 {
+				font-size: 2.5rem;
+				margin-bottom: 1rem;
+				color: #1a1a1a;
+			}
+			.hero p {
+				font-size: 1.1rem;
+				color: #555;
+				max-width: 600px;
+				margin: 0 auto;
+				line-height: 1.6;
+			}
+			/* 文章列表样式 */
+			.post-list {
+				display: grid;
+				gap: 2rem;
+				grid-template-columns: 1fr;
+				list-style: none;
+				padding: 0;
+			}
+			.post-card {
+				border: 1px solid #e5e5e5;
+				border-radius: 12px;
+				padding: 1.5rem;
+				transition: transform 0.2s, box-shadow 0.2s;
+				background: white;
+			}
+			.post-card:hover {
+				transform: translateY(-4px);
+				box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+			}
+			.post-card h2 {
+				margin-top: 0;
+				font-size: 1.5rem;
+			}
+			.post-card h2 a {
+				text-decoration: none;
+				color: #1a1a1a;
+			}
+			.post-card p {
+				color: #666;
+				line-height: 1.6;
+				margin-bottom: 1rem;
+			}
+			.post-meta {
+				font-size: 0.9rem;
+				color: #999;
+				margin-bottom: 0.5rem;
+				display: block;
+			}
+			.read-more {
+				color: #2563eb;
+				text-decoration: none;
+				font-weight: 500;
+			}
+			/* 适配手机屏幕 */
+			@media (min-width: 768px) {
+				.post-list {
+					grid-template-columns: 1fr 1fr;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<Header />
+		<main>
+			<!-- 顶部欢迎区域 -->
+			<section class="hero">
+				<h1>👋 你好，我是krivy</h1>
+				<p>欢迎来到我的个人博客！这里记录我的技术成长、生活点滴和思考感悟。</p>
+			</section>
+
+			<!-- 文章列表区域 -->
+			<section>
+				<h2 style="text-align: center; margin-bottom: 2rem; font-size: 1.8rem;">📝 最新文章</h2>
+				<ul class="post-list">
+					{posts.map((post) => (
+						<li class="post-card">
+							<h2><a href={`/blog/${post.slug}/`}>{post.data.title}</a></h2>
+							<span class="post-meta">{post.data.pubDate.toLocaleDateString('zh-CN')}</span>
+							<p>{post.data.description}</p>
+							<a href={`/blog/${post.slug}/`} class="read-more">阅读全文 →</a>
+						</li>
+					))}
+				</ul>
+			</section>
+		</main>
+		<Footer />
+	</body>
+</html>
