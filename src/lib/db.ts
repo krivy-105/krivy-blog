@@ -61,17 +61,30 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_id, is_read);
 `);
 
-// 确保管理员账号存在
+// 确保管理员账号存在，并与环境变量中的密码保持一致
+// （部署后修改 ADMIN_PASSWORD，重启服务即生效，无需手动操作数据库）
 const adminUsername = process.env.ADMIN_USERNAME || 'admin';
 const adminPassword = process.env.ADMIN_PASSWORD || 'admin123456';
 
-const existingAdmin = db.prepare('SELECT id FROM users WHERE username = ?').get(adminUsername);
-if (!existingAdmin) {
+const adminRow = db
+  .prepare('SELECT * FROM users WHERE username = ?')
+  .get(adminUsername) as User | undefined;
+
+if (!adminRow) {
   const hash = bcrypt.hashSync(adminPassword, 10);
   db.prepare(
     'INSERT INTO users (username, email, password, role, created_at) VALUES (?, ?, ?, ?, ?)'
   ).run(adminUsername, `${adminUsername}@blog.local`, hash, 'admin', Date.now());
   console.log(`[db] 管理员账号已创建: ${adminUsername}`);
+} else if (!bcrypt.compareSync(adminPassword, adminRow.password) || adminRow.role !== 'admin') {
+  // 环境变量密码与库中不一致（首次挂卷时可能用默认密码初始化过），或角色被降级
+  const hash = bcrypt.hashSync(adminPassword, 10);
+  db.prepare('UPDATE users SET password = ?, role = ? WHERE id = ?').run(
+    hash,
+    'admin',
+    adminRow.id
+  );
+  console.log(`[db] 管理员账号密码已按环境变量同步: ${adminUsername}`);
 }
 
 // ---- 用户相关查询 ----

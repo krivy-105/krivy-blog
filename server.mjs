@@ -45,6 +45,14 @@ function serveStatic(req, res) {
 }
 
 const server = createServer((req, res) => {
+  // Railway 等反向代理通过 x-forwarded-* 传递原始域名/协议。
+  // 用第一个值（最接近客户端的那一跳）覆盖，确保 Astro 构造的请求 URL
+  // 与浏览器地址栏一致（canonical、cookie、Origin 判断等）。
+  const xfh = req.headers['x-forwarded-host'];
+  if (xfh) req.headers.host = String(xfh).split(',')[0].trim();
+  const xfp = req.headers['x-forwarded-proto'];
+  if (xfp) req.headers['x-forwarded-proto'] = String(xfp).split(',')[0].trim();
+
   // www 域名统一 301 跳转到主域名（本地 localhost 不受影响）
   const host = req.headers.host || '';
   const hostNoPort = host.split(':')[0];
