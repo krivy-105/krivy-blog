@@ -44,11 +44,16 @@ const recent = posts.slice(0, 6);
           <ul class="post-grid">
             {recent.map((post, i) => (
               <li style={`animation-delay: ${i * 70}ms`}>
-                <a href={`/blog/${post.slug}/`} class="post-card">
+                <div class="post-card">
+                  <a
+                    href={`/blog/${post.slug}/`}
+                    class="post-card-link"
+                    aria-label={`阅读文章：${post.title}`}
+                  ></a>
                   <div class="post-meta">
                     <span>{new Date(post.created_at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                     <span class="meta-dot">·</span>
-                    <span>{post.author_name}</span>
+                    <a class="card-author" href={`/users/${post.author_name}`}>{post.author_name}</a>
                   </div>
                   <h2>{post.title}</h2>
                   {post.description && <p class="post-desc">{post.description}</p>}
@@ -56,7 +61,7 @@ const recent = posts.slice(0, 6);
                     阅读全文
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                   </span>
-                </a>
+                </div>
               </li>
             ))}
           </ul>
@@ -135,6 +140,7 @@ const recent = posts.slice(0, 6);
     animation: fadeInUp 0.55s var(--ease) both;
   }
   .post-card {
+    position: relative;
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -146,6 +152,17 @@ const recent = posts.slice(0, 6);
     color: inherit;
     transition: var(--transition);
   }
+  .post-card-link {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+  }
+  .card-author {
+    position: relative;
+    z-index: 1;
+  }
+  .card-author:hover { text-decoration: underline; }
   .post-card:hover {
     transform: translateY(-4px);
     box-shadow: var(--shadow-lg);

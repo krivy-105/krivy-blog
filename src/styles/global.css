@@ -11,6 +11,9 @@
   --monet-blue-light: #e4eff4;
   --monet-blue-lighter: #f3f8fb;
 
+  /* 点缀色（点赞爱心） */
+  --heart: #ef6f83;
+
   /* 文字色 */
   --text-dark: #283947;
   --text-gray: #647684;

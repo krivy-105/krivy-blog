@@ -2,6 +2,7 @@
 import BaseHead from '../../components/BaseHead.astro';
 import Footer from '../../components/Footer.astro';
 import Header from '../../components/Header.astro';
+import PostInteract from '../../components/PostInteract.astro';
 import { postQueries } from '../../lib/db';
 import { marked } from 'marked';
 
@@ -15,6 +16,9 @@ if (!post || post.status !== 'approved') {
 const htmlContent = marked.parse(post.content) as string;
 const author = post.author_name;
 const currentUser = Astro.locals.user;
+const interactionUser = currentUser
+  ? { id: currentUser.id, username: currentUser.username }
+  : null;
 const dateStr = new Date(post.created_at).toLocaleDateString('zh-CN', {
   year: 'numeric',
   month: 'long',
@@ -37,15 +41,22 @@ const dateStr = new Date(post.created_at).toLocaleDateString('zh-CN', {
           <h1 class="article-title">{post.title}</h1>
           {post.description && <p class="article-desc">{post.description}</p>}
           <div class="article-meta">
-            <span class="author-chip">
+            <a href={`/users/${author}`} class="author-chip">
               <span class="author-avatar">{author.slice(0, 1).toUpperCase()}</span>
               {author}
-            </span>
+            </a>
             <time datetime={new Date(post.created_at).toISOString()}>{dateStr}</time>
           </div>
         </header>
 
         <div class="article-content prose" set:html={htmlContent} />
+
+        <PostInteract
+          postId={post.id}
+          slug={post.slug}
+          title={post.title}
+          user={interactionUser}
+        />
 
         <div class="article-actions">
           <a href="/blog" class="back-link">← 返回文章列表</a>
@@ -102,6 +113,14 @@ const dateStr = new Date(post.created_at).toLocaleDateString('zh-CN', {
     gap: 0.5rem;
     color: var(--monet-blue-dark);
     font-weight: 550;
+    transition: var(--transition);
+  }
+  .author-chip:hover {
+    color: var(--monet-blue-deep);
+  }
+  .author-chip:hover .author-avatar {
+    transform: scale(1.08);
+    box-shadow: 0 4px 12px rgba(95, 136, 157, 0.35);
   }
   .author-avatar {
     display: inline-flex;
@@ -114,6 +133,7 @@ const dateStr = new Date(post.created_at).toLocaleDateString('zh-CN', {
     color: #fff;
     font-size: 0.8rem;
     font-weight: 600;
+    transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
   }
 
   .article-content {

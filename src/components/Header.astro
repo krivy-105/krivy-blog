@@ -37,7 +37,7 @@ const isLoggedIn = !!user;
     <div class="nav-right">
       {isLoggedIn ? (
         <>
-          <a href="/messages" class="user-name" title={user!.username}>
+          <a href={`/users/${user!.username}`} class="user-name" title="我的主页">
             <span class="user-avatar">{user!.username.slice(0, 1).toUpperCase()}</span>
             <span class="user-text">{user!.username}</span>
           </a>

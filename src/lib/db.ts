@@ -56,10 +56,48 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 
+  CREATE TABLE IF NOT EXISTS post_likes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    post_id INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    UNIQUE(user_id, post_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (post_id) REFERENCES posts(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (post_id) REFERENCES posts(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS post_shares (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    user_id INTEGER,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (post_id) REFERENCES posts(id)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status);
   CREATE INDEX IF NOT EXISTS idx_messages_pair ON messages(sender_id, receiver_id);
   CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_id, is_read);
+  CREATE INDEX IF NOT EXISTS idx_likes_post ON post_likes(post_id);
+  CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id);
+  CREATE INDEX IF NOT EXISTS idx_shares_post ON post_shares(post_id);
 `);
+
+// 线上持久卷中可能是旧库，逐列做幂等迁移（IF NOT EXISTS 不会给已存在的表补列）
+const userColumns = db.prepare('PRAGMA table_info(users)').all() as { name: string }[];
+if (!userColumns.some((c) => c.name === 'bio')) {
+  db.exec('ALTER TABLE users ADD COLUMN bio TEXT');
+}
+
 
 // 确保管理员账号存在，并与环境变量中的密码保持一致
 // （部署后修改 ADMIN_PASSWORD，重启服务即生效，无需手动操作数据库）
@@ -99,6 +137,7 @@ export const userQueries = {
     'INSERT INTO users (username, email, password, role, created_at) VALUES (?, ?, ?, ?, ?)'
   ),
   list: db.prepare('SELECT id, username, email, role, avatar, created_at FROM users ORDER BY created_at DESC'),
+  updateBio: db.prepare('UPDATE users SET bio = ? WHERE id = ?'),
 };
 
 // ---- 文章相关查询 ----
@@ -122,6 +161,9 @@ export const postQueries = {
      ORDER BY p.created_at DESC`
   ),
   findByAuthor: db.prepare('SELECT * FROM posts WHERE author_id = ? ORDER BY created_at DESC'),
+  findApprovedByAuthor: db.prepare(
+    `SELECT * FROM posts WHERE author_id = ? AND status = 'approved' ORDER BY created_at DESC`
+  ),
   create: db.prepare(
     'INSERT INTO posts (author_id, slug, title, description, content, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ),
@@ -160,6 +202,42 @@ export const messageQueries = {
   ),
 };
 
+// ---- 点赞相关查询 ----
+export const likeQueries = {
+  find: db.prepare('SELECT id FROM post_likes WHERE user_id = ? AND post_id = ?'),
+  add: db.prepare('INSERT INTO post_likes (user_id, post_id, created_at) VALUES (?, ?, ?)'),
+  remove: db.prepare('DELETE FROM post_likes WHERE user_id = ? AND post_id = ?'),
+  countForPost: db.prepare('SELECT COUNT(*) AS count FROM post_likes WHERE post_id = ?'),
+  // 某用户名下所有已发布文章收获的点赞总数
+  totalReceivedByAuthor: db.prepare(
+    `SELECT COUNT(*) AS count FROM post_likes l
+     JOIN posts p ON l.post_id = p.id
+     WHERE p.author_id = ? AND p.status = 'approved'`
+  ),
+};
+
+// ---- 评论相关查询 ----
+export const commentQueries = {
+  create: db.prepare('INSERT INTO comments (post_id, user_id, content, created_at) VALUES (?, ?, ?, ?)'),
+  findByPost: db.prepare(
+    `SELECT c.id, c.content, c.created_at, c.user_id, u.username
+     FROM comments c JOIN users u ON c.user_id = u.id
+     WHERE c.post_id = ? ORDER BY c.created_at DESC`
+  ),
+  countForPost: db.prepare('SELECT COUNT(*) AS count FROM comments WHERE post_id = ?'),
+  totalReceivedByAuthor: db.prepare(
+    `SELECT COUNT(*) AS count FROM comments c
+     JOIN posts p ON c.post_id = p.id
+     WHERE p.author_id = ? AND p.status = 'approved'`
+  ),
+};
+
+// ---- 转发相关查询 ----
+export const shareQueries = {
+  create: db.prepare('INSERT INTO post_shares (post_id, user_id, created_at) VALUES (?, ?, ?)'),
+  countForPost: db.prepare('SELECT COUNT(*) AS count FROM post_shares WHERE post_id = ?'),
+};
+
 // ---- Session 相关查询 ----
 export const sessionQueries = {
   create: db.prepare(
@@ -182,6 +260,7 @@ export type User = {
   password: string;
   role: string;
   avatar: string | null;
+  bio: string | null;
   created_at: number;
 };
 
