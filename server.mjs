@@ -55,10 +55,12 @@ const wss = new WebSocketServer({ noServer: true });
 // userId -> Set<WebSocket>
 const userConnections = new Map();
 
+const COOKIE_NAME = process.env.SESSION_COOKIE || 'blog_session';
+
 function getUserIdFromRequest(req) {
   // 从 cookie 中读取 session token
   const cookies = req.headers.cookie || '';
-  const match = cookies.match(/blog_session=([^;]+)/);
+  const match = cookies.match(new RegExp(COOKIE_NAME + '=([^;]+)'));
   if (!match) return null;
   const token = match[1];
   const row = sessionQueries.findByToken.get(token);

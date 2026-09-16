@@ -1,12 +1,12 @@
 import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
 
-// 以进程工作目录为基准，确保 dev 和 build 后都指向项目根目录的 data/
-const dataDir = join(process.cwd(), 'data');
-mkdirSync(dataDir, { recursive: true });
-const DB_PATH = join(dataDir, 'blog.db');
+// 数据库路径：优先使用 DB_PATH 环境变量（Railway 等部署环境的持久卷挂载点），
+// 否则以进程工作目录为基准，指向项目根目录的 data/
+const DB_PATH = process.env.DB_PATH || join(process.cwd(), 'data', 'blog.db');
+mkdirSync(dirname(DB_PATH), { recursive: true });
 
 export const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');

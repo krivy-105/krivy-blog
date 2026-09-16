@@ -1,0 +1,10 @@
+node_modules
+dist
+data
+.git
+.env
+.env.production
+.trae
+.idea
+npm-debug.log*
+.DS_Store
