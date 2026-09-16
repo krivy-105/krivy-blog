@@ -45,6 +45,14 @@ function serveStatic(req, res) {
 }
 
 const server = createServer((req, res) => {
+  // www 域名统一 301 跳转到主域名（本地 localhost 不受影响）
+  const host = req.headers.host || '';
+  const hostNoPort = host.split(':')[0];
+  if (hostNoPort.startsWith('www.')) {
+    res.writeHead(301, { Location: 'https://' + host.slice(4) + (req.url || '/') });
+    res.end();
+    return;
+  }
   if (serveStatic(req, res)) return;
   handler(req, res);
 });
