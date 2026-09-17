@@ -12,9 +12,8 @@ export const POST: APIRoute = async ({ params, locals, redirect }) => {
     return new Response(JSON.stringify({ error: '无效的文章 ID' }), { status: 400 });
   }
 
-  postQueries.updateStatus.run('rejected', Date.now(), id);
   postQueries.updatePinned.run(null, Date.now(), id);
-  return new Response(JSON.stringify({ success: true }), {
+  return new Response(JSON.stringify({ success: true, pinned: false }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });

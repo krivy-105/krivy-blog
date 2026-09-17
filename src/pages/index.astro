@@ -44,13 +44,14 @@ const recent = posts.slice(0, 6);
           <ul class="post-grid">
             {recent.map((post, i) => (
               <li style={`animation-delay: ${i * 70}ms`}>
-                <div class="post-card">
+                <div class={`post-card${post.pinned_at ? ' is-pinned' : ''}`}>
                   <a
                     href={`/blog/${post.slug}/`}
                     class="post-card-link"
                     aria-label={`阅读文章：${post.title}`}
                   ></a>
                   <div class="post-meta">
+                    {post.pinned_at && <span class="pin-badge">📌 置顶</span>}
                     <span>{new Date(post.created_at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                     <span class="meta-dot">·</span>
                     <a class="card-author" href={`/users/${post.author_name}`}>{post.author_name}</a>

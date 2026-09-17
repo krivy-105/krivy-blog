@@ -280,6 +280,24 @@ th {
   border-color: #d4e4ec;
 }
 
+/* ---------------- 置顶标记 ---------------- */
+
+.pin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  background: var(--monet-blue-light);
+  color: var(--monet-blue-deep);
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+.is-pinned {
+  border-left: 3px solid var(--monet-blue);
+}
+
 /* ---------------- 表单 ---------------- */
 
 .form-group { margin-bottom: 1.25rem; }

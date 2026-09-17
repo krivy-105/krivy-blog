@@ -29,13 +29,14 @@ const posts = postQueries.findApproved.all() as any[];
         <ul class="post-list">
           {posts.map((post, i) => (
             <li style={`animation-delay: ${i * 60}ms`}>
-              <div class="post-item">
+              <div class={`post-item${post.pinned_at ? ' is-pinned' : ''}`}>
                 <a
                   href={`/blog/${post.slug}/`}
                   class="post-item-link"
                   aria-label={`阅读文章：${post.title}`}
                 ></a>
                 <div class="item-main">
+                  {post.pinned_at && <span class="pin-badge">📌 置顶</span>}
                   <h2>{post.title}</h2>
                   {post.description && <p class="post-desc">{post.description}</p>}
                 </div>

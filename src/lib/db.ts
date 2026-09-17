@@ -98,6 +98,12 @@ if (!userColumns.some((c) => c.name === 'bio')) {
   db.exec('ALTER TABLE users ADD COLUMN bio TEXT');
 }
 
+// posts 表幂等迁移：新增 pinned_at 列（NULL = 未置顶，时间戳 = 置顶时间）
+const postColumns = db.prepare('PRAGMA table_info(posts)').all() as { name: string }[];
+if (!postColumns.some((c) => c.name === 'pinned_at')) {
+  db.exec('ALTER TABLE posts ADD COLUMN pinned_at INTEGER');
+}
+
 
 // 确保管理员账号存在，并与环境变量中的密码保持一致
 // （部署后修改 ADMIN_PASSWORD，重启服务即生效，无需手动操作数据库）
@@ -146,7 +152,7 @@ export const postQueries = {
     `SELECT p.*, u.username AS author_name FROM posts p
      JOIN users u ON p.author_id = u.id
      WHERE p.status = 'approved'
-     ORDER BY p.created_at DESC`
+     ORDER BY (p.pinned_at IS NULL), p.pinned_at DESC, p.created_at DESC`
   ),
   findBySlug: db.prepare(
     `SELECT p.*, u.username AS author_name FROM posts p
@@ -158,21 +164,22 @@ export const postQueries = {
     `SELECT p.*, u.username AS author_name FROM posts p
      JOIN users u ON p.author_id = u.id
      WHERE p.status = ?
-     ORDER BY p.created_at DESC`
+     ORDER BY (p.pinned_at IS NULL), p.pinned_at DESC, p.created_at DESC`
   ),
-  findByAuthor: db.prepare('SELECT * FROM posts WHERE author_id = ? ORDER BY created_at DESC'),
+  findByAuthor: db.prepare('SELECT * FROM posts WHERE author_id = ? ORDER BY (pinned_at IS NULL), pinned_at DESC, created_at DESC'),
   findApprovedByAuthor: db.prepare(
-    `SELECT * FROM posts WHERE author_id = ? AND status = 'approved' ORDER BY created_at DESC`
+    `SELECT * FROM posts WHERE author_id = ? AND status = 'approved' ORDER BY (pinned_at IS NULL), pinned_at DESC, created_at DESC`
   ),
   create: db.prepare(
     'INSERT INTO posts (author_id, slug, title, description, content, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ),
   updateStatus: db.prepare('UPDATE posts SET status = ?, updated_at = ? WHERE id = ?'),
+  updatePinned: db.prepare('UPDATE posts SET pinned_at = ?, updated_at = ? WHERE id = ?'),
   countByStatus: db.prepare('SELECT COUNT(*) AS count FROM posts WHERE status = ?'),
   all: db.prepare(
     `SELECT p.*, u.username AS author_name FROM posts p
      JOIN users u ON p.author_id = u.id
-     ORDER BY p.created_at DESC`
+     ORDER BY (p.pinned_at IS NULL), p.pinned_at DESC, p.created_at DESC`
   ),
 };
 
@@ -275,6 +282,7 @@ export type Post = {
   status: string;
   created_at: number;
   updated_at: number;
+  pinned_at: number | null;
   author_name?: string;
 };
 

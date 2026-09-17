@@ -160,14 +160,15 @@ const formatTime = (ts: number) =>
         <div class="table-card">
           <table>
             <thead>
-              <tr><th>标题</th><th>作者</th><th>状态</th><th>提交时间</th></tr>
+              <tr><th>标题</th><th>作者</th><th>状态</th><th>提交时间</th><th>操作</th></tr>
             </thead>
             <tbody>
               {allPosts.length === 0 ? (
-                <tr class="empty-row"><td colspan="4">暂无文章</td></tr>
+                <tr class="empty-row"><td colspan="5">暂无文章</td></tr>
               ) : allPosts.map((p) => (
                 <tr>
                   <td class="post-title">
+                    {p.pinned_at && <span title="已置顶">📌</span>}{' '}
                     <a href={`/blog/${p.slug}/`} title="管理员预览">{p.title}</a>
                   </td>
                   <td>
@@ -175,6 +176,14 @@ const formatTime = (ts: number) =>
                   </td>
                   <td><span class={`tag tag-${p.status}`}>{statusLabel[p.status] || p.status}</span></td>
                   <td>{formatTime(p.created_at)}</td>
+                  <td>
+                    {p.status === 'approved' ? (
+                      <button class={`btn btn-sm ${p.pinned_at ? 'btn-outline' : 'btn-primary'}`}
+                        data-pin-post={p.id} data-pin-action={p.pinned_at ? 'unpin' : 'pin'}>
+                        {p.pinned_at ? '取消置顶' : '置顶'}
+                      </button>
+                    ) : <span style="color: var(--text-light);">—</span>}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -224,6 +233,25 @@ const formatTime = (ts: number) =>
           if (action === 'reject' && !window.confirm('确认驳回这篇文章吗？驳回后不会公开发布。')) {
             return;
           }
+          const row = btn.closest('tr');
+          row?.querySelectorAll('button').forEach((b) => (b.disabled = true));
+          try {
+            const res = await fetch(`/api/admin/posts/${id}/${action}`, { method: 'POST' });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || '操作失败');
+            location.reload();
+          } catch (e) {
+            window.alert(e instanceof Error ? e.message : '网络错误，请重试');
+            row?.querySelectorAll('button').forEach((b) => (b.disabled = false));
+          }
+        });
+      });
+
+      // 置顶 / 取消置顶
+      document.querySelectorAll('button[data-pin-post]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.pinPost;
+          const action = btn.dataset.pinAction;
           const row = btn.closest('tr');
           row?.querySelectorAll('button').forEach((b) => (b.disabled = true));
           try {
