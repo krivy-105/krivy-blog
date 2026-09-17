@@ -22,6 +22,10 @@ const today = new Date();
     border-top: 1px solid var(--border-light);
     text-align: center;
     background: rgba(243, 248, 251, 0.6);
+    transition: background 0.3s var(--ease);
+  }
+  :global([data-theme="dark"]) footer {
+    background: rgba(22, 31, 36, 0.6);
   }
   .footer-inner {
     max-width: var(--width-wide);
