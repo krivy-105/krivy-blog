@@ -49,7 +49,7 @@ const pendingCount = isAdmin
           >
         </HeaderLink>
       )}
-      <form action="/search" method="GET" class="nav-search" role="search">
+      <form action="/search" method="GET" class="nav-search nav-search-mobile" role="search">
         <input
           type="search"
           name="q"
@@ -65,6 +65,19 @@ const pendingCount = isAdmin
     </div>
 
     <div class="nav-right">
+      <form action="/search" method="GET" class="nav-search nav-search-desktop" role="search">
+        <input
+          type="search"
+          name="q"
+          class="nav-search-input"
+          placeholder="搜索文章…"
+          aria-label="搜索文章"
+          autocomplete="off"
+        />
+        <svg class="nav-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+      </form>
       <button
         class="theme-toggle"
         id="themeToggle"
@@ -187,6 +200,7 @@ const pendingCount = isAdmin
     align-items: center;
     margin-left: 0.5rem;
   }
+  .nav-search-mobile { display: none; }
   .nav-search-input {
     width: 150px;
     padding: 7px 12px 7px 32px;
@@ -242,6 +256,8 @@ const pendingCount = isAdmin
     display: flex;
     align-items: center;
     gap: 0.6rem;
+    position: relative;
+    z-index: 20;
   }
   .logout-form { display: inline; margin: 0; }
   .user-name {
@@ -354,6 +370,7 @@ const pendingCount = isAdmin
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.22s var(--ease), transform 0.22s var(--ease);
+      z-index: 15;
     }
     .nav-center.open {
       opacity: 1;
@@ -365,10 +382,12 @@ const pendingCount = isAdmin
       border-radius: var(--radius-md);
       font-size: 1rem;
     }
-    .nav-search {
+    .nav-search-mobile {
+      display: flex;
       margin: 0.4rem 0 0.2rem;
       width: 100%;
     }
+    .nav-search-desktop { display: none; }
     .nav-search-input,
     .nav-search-input:focus {
       width: 100%;
