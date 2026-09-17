@@ -90,7 +90,88 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_likes_post ON post_likes(post_id);
   CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id);
   CREATE INDEX IF NOT EXISTS idx_shares_post ON post_shares(post_id);
+
+  -- 标签
+  CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS post_tags (
+    post_id INTEGER NOT NULL,
+    tag_id INTEGER NOT NULL,
+    PRIMARY KEY (post_id, tag_id),
+    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tags(id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_post_tags_tag ON post_tags(tag_id);
+
+  -- 全文搜索 FTS5（外部内容表 + 触发器同步）
+  CREATE VIRTUAL TABLE IF NOT EXISTS post_fts USING fts5(
+    title, description, content,
+    content='posts', content_rowid='id'
+  );
+  CREATE TRIGGER IF NOT EXISTS posts_fts_ai AFTER INSERT ON posts BEGIN
+    INSERT INTO post_fts(rowid, title, description, content)
+    VALUES (new.id, new.title, new.description, new.content);
+  END;
+  CREATE TRIGGER IF NOT EXISTS posts_fts_ad AFTER DELETE ON posts BEGIN
+    INSERT INTO post_fts(post_fts, rowid, title, description, content)
+    VALUES ('delete', old.id, old.title, old.description, old.content);
+  END;
+  CREATE TRIGGER IF NOT EXISTS posts_fts_au AFTER UPDATE ON posts BEGIN
+    INSERT INTO post_fts(post_fts, rowid, title, description, content)
+    VALUES ('delete', old.id, old.title, old.description, old.content);
+    INSERT INTO post_fts(rowid, title, description, content)
+    VALUES (new.id, new.title, new.description, new.content);
+  END;
+
+  -- 文章浏览量（按 post_id + date + ip_hash 去重）
+  CREATE TABLE IF NOT EXISTS post_views (
+    post_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    ip_hash TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (post_id, date, ip_hash),
+    FOREIGN KEY (post_id) REFERENCES posts(id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_post_views_post ON post_views(post_id);
+
+  -- 友链
+  CREATE TABLE IF NOT EXISTS links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    description TEXT,
+    sort INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  );
+
+  -- 站点统计
+  CREATE TABLE IF NOT EXISTS site_stats (
+    date TEXT PRIMARY KEY,
+    pv INTEGER NOT NULL DEFAULT 0,
+    uv INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE TABLE IF NOT EXISTS daily_visitors (
+    date TEXT NOT NULL,
+    ip_hash TEXT NOT NULL,
+    PRIMARY KEY (date, ip_hash)
+  );
 `);
+
+// FTS5 初始灌数据：仅在表为空时跑一次（避免重启重复插入）
+try {
+  const ftsCount = db.prepare('SELECT COUNT(*) AS c FROM post_fts').get() as { c: number };
+  if (ftsCount.c === 0) {
+    db.exec(
+      `INSERT INTO post_fts(rowid, title, description, content)
+       SELECT id, title, description, content FROM posts WHERE status = 'approved'`
+    );
+    console.log('[db] FTS5 初始数据已灌入');
+  }
+} catch (e) {
+  console.warn('[db] FTS5 初始灌数据失败（可能未启用 FTS5）:', (e as Error).message);
+}
 
 // 线上持久卷中可能是旧库，逐列做幂等迁移（IF NOT EXISTS 不会给已存在的表补列）
 const userColumns = db.prepare('PRAGMA table_info(users)').all() as { name: string }[];
@@ -181,6 +262,28 @@ export const postQueries = {
      JOIN users u ON p.author_id = u.id
      ORDER BY (p.pinned_at IS NULL), p.pinned_at DESC, p.created_at DESC`
   ),
+  findRelated: db.prepare(
+    `SELECT DISTINCT p.id, p.slug, p.title, p.description, p.created_at,
+            u.username AS author_name
+     FROM posts p
+     JOIN users u ON p.author_id = u.id
+     WHERE p.status = 'approved' AND p.id <> ?
+       AND (p.author_id = ?
+            OR p.id IN (SELECT pt2.post_id FROM post_tags pt1
+                        JOIN post_tags pt2 ON pt1.tag_id = pt2.tag_id
+                        WHERE pt1.post_id = ?))
+     ORDER BY (p.id IN (SELECT pt2.post_id FROM post_tags pt1
+                        JOIN post_tags pt2 ON pt1.tag_id = pt2.tag_id
+                        WHERE pt1.post_id = ?)) DESC,
+              p.created_at DESC
+     LIMIT 3`
+  ),
+  findApprovedForArchive: db.prepare(
+    `SELECT p.id, p.slug, p.title, p.created_at, u.username AS author_name
+     FROM posts p JOIN users u ON p.author_id = u.id
+     WHERE p.status = 'approved'
+     ORDER BY p.created_at DESC`
+  ),
 };
 
 // ---- 消息相关查询 ----
@@ -244,6 +347,110 @@ export const commentQueries = {
 export const shareQueries = {
   create: db.prepare('INSERT INTO post_shares (post_id, user_id, created_at) VALUES (?, ?, ?)'),
   countForPost: db.prepare('SELECT COUNT(*) AS count FROM post_shares WHERE post_id = ?'),
+};
+
+// ---- 标签相关查询 ----
+export const tagQueries = {
+  ensure: db.prepare('INSERT OR IGNORE INTO tags (name) VALUES (?)'),
+  findByName: db.prepare('SELECT * FROM tags WHERE name = ?'),
+  setForPost: (postId: number, names: string[]) => {
+    const del = db.prepare('DELETE FROM post_tags WHERE post_id = ?');
+    const link = db.prepare('INSERT OR IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)');
+    const tx = db.transaction((ns: string[]) => {
+      del.run(postId);
+      for (const n of ns) {
+        tagQueries.ensure.run(n);
+        const t = tagQueries.findByName.get(n) as { id: number } | undefined;
+        if (t) link.run(postId, t.id);
+      }
+    });
+    tx(names);
+  },
+  forPost: db.prepare(
+    `SELECT t.name FROM post_tags pt JOIN tags t ON pt.tag_id = t.id
+     WHERE pt.post_id = ? ORDER BY t.name`
+  ),
+  forPostList: db.prepare(
+    `SELECT pt.post_id, GROUP_CONCAT(t.name, ',') AS tags
+     FROM post_tags pt JOIN tags t ON pt.tag_id = t.id
+     GROUP BY pt.post_id`
+  ),
+  postsByTag: db.prepare(
+    `SELECT p.*, u.username AS author_name FROM posts p
+     JOIN users u ON p.author_id = u.id
+     JOIN post_tags pt ON pt.post_id = p.id
+     JOIN tags t ON t.id = pt.tag_id
+     WHERE p.status = 'approved' AND t.name = ?
+     ORDER BY (p.pinned_at IS NULL), p.pinned_at DESC, p.created_at DESC`
+  ),
+  allWithCount: db.prepare(
+    `SELECT t.name, COUNT(pt.post_id) AS cnt FROM tags t
+     JOIN post_tags pt ON pt.tag_id = t.id
+     JOIN posts p ON p.id = pt.post_id AND p.status = 'approved'
+     GROUP BY t.id ORDER BY cnt DESC`
+  ),
+};
+
+// ---- 全文搜索查询 ----
+export const searchQueries = {
+  search: db.prepare(
+    `SELECT p.id, p.slug, p.title, p.description, p.created_at,
+            u.username AS author_name,
+            snippet(post_fts, 2, '<mark>', '</mark>', '…', 18) AS preview
+     FROM post_fts
+     JOIN posts p ON p.id = post_fts.rowid
+     JOIN users u ON p.author_id = u.id
+     WHERE post_fts MATCH ? AND p.status = 'approved'
+     ORDER BY rank`
+  ),
+};
+
+// ---- 浏览量相关查询 ----
+export const viewQueries = {
+  record: db.prepare(
+    `INSERT OR IGNORE INTO post_views (post_id, date, ip_hash, created_at) VALUES (?, ?, ?, ?)`
+  ),
+  countForPost: db.prepare('SELECT COUNT(*) AS count FROM post_views WHERE post_id = ?'),
+  countForPostList: db.prepare(
+    `SELECT post_id, COUNT(*) AS count FROM post_views GROUP BY post_id`
+  ),
+};
+
+// ---- 友链相关查询 ----
+export const linkQueries = {
+  list: db.prepare('SELECT * FROM links ORDER BY sort ASC, created_at DESC'),
+  create: db.prepare(
+    'INSERT INTO links (name, url, description, sort, created_at) VALUES (?, ?, ?, ?, ?)'
+  ),
+  remove: db.prepare('DELETE FROM links WHERE id = ?'),
+};
+
+// ---- 站点统计相关查询 ----
+export const statQueries = {
+  ensureUv: db.prepare(
+    `INSERT OR IGNORE INTO site_stats (date, pv, uv) VALUES (?, 0, 0)`
+  ),
+  bumpPv: db.prepare(
+    `UPDATE site_stats SET pv = pv + 1 WHERE date = ?`
+  ),
+  bumpUv: db.prepare(
+    `UPDATE site_stats SET uv = uv + 1 WHERE date = ?`
+  ),
+  last30: db.prepare(
+    `SELECT date, pv, uv FROM site_stats
+     WHERE date >= date('now', '-30 days')
+     ORDER BY date ASC`
+  ),
+  today: db.prepare(
+    `SELECT date, pv, uv FROM site_stats WHERE date = date('now')`
+  ),
+};
+
+// ---- 每日访客去重查询 ----
+export const visitorQueries = {
+  recordUv: db.prepare(
+    `INSERT OR IGNORE INTO daily_visitors (date, ip_hash) VALUES (?, ?)`
+  ),
 };
 
 // ---- Session 相关查询 ----

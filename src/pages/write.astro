@@ -98,6 +98,9 @@ if (!user) {
             <div class="form-group">
               <input type="text" name="description" placeholder="一句话描述（可选）" maxlength="200" />
             </div>
+            <div class="form-group">
+              <input type="text" name="tags" placeholder="标签，用逗号或空格分隔（可选，最多5个）" maxlength="100" />
+            </div>
             <div class="form-group" style="flex:1; display:flex; flex-direction:column;">
               <textarea id="content" name="content" placeholder="用 Markdown 书写正文..." required></textarea>
             </div>
@@ -125,10 +128,79 @@ if (!user) {
       const previewEl = document.getElementById('preview');
       const form = document.getElementById('writeForm') as HTMLFormElement;
       const msgEl = document.getElementById('submitMsg');
+      const titleEl = form.querySelector('[name="title"]') as HTMLInputElement;
+      const descEl = form.querySelector('[name="description"]') as HTMLInputElement;
 
-      contentEl.addEventListener('input', () => {
+      const STORAGE_KEY = 'writeDraft';
+      const AUTOSAVE_INTERVAL = 15000; // 15s
+      const DEBOUNCE = 2000; // 2s
+
+      function snapshot() {
+        return {
+          title: titleEl.value,
+          desc: descEl.value,
+          content: contentEl.value,
+          t: Date.now(),
+        };
+      }
+
+      function saveDraft() {
+        try {
+          const cur = snapshot();
+          // 任一字段有内容才保存
+          if (!cur.title && !cur.desc && !cur.content) {
+            localStorage.removeItem(STORAGE_KEY);
+            return;
+          }
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(cur));
+        } catch {}
+      }
+
+      function renderPreview() {
         previewEl.innerHTML = marked.parse(contentEl.value) as string;
-      });
+      }
+
+      function restoreDraft(d: { title?: string; desc?: string; content?: string }) {
+        titleEl.value = d.title || '';
+        descEl.value = d.desc || '';
+        contentEl.value = d.content || '';
+        renderPreview();
+      }
+
+      // 启动时检查本地草稿
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          const cur = snapshot();
+          const changed =
+            saved.title !== cur.title ||
+            saved.desc !== cur.desc ||
+            saved.content !== cur.content;
+          if (changed && (saved.title || saved.desc || saved.content)) {
+            if (window.confirm('检测到上次未提交的草稿，是否恢复？')) {
+              restoreDraft(saved);
+            } else {
+              localStorage.removeItem(STORAGE_KEY);
+            }
+          }
+        }
+      } catch {}
+
+      contentEl.addEventListener('input', renderPreview);
+
+      // debounce 2s 自动保存
+      let debounceTimer: number | undefined;
+      function debounceSave() {
+        if (debounceTimer) window.clearTimeout(debounceTimer);
+        debounceTimer = window.setTimeout(saveDraft, DEBOUNCE);
+      }
+      titleEl.addEventListener('input', debounceSave);
+      descEl.addEventListener('input', debounceSave);
+      contentEl.addEventListener('input', debounceSave);
+
+      // 定时 15s 保存
+      window.setInterval(saveDraft, AUTOSAVE_INTERVAL);
 
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -139,6 +211,8 @@ if (!user) {
           const res = await fetch('/api/posts', { method: 'POST', body: formData });
           const data = await res.json();
           if (res.ok) {
+            // 提交成功后清空本地草稿
+            try { localStorage.removeItem(STORAGE_KEY); } catch {}
             msgEl.textContent = data.message || '提交成功';
             msgEl.classList.add('msg-success');
             setTimeout(() => { window.location.href = '/'; }, 1500);

@@ -1,0 +1,57 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE_TITLE } from '../consts';
+import { linkQueries } from '../lib/db';
+
+const links = linkQueries.list.all() as {
+  id: number;
+  name: string;
+  url: string;
+  description: string | null;
+  sort: number;
+  created_at: number;
+}[];
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title={`友链 - ${SITE_TITLE}`} description="友情链接" />
+  </head>
+  <body>
+    <Header />
+    <main class="narrow">
+      <header class="page-head">
+        <h1>🔗 友情链接</h1>
+        <p>以下是我常去的朋友们，欢迎也去看看。</p>
+      </header>
+
+      {links.length === 0 ? (
+        <div class="empty-state card">
+          <div class="empty-icon">🤝</div>
+          <p>还没有友链，期待与你的站点互链。</p>
+        </div>
+      ) : (
+        <ul class="link-grid">
+          {links.map((l) => (
+            <li>
+              <a class="link-card" href={l.url} target="_blank" rel="noopener">
+                <span class="link-name">{l.name}</span>
+                {l.description && <span class="link-desc">{l.description}</span>}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </main>
+    <Footer />
+
+    <style>
+      .page-head { margin-bottom: 1.8rem; }
+      .page-head h1 { margin-bottom: 0.4rem; }
+      .page-head p { color: var(--text-gray); font-size: 0.95rem; margin: 0; }
+    </style>
+  </body>
+</html>

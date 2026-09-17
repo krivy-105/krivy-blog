@@ -1,0 +1,83 @@
+---
+// 文章目录 TOC：从 .article-content / .prose 抽取 h2/h3，IntersectionObserver 高亮当前节
+---
+
+<aside class="toc" id="toc">
+  <details open>
+    <summary>目录</summary>
+    <ul class="toc-list" id="tocList"></ul>
+  </details>
+</aside>
+
+<script>
+  const toc = document.getElementById('toc');
+  const tocList = document.getElementById('tocList');
+  const content = document.querySelector('.article-content') || document.querySelector('.prose');
+
+  if (toc && tocList && content) {
+    const headings = Array.from(content.querySelectorAll('h2, h3')) as HTMLHeadingElement[];
+    if (headings.length < 3) {
+      toc.remove();
+    } else {
+      // 为每个标题注入 id（若已有则保留）
+      headings.forEach((h, i) => {
+        if (!h.id) {
+          const text = (h.textContent || '').trim();
+          h.id = `toc-${i}-${text.replace(/[^\w\u4e00-\u9fa5]+/g, '-').toLowerCase()}` || `toc-${i}`;
+        }
+      });
+
+      const frag = document.createDocumentFragment();
+      headings.forEach((h) => {
+        const li = document.createElement('li');
+        li.className = 'toc-item' + (h.tagName === 'H3' ? ' toc-h3' : '');
+        li.dataset.id = h.id;
+        const a = document.createElement('a');
+        a.href = '#' + h.id;
+        a.textContent = h.textContent || '';
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          history.replaceState(null, '', '#' + h.id);
+        });
+        li.appendChild(a);
+        frag.appendChild(li);
+      });
+      tocList.appendChild(frag);
+
+      // 高亮当前可见标题
+      const linkById = new Map<string, HTMLLIElement>();
+      Array.from(tocList.querySelectorAll('.toc-item')).forEach((li) => {
+        linkById.set((li as HTMLLIElement).dataset.id || '', li as HTMLLIElement);
+      });
+
+      let activeId: string | null = null;
+      const setActive = (id: string | null) => {
+        if (id === activeId) return;
+        if (activeId && linkById.has(activeId)) {
+          linkById.get(activeId)!.classList.remove('is-active');
+        }
+        activeId = id;
+        if (id && linkById.has(id)) {
+          linkById.get(id)!.classList.add('is-active');
+        }
+      };
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          // 选取最靠近顶部且仍可见的标题
+          const visible = entries
+            .filter((e) => e.isIntersecting)
+            .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+          if (visible.length > 0) {
+            setActive((visible[0].target as HTMLElement).id);
+          }
+        },
+        { rootMargin: '-20% 0px -70% 0px', threshold: 0 }
+      );
+      headings.forEach((h) => observer.observe(h));
+    }
+  } else if (toc) {
+    toc.remove();
+  }
+</script>

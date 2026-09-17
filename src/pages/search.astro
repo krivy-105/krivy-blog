@@ -1,0 +1,144 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE_TITLE } from '../consts';
+import { searchQueries } from '../lib/db';
+
+const rawQ = (Astro.url.searchParams.get('q') || '').trim();
+// 清洗 FTS5 运算符：仅保留普通字符，避免注入查询语法
+const safeQ = rawQ.replace(/["'*:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
+
+let results: any[] = [];
+if (safeQ) {
+  try {
+    results = (searchQueries.search.all(safeQ + '*') as any[]).slice(0, 50);
+  } catch {
+    results = [];
+  }
+}
+
+const formatDate = (ts: number) =>
+  new Date(ts).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title={`搜索${rawQ ? '：' + rawQ : ''} - ${SITE_TITLE}`} description="站内文章搜索" />
+  </head>
+  <body>
+    <Header />
+    <main class="narrow">
+      <header class="page-head">
+        <h1>🔍 搜索文章</h1>
+        <p>输入关键词，从已发布的全部文章中检索标题、摘要与正文。</p>
+      </header>
+
+      <form class="search-form" action="/search" method="GET" role="search">
+        <input
+          type="search"
+          name="q"
+          class="search-input"
+          placeholder="关键词，例如：Astro / Markdown / 部署"
+          value={rawQ}
+          autocomplete="off"
+          aria-label="搜索关键词"
+        />
+        <button type="submit" class="btn btn-primary">搜索</button>
+      </form>
+
+      {rawQ ? (
+        <p class="search-status">
+          {results.length > 0
+            ? `找到 ${results.length} 条与 “${rawQ}” 相关的结果`
+            : `没有找到与 “${rawQ}” 相关的文章`}
+        </p>
+      ) : (
+        <div class="empty-state card">
+          <div class="empty-icon">🔍</div>
+          <p>输入关键词开始搜索，结果将匹配标题、摘要与正文。</p>
+        </div>
+      )}
+
+      {results.length > 0 && (
+        <ul class="post-list search-results">
+          {results.map((r, i) => (
+            <li style={`animation-delay: ${i * 50}ms`}>
+              <div class="post-item search-item">
+                <a
+                  href={`/blog/${r.slug}/`}
+                  class="post-item-link"
+                  aria-label={`阅读文章：${r.title}`}
+                ></a>
+                <div class="item-main">
+                  <h2>{r.title}</h2>
+                  <p class="search-preview" set:html={r.preview || r.description || ''} />
+                </div>
+                <div class="item-meta">
+                  <a class="meta-author" href={`/users/${r.author_name}`}>✍️ {r.author_name}</a>
+                  <time>{formatDate(r.created_at)}</time>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </main>
+    <Footer />
+
+    <style>
+      .page-head { margin-bottom: 1.6rem; }
+      .page-head h1 { margin-bottom: 0.4rem; }
+      .page-head p { color: var(--text-gray); font-size: 0.95rem; margin: 0; }
+
+      .search-form {
+        display: flex;
+        gap: 0.6rem;
+        margin-bottom: 1.2rem;
+      }
+      .search-input {
+        flex: 1;
+        padding: 10px 14px;
+        border: 1.5px solid var(--border-light);
+        border-radius: var(--radius-md);
+        background: var(--bg-white);
+        color: var(--text-dark);
+        font-size: 0.95rem;
+        font-family: inherit;
+        transition: var(--transition);
+      }
+      .search-input:focus {
+        outline: none;
+        border-color: var(--monet-blue);
+        box-shadow: 0 0 0 3px rgba(107, 148, 168, 0.18);
+      }
+      .search-status {
+        margin: 0 0 1.2rem;
+        font-size: 0.9rem;
+        color: var(--text-gray);
+      }
+      .search-preview {
+        color: var(--text-gray);
+        font-size: 0.9rem;
+        line-height: 1.7;
+        margin: 0.3rem 0 0;
+      }
+      .search-preview :global(mark) {
+        background: rgba(224, 169, 46, 0.25);
+        color: inherit;
+        padding: 0 2px;
+        border-radius: 3px;
+      }
+      .search-item .item-meta {
+        flex-direction: column;
+        align-items: flex-end;
+      }
+      @media (max-width: 560px) {
+        .search-form { flex-direction: column; }
+        .search-item { flex-direction: column; gap: 0.6rem; }
+        .search-item .item-meta { flex-direction: row; align-items: center; }
+      }
+    </style>
+  </body>
+</html>

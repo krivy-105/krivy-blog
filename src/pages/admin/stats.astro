@@ -1,0 +1,221 @@
+---
+import BaseHead from '../../components/BaseHead.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import { SITE_TITLE } from '../../consts';
+import { statQueries } from '../../lib/db';
+
+const user = Astro.locals.user;
+if (!user || user.role !== 'admin') {
+  return Astro.redirect('/');
+}
+
+const rows = statQueries.last30.all() as { date: string; pv: number; uv: number }[];
+const today = (statQueries.today.get() as { date: string; pv: number; uv: number } | undefined)
+  || { date: new Date().toISOString().slice(0, 10), pv: 0, uv: 0 };
+
+// SVG 折线图：viewBox 600x180，归一化数据
+const W = 600;
+const H = 180;
+const PADDING = 30;
+const max = Math.max(1, ...rows.map((r) => Math.max(r.pv, r.uv)));
+const innerW = W - PADDING * 2;
+const innerH = H - PADDING * 2;
+const step = rows.length > 1 ? innerW / (rows.length - 1) : innerW;
+
+function pts(key: 'pv' | 'uv') {
+  if (rows.length === 0) return '';
+  return rows
+    .map((r, i) => {
+      const x = PADDING + i * step;
+      const y = PADDING + innerH - (r[key] / max) * innerH;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+}
+
+const pvPts = pts('pv');
+const uvPts = pts('uv');
+
+const totalPv = rows.reduce((s, r) => s + r.pv, 0);
+const totalUv = rows.reduce((s, r) => s + r.uv, 0);
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title={`站点统计 - ${SITE_TITLE}`} description="PV/UV 趋势" />
+  </head>
+  <body>
+    <Header />
+    <main class="narrow">
+      <a href="/admin" class="back-link">← 返回管理后台</a>
+      <header class="page-head">
+        <h1>📊 站点统计</h1>
+        <p>最近 30 天 PV/UV 趋势，数据按 IP 哈希去重。</p>
+      </header>
+
+      <section class="stats-summary">
+        <div class="stat-card">
+          <div class="stat-label">今日 PV</div>
+          <div class="stat-value">{today.pv}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">今日 UV</div>
+          <div class="stat-value">{today.uv}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">30 天 PV 合计</div>
+          <div class="stat-value">{totalPv}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">30 天 UV 合计</div>
+          <div class="stat-value">{totalUv}</div>
+        </div>
+      </section>
+
+      <section class="stats-chart-wrap">
+        {rows.length > 0 ? (
+          <>
+            <svg class="stats-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="最近 30 天 PV/UV 趋势图">
+              {/* 网格线 */}
+              {[0, 0.25, 0.5, 0.75, 1].map((t) => {
+                const y = PADDING + innerH * (1 - t);
+                return (
+                  <g>
+                    <line x1={PADDING} y1={y} x2={W - PADDING} y2={y} stroke="var(--border-light)" stroke-dasharray="3,4" />
+                    <text x={PADDING - 6} y={y + 3} text-anchor="end" font-size="9" fill="var(--text-light)">
+                      {Math.round(t * max)}
+                    </text>
+                  </g>
+                );
+              })}
+              {/* UV 虚线 */}
+              <polyline points={uvPts} fill="none" stroke="#e0a92e" stroke-width="2" stroke-dasharray="5,4" />
+              {/* PV 实线 */}
+              <polyline points={pvPts} fill="none" stroke="#5f889d" stroke-width="2.4" />
+              {/* X 轴日期标签（首、中、末） */}
+              {rows.length > 0 && (
+                <text x={PADDING} y={H - 8} text-anchor="start" font-size="9" fill="var(--text-light)">
+                  {rows[0].date}
+                </text>
+              )}
+              {rows.length > 0 && (
+                <text x={W - PADDING} y={H - 8} text-anchor="end" font-size="9" fill="var(--text-light)">
+                  {rows[rows.length - 1].date}
+                </text>
+              )}
+            </svg>
+            <div class="stats-legend">
+              <span><span class="dot" style="background:#5f889d"></span> PV（页面访问）</span>
+              <span><span class="dot" style="background:#e0a92e;border:1px dashed #e0a92e;background:transparent"></span> UV（独立访客）</span>
+            </div>
+          </>
+        ) : (
+          <p class="empty-stats">暂无统计数据，等访客进来后刷新即可看到趋势。</p>
+        )}
+      </section>
+
+      <section class="stats-table">
+        <table>
+          <thead>
+            <tr><th>日期</th><th>PV</th><th>UV</th></tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr><td colspan="3" class="empty-row">暂无数据</td></tr>
+            ) : rows.slice().reverse().map((r) => (
+              <tr>
+                <td>{r.date}</td>
+                <td>{r.pv}</td>
+                <td>{r.uv}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </main>
+    <Footer />
+
+    <style>
+      .page-head { margin-bottom: 1.6rem; }
+      .page-head h1 { margin-bottom: 0.4rem; }
+      .page-head p { color: var(--text-gray); font-size: 0.95rem; margin: 0; }
+
+      .back-link {
+        display: inline-block;
+        color: var(--text-gray);
+        font-size: 0.9rem;
+        margin-bottom: 1.2rem;
+      }
+      .back-link:hover { color: var(--monet-blue-dark); }
+
+      .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.8rem;
+        margin-bottom: 1.6rem;
+      }
+      .stat-card {
+        background: var(--bg-white);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-md);
+        padding: 0.9rem 1rem;
+      }
+      .stat-label {
+        font-size: 0.78rem;
+        color: var(--text-gray);
+        margin-bottom: 0.35rem;
+      }
+      .stat-value {
+        font-size: 1.5rem;
+        font-weight: 650;
+        color: var(--monet-blue-deep);
+      }
+
+      .stats-chart-wrap {
+        background: var(--bg-white);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-lg);
+        padding: 1rem 1.2rem 1.2rem;
+        margin-bottom: 1.6rem;
+      }
+      .stats-legend .dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 6px;
+        vertical-align: middle;
+      }
+      .empty-stats {
+        text-align: center;
+        color: var(--text-gray);
+        padding: 2rem 0;
+      }
+
+      .stats-table {
+        background: var(--bg-white);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+      }
+      .stats-table table { width: 100%; border-collapse: collapse; }
+      .stats-table th,
+      .stats-table td {
+        padding: 10px 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--border-light);
+        font-size: 0.9rem;
+      }
+      .stats-table th { background: var(--monet-blue-lighter); font-weight: 600; }
+      .stats-table tr:last-child td { border-bottom: none; }
+      .stats-table tr:hover { background: var(--monet-blue-lighter); }
+      .empty-row { text-align: center; color: var(--text-gray); padding: 1.5rem; }
+
+      @media (max-width: 720px) {
+        .stats-summary { grid-template-columns: repeat(2, 1fr); }
+      }
+    </style>
+  </body>
+</html>

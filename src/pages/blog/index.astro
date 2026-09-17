@@ -3,9 +3,21 @@ import BaseHead from '../../components/BaseHead.astro';
 import Footer from '../../components/Footer.astro';
 import Header from '../../components/Header.astro';
 import { SITE_TITLE } from '../../consts';
-import { postQueries } from '../../lib/db';
+import { postQueries, tagQueries, viewQueries } from '../../lib/db';
 
 const posts = postQueries.findApproved.all() as any[];
+
+// post_id -> tags
+const tagRows = tagQueries.forPostList.all() as { post_id: number; tags: string | null }[];
+const tagMap = new Map<number, string[]>();
+for (const r of tagRows) {
+  if (r.tags) tagMap.set(r.post_id, r.tags.split(','));
+}
+
+// post_id -> 浏览量
+const viewRows = viewQueries.countForPostList.all() as { post_id: number; count: number }[];
+const viewMap = new Map<number, number>();
+for (const r of viewRows) viewMap.set(r.post_id, r.count);
 ---
 
 <!doctype html>
@@ -39,12 +51,22 @@ const posts = postQueries.findApproved.all() as any[];
                   {post.pinned_at && <span class="pin-badge">📌 置顶</span>}
                   <h2>{post.title}</h2>
                   {post.description && <p class="post-desc">{post.description}</p>}
+                  {(tagMap.get(post.id) || []).length > 0 && (
+                    <ul class="tag-list">
+                      {tagMap.get(post.id)!.map((t) => (
+                        <li><a class="tag-chip" href={`/tags/${t}/`}>{t}</a></li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
                 <div class="item-meta">
                   <time>{new Date(post.created_at).toLocaleDateString('zh-CN')}</time>
                   <a class="meta-author" href={`/users/${post.author_name}`}
                     >✍️ {post.author_name}</a
                   >
+                  {viewMap.has(post.id) && (
+                    <span class="view-count">👁 {viewMap.get(post.id)}</span>
+                  )}
                 </div>
               </div>
             </li>

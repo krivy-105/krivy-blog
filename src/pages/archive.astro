@@ -1,0 +1,110 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE_TITLE } from '../consts';
+import { postQueries } from '../lib/db';
+
+const allPosts = postQueries.findApprovedForArchive.all() as {
+  id: number;
+  slug: string;
+  title: string;
+  created_at: number;
+  author_name: string;
+}[];
+
+// 按年月分组：groups[year][month] = posts[]
+type ArchivePost = { slug: string; title: string; created_at: number; author_name: string };
+const groups = new Map<string, Map<string, ArchivePost[]>>();
+for (const p of allPosts) {
+  const d = new Date(p.created_at);
+  const y = String(d.getFullYear());
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  if (!groups.has(y)) groups.set(y, new Map());
+  const ym = groups.get(y)!;
+  if (!ym.has(m)) ym.set(m, []);
+  ym.get(m)!.push({
+    slug: p.slug,
+    title: p.title,
+    created_at: p.created_at,
+    author_name: p.author_name,
+  });
+}
+
+const years = Array.from(groups.keys()).sort((a, b) => Number(b) - Number(a));
+const padDay = (ts: number) => String(new Date(ts).getDate()).padStart(2, '0');
+const monthLabel = (m: string) => m;
+const fmt = (ts: number, m: string, d: string) => `${m}-${d}`;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title={`归档 - ${SITE_TITLE}`} description="全部已发布文章归档" />
+  </head>
+  <body>
+    <Header />
+    <main class="narrow">
+      <header class="page-head">
+        <h1>📚 文章归档</h1>
+        <p>共 {allPosts.length} 篇文章，按时间倒序归档。</p>
+      </header>
+
+      {years.length === 0 ? (
+        <div class="empty-state card">
+          <div class="empty-icon">📭</div>
+          <p>暂无已发布的文章。</p>
+          <a href="/write" class="btn btn-outline btn-sm">去写第一篇</a>
+        </div>
+      ) : (
+        years.map((y) => {
+          const ym = groups.get(y)!;
+          const months = Array.from(ym.keys()).sort((a, b) => Number(b) - Number(a));
+          return (
+            <section class="archive-year">
+              <h2>{y} 年 <span class="archive-year-count">({allPosts.filter((p) => String(new Date(p.created_at).getFullYear()) === y).length} 篇)</span></h2>
+              {months.map((m) => {
+                const posts = ym.get(m)!;
+                return (
+                  <div class="archive-month">
+                    <h3>{monthLabel(m)} 月</h3>
+                    <ul class="archive-list">
+                      {posts.map((p) => (
+                        <li>
+                          <time>{padDay(p.created_at)}</time>
+                          <a href={`/blog/${p.slug}/`}>{p.title}</a>
+                          <span class="archive-author">✍️ {p.author_name}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </section>
+          );
+        })
+      )}
+    </main>
+    <Footer />
+
+    <style>
+      .page-head { margin-bottom: 2rem; }
+      .page-head h1 { margin-bottom: 0.4rem; }
+      .page-head p { color: var(--text-gray); font-size: 0.95rem; margin: 0; }
+
+      .archive-year-count {
+        font-size: 0.86rem;
+        color: var(--text-gray);
+        font-weight: 400;
+      }
+      .archive-author {
+        margin-left: auto;
+        font-size: 0.8rem;
+        color: var(--text-light);
+      }
+      .archive-list li {
+        flex-wrap: wrap;
+      }
+    </style>
+  </body>
+</html>

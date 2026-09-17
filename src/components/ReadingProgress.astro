@@ -1,0 +1,34 @@
+---
+// 顶部阅读进度条：监听文章容器滚动比例并更新进度条宽度
+---
+
+<div class="reading-progress" id="readingProgress" aria-hidden="true">
+  <div class="reading-progress-bar" id="readingProgressBar"></div>
+</div>
+
+<script>
+  const bar = document.getElementById('readingProgressBar');
+  const article = document.querySelector('article');
+
+  function update() {
+    if (!bar || !article) return;
+    const top = article.getBoundingClientRect().top;
+    const height = article.offsetHeight;
+    const winH = window.innerHeight;
+    const scrollable = height - winH;
+    if (scrollable <= 0) {
+      // 文章比视口短：滚动即视为读完全文
+      bar.style.transform = window.scrollY > 0 ? 'scaleX(1)' : 'scaleX(0)';
+      return;
+    }
+    // 文章顶部位于视口顶部时进度为 0；继续向下滚动直到文章底部贴近视口底部时进度为 1
+    let p = (-top) / scrollable;
+    if (p < 0) p = 0;
+    if (p > 1) p = 1;
+    bar.style.transform = `scaleX(${p})`;
+  }
+
+  update();
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+</script>
