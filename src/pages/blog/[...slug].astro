@@ -345,4 +345,30 @@ const related = post.status === 'approved'
     flex-wrap: wrap;
   }
   .article-actions .back-link { margin-bottom: 0; }
+
+  @media (max-width: 560px) {
+    .back-link { min-height: 40px; display: inline-flex; align-items: center; }
+    .article-header { margin-bottom: 1.8rem; padding-bottom: 1.3rem; }
+    .article-desc { font-size: 0.95rem; line-height: 1.7; margin-bottom: 1rem; }
+    .article-meta { gap: 0.7rem 0.9rem; font-size: 0.82rem; }
+    .author-chip {
+      min-height: 36px;
+      padding-right: 6px;
+    }
+    .author-avatar { width: 30px; height: 30px; }
+    .article-tags { margin-top: 0.8rem; }
+    .related { margin-top: 2.2rem; padding-top: 1.5rem; }
+    .related-grid { gap: 0.7rem; }
+    .related-card { padding: 0.85rem 0.95rem; }
+    .article-actions {
+      margin-top: 2.2rem;
+      flex-direction: column-reverse;
+      align-items: stretch;
+      gap: 0.8rem;
+    }
+    .article-actions .btn { min-height: 44px; }
+    .review-banner { padding: 0.9rem 1rem; gap: 0.7rem; }
+    .review-banner-actions { width: 100%; }
+    .review-banner-actions .btn { flex: 1; min-height: 42px; }
+  }
 </style>

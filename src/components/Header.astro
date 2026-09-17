@@ -390,9 +390,12 @@ const pendingCount = isAdmin
       transform: scaleY(1) translateY(0);
     }
     .nav-center :global(a) {
-      padding: 11px 14px;
+      padding: 13px 14px;
       border-radius: var(--radius-md);
       font-size: 1rem;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
     }
     .nav-search-mobile {
       display: flex;
@@ -403,10 +406,18 @@ const pendingCount = isAdmin
     .nav-search-input,
     .nav-search-input:focus {
       width: 100%;
+      min-height: 42px;
+      font-size: 16px; /* ≥16px 避免 iOS 输入聚焦时自动缩放页面 */
     }
     [data-theme="dark"] .nav-center {
       background: rgba(26, 36, 43, 0.97);
     }
+  }
+
+  /* 超小屏：收起品牌文字，只留 logo，保证右侧操作区不挤 */
+  @media (max-width: 420px) {
+    .brand-name { display: none; }
+    .brand { gap: 0; }
   }
 </style>
 

@@ -697,7 +697,24 @@ th {
 
 @media (max-width: 768px) {
   body { font-size: 15px; }
-  main { padding: 1.8rem 1.1rem 2.8rem; }
+  main { padding: 1.6rem 1.1rem 2.6rem; }
+
+  /* 输入框 ≥16px 防止 iOS 聚焦时自动放大页面 */
+  .form-group input,
+  .form-group textarea,
+  .form-group select { font-size: 16px; }
+
+  /* 正文在手机上收紧行距、字号，提升阅读密度 */
+  .prose { font-size: 0.98rem; line-height: 1.85; }
+  .prose h1 { font-size: 1.5rem; }
+  .prose h2 { font-size: 1.3rem; }
+  .prose pre { padding: 1em 1.1em; }
+
+  /* 长单词 / 链接不撑破屏幕 */
+  .prose { overflow-wrap: break-word; word-break: break-word; }
+  .prose img { max-width: 100%; height: auto; }
+  /* 宽表格横向滚动而不是撑破布局 */
+  .prose table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
 }
 
 /* 尊重减少动态效果偏好 */

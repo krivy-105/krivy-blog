@@ -240,7 +240,22 @@ for (const r of viewRows) viewMap.set(r.post_id, r.count);
     .post-grid { grid-template-columns: 1fr 1fr; }
   }
   @media (max-width: 560px) {
-    .hero { padding: 4rem 1.2rem 3.2rem; }
+    .hero { padding: 3.4rem 1.2rem 2.8rem; }
     .br-pc { display: none; }
+    .hero-actions { gap: 0.7rem; width: 100%; }
+    .hero-actions .btn { flex: 1; min-height: 46px; padding: 11px 18px; }
+    .latest { padding: 0 0.2rem; }
+    .post-grid { gap: 1rem; }
+    .post-card { padding: 1.35rem 1.25rem; }
+    .post-card h2 { font-size: 1.15rem; }
+    .post-meta { gap: 0.4rem; flex-wrap: wrap; }
+    .card-author {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 2px 4px;
+    }
+    .more-wrap { margin-top: 2rem; }
+    .more-wrap .btn { min-height: 46px; }
   }
 </style>
