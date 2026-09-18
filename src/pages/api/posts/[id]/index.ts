@@ -136,17 +136,21 @@ export const DELETE: APIRoute = async ({ locals, params }) => {
   if (!post) {
     return new Response(JSON.stringify({ error: '文章不存在' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
   }
-  if (post.author_id !== user.id) {
+  const isOwner = post.author_id === user.id;
+  const isAdmin = user.role === 'admin';
+  if (!isOwner && !isAdmin) {
     return new Response(JSON.stringify({ error: '无权限删除此文章' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
   }
 
   try {
     const now = Date.now();
-    const result = postQueries.softDelete.run(now, now, id, user.id);
+    const result = isOwner
+      ? postQueries.softDelete.run(now, now, id, user.id)
+      : postQueries.adminSoftDelete.run(now, now, id);
     if (result.changes === 0) {
       return new Response(JSON.stringify({ error: '删除失败' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
-    return new Response(JSON.stringify({ success: true, message: '文章已删除' }), {
+    return new Response(JSON.stringify({ success: true, message: isAdmin && !isOwner ? '文章已下架' : '文章已删除' }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });

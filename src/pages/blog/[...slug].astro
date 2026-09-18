@@ -14,11 +14,16 @@ const post = postQueries.findBySlug.get(slug) as any;
 
 const currentUser = Astro.locals.user;
 const isAdmin = currentUser?.role === 'admin';
+const isOwner = currentUser?.id === post?.author_id;
 
 // 未发布文章仅管理员可预览，其他访客回到列表
 if (!post || (post.status !== 'approved' && !isAdmin)) {
   return Astro.redirect('/blog');
 }
+
+// 作者可管理自己的文章；管理员可下架他人已发布文章
+const canEdit = isOwner;
+const canDelete = isOwner || (isAdmin && post.status === 'approved');
 
 const htmlContent = marked.parse(post.content) as string;
 const author = post.author_name;
@@ -150,6 +155,14 @@ if (seriesInfo) {
               <span class="read-info">📖 约 {wordCount} 字 · {readMinutes} 分钟</span>
             )}
           </div>
+          {canDelete && (
+            <div class="owner-toolbar" data-post-id={post.id}>
+              {canEdit && <a class="owner-btn" href={`/edit/${post.id}`}>✏️ 编辑</a>}
+              {isOwner
+                ? <button type="button" class="owner-btn owner-btn-danger" data-action="owner-delete">🗑 删除</button>
+                : <button type="button" class="owner-btn owner-btn-danger" data-action="admin-takedown">🛡 管理员下架</button>}
+            </div>
+          )}
           {tags.length > 0 && (
             <ul class="tag-list article-tags">
               {tags.map((t) => (
@@ -240,6 +253,33 @@ if (seriesInfo) {
 
     {post.status === 'approved' && (
       <script is:inline set:html={`fetch('/api/posts/${post.id}/view', { method: 'POST' }).catch(function () {});`} />
+    )}
+
+    {canDelete && (
+      <script define:vars={{ ownerRedirect: `/users/${currentUser?.username ?? ''}` }}>
+        const toolbar = document.querySelector('.owner-toolbar');
+        toolbar?.querySelectorAll('button[data-action]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const postId = toolbar.dataset.postId;
+            const isOwnerAction = btn.dataset.action === 'owner-delete';
+            const tip = isOwnerAction
+              ? '确认删除这篇文章？删除后将从站点消失且不可恢复。'
+              : '确认以管理员身份下架这篇文章？下架后所有访客都无法查看。';
+            if (!window.confirm(tip)) return;
+            btn.disabled = true;
+            try {
+              const res = await fetch(`/api/posts/${postId}`, { method: 'DELETE' });
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(data.error || '删除失败');
+              window.alert(data.message || '操作成功');
+              window.location.href = isOwnerAction ? ownerRedirect : '/admin';
+            } catch (e) {
+              window.alert(e instanceof Error ? e.message : '网络错误，请重试');
+              btn.disabled = false;
+            }
+          });
+        });
+      </script>
     )}
 
     <script>
@@ -345,6 +385,45 @@ if (seriesInfo) {
     transition: var(--transition);
   }
   .back-link:hover { color: var(--monet-blue-dark); transform: translateX(-3px); }
+
+  /* 作者/管理员工具条 */
+  .owner-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin: 0.7rem 0 0.2rem;
+  }
+  .owner-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 13px;
+    font-size: 0.8rem;
+    font-family: inherit;
+    border-radius: var(--radius-pill);
+    border: 1px solid transparent;
+    background: var(--monet-blue-lighter);
+    color: var(--monet-blue-dark);
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s var(--ease);
+  }
+  .owner-btn:hover { transform: translateY(-1px); background: var(--monet-blue-light); }
+  .owner-btn-danger {
+    color: #c85060;
+    border-color: #f2d1d6;
+    background: #fff5f7;
+  }
+  [data-theme="dark"] .owner-btn-danger {
+    color: #f2a3ad;
+    background: rgba(239, 111, 131, 0.12);
+    border-color: rgba(239, 111, 131, 0.3);
+  }
+  .owner-btn-danger:hover {
+    background: #ef6f83;
+    color: #fff;
+    border-color: #ef6f83;
+  }
 
   .series-nav {
     background: var(--bg-white);

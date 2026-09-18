@@ -500,6 +500,10 @@ export const postQueries = {
   softDelete: db.prepare(
     'UPDATE posts SET deleted_at = ?, updated_at = ? WHERE id = ? AND author_id = ? AND deleted_at IS NULL'
   ),
+  // 管理员下架：不限作者
+  adminSoftDelete: db.prepare(
+    'UPDATE posts SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL'
+  ),
 };
 
 // ---- 消息相关查询 ----
