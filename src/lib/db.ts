@@ -386,6 +386,40 @@ export const userQueries = {
   countPendingAvatars: db.prepare(
     `SELECT COUNT(*) AS count FROM users WHERE avatar_status = 'pending' AND avatar_pending IS NOT NULL`
   ),
+  // 事务式删除用户：FK 默认 RESTRICT，必须按依赖顺序显式清理
+  deleteWithData: db.transaction((userId: number) => {
+    // 1) 其名下文章及其从属数据（post_tags/post_bookmarks/post_series/notifications 走 CASCADE，
+    //    FTS 由 posts_fts_ad 触发器自动清理）
+    const postIds = (db.prepare('SELECT id FROM posts WHERE author_id = ?').all(userId) as { id: number }[]).map(
+      (p) => p.id
+    );
+    if (postIds.length > 0) {
+      const inClause = postIds.map(() => '?').join(',');
+      db.prepare(`DELETE FROM post_views WHERE post_id IN (${inClause})`).run(...postIds);
+      // 删评论会级联删除 comment_likes/comment_reports/notifications，嵌套回复经 parent_id 级联
+      db.prepare(`DELETE FROM comments WHERE post_id IN (${inClause})`).run(...postIds);
+      db.prepare(`DELETE FROM post_shares WHERE post_id IN (${inClause})`).run(...postIds);
+      db.prepare(`DELETE FROM post_likes WHERE post_id IN (${inClause})`).run(...postIds);
+      db.prepare('DELETE FROM posts WHERE author_id = ?').run(userId);
+    }
+    // 2) 该用户在他人文章下的点赞与评论（子回复随 parent_id 级联）
+    db.prepare('DELETE FROM comment_likes WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM comments WHERE user_id = ?').run(userId);
+    // 3) 解除剩余表对该用户的 RESTRICT/悬空引用
+    db.prepare('UPDATE comments SET reply_to_user_id = NULL WHERE reply_to_user_id = ?').run(userId);
+    db.prepare('UPDATE post_shares SET user_id = NULL WHERE user_id = ?').run(userId);
+    // 4) 其创建的系列、点赞、收藏、私信、登录会话
+    //    注意：post_bookmarks.user_id 建表时未声明 ON DELETE（NO ACTION），必须显式删
+    db.prepare('DELETE FROM series WHERE author_id = ?').run(userId);
+    db.prepare('DELETE FROM post_likes WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM post_bookmarks WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM messages WHERE sender_id = ? OR receiver_id = ?').run(userId, userId);
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+    // 5) follows / notifications(user_id) / comment_reports(reporter_id) 走 CASCADE，
+    //    notifications.actor_id / comment_reports.handler_id 走 SET NULL，最后删主行
+    const info = db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+    return info.changes;
+  }),
 };
 
 // ---- 文章相关查询 ----

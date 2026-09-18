@@ -136,6 +136,15 @@ const formatTime = (ts: number) =>
         border-radius: 9px;
         vertical-align: middle;
       }
+      .btn-danger {
+        color: #e74c3c;
+        border-color: rgba(231, 76, 60, 0.5);
+      }
+      .btn-danger:hover {
+        background: #e74c3c;
+        color: #fff;
+        border-color: #e74c3c;
+      }
     </style>
   </head>
   <body>
@@ -241,15 +250,30 @@ const formatTime = (ts: number) =>
         <div class="table-card">
           <table>
             <thead>
-              <tr><th>用户名</th><th>邮箱</th><th>角色</th><th>注册时间</th></tr>
+              <tr><th>用户名</th><th>邮箱</th><th>角色</th><th>注册时间</th><th>操作</th></tr>
             </thead>
             <tbody>
               {users.map((u) => (
                 <tr>
-                  <td>{u.username}</td>
+                  <td><a href={`/users/${u.username}`}>{u.username}</a></td>
                   <td>{u.email}</td>
                   <td><span class={`tag ${u.role === 'admin' ? 'tag-approved' : ''}`}>{u.role === 'admin' ? '管理员' : '用户'}</span></td>
                   <td>{new Date(u.created_at).toLocaleDateString('zh-CN')}</td>
+                  <td>
+                    {u.id === user.id ? (
+                      <span class="btn btn-outline btn-sm" style="opacity:.55;cursor:not-allowed;" title="不能删除当前登录账号">
+                        当前账号
+                      </span>
+                    ) : (
+                      <button
+                        class="btn btn-outline btn-sm btn-danger"
+                        data-delete-user={u.id}
+                        data-username={u.username}
+                      >
+                        删除
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -288,6 +312,32 @@ const formatTime = (ts: number) =>
           } catch (e) {
             window.alert(e instanceof Error ? e.message : '网络错误，请重试');
             row?.querySelectorAll('button').forEach((b) => (b.disabled = false));
+          }
+        });
+      });
+
+      // 删除用户：需输入用户名精确匹配后才执行，防误删
+      document.querySelectorAll<HTMLButtonElement>('button[data-delete-user]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.deleteUser;
+          const username = btn.dataset.username || '';
+          const input = window.prompt(
+            `永久删除用户「${username}」将同时删除其全部文章、评论、点赞、收藏、关注与私信，且不可恢复。\n\n如确认删除，请输入用户名 ${username}：`
+          );
+          if (input === null) return;
+          if (input.trim() !== username) {
+            window.alert('输入的用户名不匹配，已取消删除。');
+            return;
+          }
+          btn.disabled = true;
+          try {
+            const res = await fetch(`/api/admin/users/${id}/delete`, { method: 'POST' });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || '删除失败');
+            location.reload();
+          } catch (e) {
+            window.alert(e instanceof Error ? e.message : '网络错误，请重试');
+            btn.disabled = false;
           }
         });
       });
