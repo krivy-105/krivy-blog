@@ -1,0 +1,173 @@
+---
+// 轻量 Markdown 编辑器工具栏（GitHub issue 风格）。
+// 通过 data-md-toolbar 指定要操作的 textarea id，write / edit 两个页面共用。
+interface Props {
+  targetId?: string;
+}
+const { targetId = 'content' } = Astro.props;
+---
+
+<div class="md-toolbar" data-md-toolbar={targetId} role="toolbar" aria-label="Markdown 格式工具栏">
+  <button type="button" data-md-action="heading" title="标题" aria-label="标题"><b>H</b></button>
+  <button type="button" data-md-action="bold" title="加粗" aria-label="加粗"><b>B</b></button>
+  <button type="button" data-md-action="italic" title="斜体" aria-label="斜体"><i>I</i></button>
+  <button type="button" data-md-action="strike" title="删除线" aria-label="删除线"><s>S</s></button>
+  <span class="md-sep" aria-hidden="true"></span>
+  <button type="button" data-md-action="quote" title="引用" aria-label="引用">❝</button>
+  <button type="button" data-md-action="code" title="行内代码" aria-label="行内代码">{'</>'}</button>
+  <button type="button" data-md-action="codeblock" title="代码块" aria-label="代码块">{ '{ }' }</button>
+  <span class="md-sep" aria-hidden="true"></span>
+  <button type="button" data-md-action="link" title="插入链接" aria-label="插入链接">🔗</button>
+  <button type="button" data-md-action="image" title="插入图片" aria-label="插入图片">🖼️</button>
+  <span class="md-sep" aria-hidden="true"></span>
+  <button type="button" data-md-action="ul" title="无序列表" aria-label="无序列表">☰</button>
+  <button type="button" data-md-action="ol" title="有序列表" aria-label="有序列表">1.</button>
+</div>
+
+<script>
+  type TextArea = HTMLTextAreaElement;
+
+  // 行内包裹：**选中**、*斜体*、`代码` 等
+  function wrapSelection(ta: TextArea, before: string, after: string, placeholder: string) {
+    const start = ta.selectionStart ?? ta.value.length;
+    const end = ta.selectionEnd ?? start;
+    const value = ta.value;
+    const selected = value.slice(start, end) || placeholder;
+    ta.value = value.slice(0, start) + before + selected + after + value.slice(end);
+    const focusStart = start + before.length;
+    ta.focus();
+    ta.setSelectionRange(focusStart, focusStart + selected.length);
+  }
+
+  // 行前缀：标题、引用、列表（再次点击可取消）
+  function prefixLines(ta: TextArea, prefix: string, ordered = false) {
+    const value = ta.value;
+    const start = ta.selectionStart ?? value.length;
+    const end = ta.selectionEnd ?? start;
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    const block = value.slice(lineStart, end);
+    const lines = block.split('\n');
+    const isPrefixed = (ln: string) => (ordered ? /^\d+\.\s/.test(ln) : ln.startsWith(prefix));
+    const allPrefixed = lines.every((ln) => isPrefixed(ln));
+
+    let out: string[];
+    if (allPrefixed) {
+      out = lines.map((ln) => (ordered ? ln.replace(/^\d+\.\s/, '') : ln.slice(prefix.length)));
+    } else if (ordered) {
+      out = lines.map((ln, i) => `${i + 1}. ${ln}`);
+    } else {
+      out = lines.map((ln) => prefix + ln);
+    }
+
+    const newBlock = out.join('\n');
+    ta.value = value.slice(0, lineStart) + newBlock + value.slice(lineStart + block.length);
+    ta.focus();
+    ta.setSelectionRange(lineStart, lineStart + newBlock.length);
+  }
+
+  function insertLink(ta: TextArea, withImage: boolean) {
+    const url = window.prompt(withImage ? '请输入图片地址' : '请输入链接地址', 'https://');
+    if (url === null) return;
+    const u = url.trim();
+    if (!u || u === 'https://') return;
+    wrapSelection(ta, withImage ? '![' : '[', `](${u})`, withImage ? '图片描述' : '链接文字');
+  }
+
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement | null)?.closest?.('[data-md-action]') as HTMLButtonElement | null;
+    if (!btn) return;
+    const bar = btn.closest('[data-md-toolbar]') as HTMLElement | null;
+    if (!bar) return;
+    const ta = document.getElementById(bar.dataset.mdToolbar || '') as TextArea | null;
+    if (!ta) return;
+
+    e.preventDefault();
+    switch (btn.dataset.mdAction) {
+      case 'heading':
+        prefixLines(ta, '## ');
+        break;
+      case 'bold':
+        wrapSelection(ta, '**', '**', '粗体文字');
+        break;
+      case 'italic':
+        wrapSelection(ta, '*', '*', '斜体文字');
+        break;
+      case 'strike':
+        wrapSelection(ta, '~~', '~~', '删除线文字');
+        break;
+      case 'quote':
+        prefixLines(ta, '> ');
+        break;
+      case 'code':
+        wrapSelection(ta, '`', '`', '代码');
+        break;
+      case 'codeblock':
+        wrapSelection(ta, '\n```\n', '\n```\n', '在此粘贴代码');
+        break;
+      case 'link':
+        insertLink(ta, false);
+        break;
+      case 'image':
+        insertLink(ta, true);
+        break;
+      case 'ul':
+        prefixLines(ta, '- ');
+        break;
+      case 'ol':
+        prefixLines(ta, '', true);
+        break;
+    }
+    // 通知 write/edit 页已有的 Markdown 预览与草稿自动保存
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+</script>
+
+<style>
+  .md-toolbar {
+    flex: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    margin-bottom: 8px;
+    padding: 5px;
+    background: var(--bg-white);
+    border: 1.5px solid var(--border-light);
+    border-radius: var(--radius-md);
+  }
+  .md-toolbar button {
+    min-width: 34px;
+    height: 34px;
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--monet-blue-dark);
+    border-radius: var(--radius-pill);
+    font-size: 0.85rem;
+    line-height: 1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    cursor: pointer;
+    transition: background 0.18s var(--ease), transform 0.1s var(--ease);
+  }
+  .md-toolbar button:hover {
+    background: var(--monet-blue-lighter);
+  }
+  .md-toolbar button:active {
+    transform: scale(0.9);
+  }
+  .md-toolbar .md-sep {
+    width: 1px;
+    align-self: stretch;
+    margin: 5px 4px;
+    background: var(--border-light);
+  }
+  @media (max-width: 560px) {
+    .md-toolbar button {
+      min-width: 38px;
+      height: 38px;
+    }
+  }
+</style>

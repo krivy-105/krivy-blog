@@ -1,0 +1,337 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import { SITE_TITLE } from '../consts';
+import { notificationQueries, type User } from '../lib/db';
+
+const user = Astro.locals.user as User | undefined;
+if (!user) {
+  return Astro.redirect('/login?redirect=/notifications');
+}
+
+interface NotifRow {
+  id: number;
+  actor_id: number | null;
+  actor_name: string | null;
+  type: 'comment' | 'comment_like' | 'post_like' | 'new_follow';
+  post_id: number | null;
+  post_slug: string | null;
+  post_title: string | null;
+  comment_id: number | null;
+  content: string | null;
+  read_at: number | null;
+  created_at: number;
+}
+
+const notifications = notificationQueries.listByUser.all(user.id) as NotifRow[];
+const unreadCount = (notificationQueries.unreadCount.get(user.id) as { count: number }).count;
+const title = `通知 - ${SITE_TITLE}`;
+
+function timeAgo(ts: number): string {
+  const diff = Date.now() - ts;
+  const min = 60 * 1000;
+  const hr = 60 * min;
+  const day = 24 * hr;
+  if (diff < min) return '刚刚';
+  if (diff < hr) return `${Math.floor(diff / min)} 分钟前`;
+  if (diff < day) return `${Math.floor(diff / hr)} 小时前`;
+  if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`;
+  return new Date(ts).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+}
+
+function renderNotif(n: NotifRow) {
+  const actor = n.actor_name || '系统';
+  switch (n.type) {
+    case 'comment':
+      return {
+        icon: '💬',
+        text: n.post_slug
+          ? `<strong>${actor}</strong> 评论了你的文章《${n.post_title}》`
+          : `<strong>${actor}</strong> 给你留了评论`,
+        href: n.post_slug ? `/blog/${n.post_slug}/#comment-${n.comment_id}` : null,
+      };
+    case 'comment_like':
+      return {
+        icon: '❤️',
+        text: n.post_slug
+          ? `<strong>${actor}</strong> 赞了你在《${n.post_title}》中的评论`
+          : `<strong>${actor}</strong> 赞了你的评论`,
+        href: n.post_slug ? `/blog/${n.post_slug}/#comment-${n.comment_id}` : null,
+      };
+    case 'post_like':
+      return {
+        icon: '👍',
+        text: `<strong>${actor}</strong> 赞了你的文章《${n.post_title ?? ''}》`,
+        href: n.post_slug ? `/blog/${n.post_slug}/` : null,
+      };
+    case 'new_follow':
+      return {
+        icon: '🌟',
+        text: `<strong>${actor}</strong> 关注了你`,
+        href: n.actor_name ? `/users/${n.actor_name}` : null,
+      };
+    case 'avatar_approved':
+      return {
+        icon: '🖼️',
+        text: '你提交的新头像已<strong>审核通过</strong>，已全站生效',
+        href: null,
+      };
+    case 'avatar_rejected':
+      return {
+        icon: '🚫',
+        text: n.content
+          ? `你提交的头像<strong>未通过审核</strong>，仍展示原头像。理由：${n.content}`
+          : '你提交的头像<strong>未通过审核</strong>，仍展示原头像，可修改后重新上传',
+        href: null,
+      };
+    default:
+      return { icon: '🔔', text: '收到一条新通知', href: null };
+  }
+}
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <BaseHead title={title} description="你的通知中心：评论、点赞、关注。" />
+    <link rel="canonical" href={new URL('/notifications', Astro.site)} />
+  </head>
+  <body>
+    <Header />
+    <main class="notif-page">
+      <header class="page-head">
+        <div class="head-row">
+          <div>
+            <h1>通知</h1>
+            <p class="page-sub">
+              {unreadCount > 0
+                ? `有 ${unreadCount} 条未读通知`
+                : '暂无未读通知，享受安静的一天吧。'}
+            </p>
+          </div>
+          {unreadCount > 0 && (
+            <button type="button" class="btn btn-outline btn-sm" id="markAllBtn">
+              全部已读
+            </button>
+          )}
+        </div>
+      </header>
+
+      {notifications.length === 0 ? (
+        <div class="empty card">
+          <div class="empty-icon">📭</div>
+          <h2>暂无通知</h2>
+          <p>当有人评论、点赞你的文章或关注你时，会在这里第一时间告诉你。</p>
+          <a href="/blog" class="btn btn-primary">逛文章库</a>
+        </div>
+      ) : (
+        <ul class="notif-list" id="notifList">
+          {notifications.map((n, i) => {
+            const { icon, text, href } = renderNotif(n);
+            const isUnread = !n.read_at;
+            const inner = (
+              <>
+                <span class="notif-icon" aria-hidden="true">{icon}</span>
+                <div class="notif-body">
+                  <p class="notif-text" set:html={text} />
+                  {n.content && (
+                    <p class="notif-quote">"{n.content.slice(0, 80)}{n.content.length > 80 ? '…' : ''}"</p>
+                  )}
+                  <span class="notif-time">{timeAgo(n.created_at)}</span>
+                </div>
+                {isUnread && <span class="unread-dot" aria-label="未读" />}
+              </>
+            );
+            return (
+              <li
+                class={`notif-item${isUnread ? ' is-unread' : ''}`}
+                style={`animation-delay: ${Math.min(i, 12) * 50}ms`}
+              >
+                {href ? (
+                  <a href={href} class="notif-link">
+                    {inner}
+                  </a>
+                ) : (
+                  <div class="notif-link">{inner}</div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </main>
+
+    <Footer />
+
+    <style>
+      .notif-page {
+        max-width: var(--width-narrow, 720px);
+        margin: 0 auto;
+        padding: 2.5rem 1.2rem 3rem;
+      }
+      .page-head {
+        margin-bottom: 1.5rem;
+        padding-bottom: 1.2rem;
+        border-bottom: 1px solid var(--border-light);
+      }
+      .head-row {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+      .page-head h1 {
+        font-size: 1.9rem;
+        font-weight: 800;
+        color: var(--text-dark);
+        margin: 0 0 0.4rem;
+      }
+      .page-sub {
+        color: var(--text-light);
+        font-size: 0.92rem;
+        margin: 0;
+      }
+      .empty {
+        text-align: center;
+        padding: 3rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.6rem;
+      }
+      .empty-icon {
+        font-size: 3rem;
+        line-height: 1;
+        margin-bottom: 0.4rem;
+      }
+      .empty h2 {
+        margin: 0;
+        font-size: 1.2rem;
+        color: var(--text-dark);
+      }
+      .empty p {
+        color: var(--text-light);
+        font-size: 0.9rem;
+        max-width: 380px;
+        margin: 0 0 0.8rem;
+      }
+      .notif-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+      }
+      .notif-item {
+        animation: fadeInUp 0.45s var(--ease) both;
+      }
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .notif-link {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.85rem;
+        padding: 0.95rem 1.1rem;
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-lg, 14px);
+        background: var(--bg-white);
+        text-decoration: none;
+        color: inherit;
+        transition: var(--transition);
+        position: relative;
+      }
+      a.notif-link:hover {
+        border-color: var(--monet-blue-light);
+        box-shadow: 0 6px 22px rgba(107, 148, 168, 0.12);
+        transform: translateY(-1px);
+      }
+      .is-unread .notif-link {
+        background: linear-gradient(180deg, rgba(107, 148, 168, 0.07), var(--bg-white));
+        border-color: rgba(107, 148, 168, 0.35);
+      }
+      .notif-icon {
+        flex: 0 0 auto;
+        font-size: 1.4rem;
+        line-height: 1.4;
+      }
+      .notif-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .notif-text {
+        margin: 0 0 0.2rem;
+        font-size: 0.92rem;
+        line-height: 1.5;
+        color: var(--text-dark);
+      }
+      .notif-text :global(strong) {
+        color: var(--monet-blue-dark);
+        font-weight: 650;
+      }
+      .notif-quote {
+        margin: 0 0 0.35rem;
+        padding: 0.35rem 0.65rem;
+        border-left: 3px solid var(--monet-blue-light);
+        background: var(--monet-blue-lighter);
+        border-radius: 4px;
+        color: var(--text-gray);
+        font-size: 0.83rem;
+        line-height: 1.5;
+        font-style: italic;
+      }
+      .notif-time {
+        font-size: 0.76rem;
+        color: var(--text-light);
+      }
+      .unread-dot {
+        position: absolute;
+        top: 0.9rem;
+        right: 0.9rem;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #e26d5c;
+        box-shadow: 0 0 0 4px rgba(226, 109, 92, 0.15);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .notif-item { animation: none; }
+      }
+      @media (max-width: 560px) {
+        .notif-page { padding: 1.8rem 1rem 2.5rem; }
+        .page-head h1 { font-size: 1.55rem; }
+        .head-row { flex-direction: column; align-items: flex-start; gap: 0.6rem; }
+        .notif-link { padding: 0.85rem 0.95rem; gap: 0.7rem; }
+        .notif-icon { font-size: 1.25rem; }
+        .notif-text { font-size: 0.88rem; }
+      }
+    </style>
+
+    <script>
+      const markBtn = document.getElementById('markAllBtn');
+      markBtn?.addEventListener('click', async () => {
+        try {
+          const res = await fetch('/api/notifications', { method: 'POST' });
+          if (!res.ok) return;
+          // 视觉上立刻清掉未读状态
+          document.querySelectorAll('.notif-item.is-unread').forEach((el) => {
+            el.classList.remove('is-unread');
+            el.querySelectorAll('.unread-dot').forEach((d) => d.remove());
+          });
+          markBtn.remove();
+          const sub = document.querySelector('.page-sub');
+          if (sub) sub.textContent = '暂无未读通知，享受安静的一天吧。';
+          // 同步隐藏 Header 上的角标
+          const badge = document.getElementById('notifBadge');
+          if (badge) badge.style.display = 'none';
+        } catch {}
+      });
+    </script>
+  </body>
+</html>

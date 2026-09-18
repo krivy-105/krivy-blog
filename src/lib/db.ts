@@ -6,7 +6,11 @@ import { mkdirSync } from 'node:fs';
 // 数据库路径：优先使用 DB_PATH 环境变量（Railway 等部署环境的持久卷挂载点），
 // 否则以进程工作目录为基准，指向项目根目录的 data/
 const DB_PATH = process.env.DB_PATH || join(process.cwd(), 'data', 'blog.db');
-mkdirSync(dirname(DB_PATH), { recursive: true });
+export const DATA_DIR = dirname(DB_PATH);
+// 用户上传头像的存放目录：与数据库放在同一个持久卷，容器重启/重新部署后文件不丢失
+export const AVATAR_DIR = join(DATA_DIR, 'avatars');
+mkdirSync(DATA_DIR, { recursive: true });
+mkdirSync(AVATAR_DIR, { recursive: true });
 
 export const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
@@ -178,12 +182,146 @@ const userColumns = db.prepare('PRAGMA table_info(users)').all() as { name: stri
 if (!userColumns.some((c) => c.name === 'bio')) {
   db.exec('ALTER TABLE users ADD COLUMN bio TEXT');
 }
+// 头像审核：avatar 为当前生效头像，avatar_pending 为待审核头像，
+// avatar_status: approved（生效/无待审）| pending（审核中）| rejected（上次被拒）
+if (!userColumns.some((c) => c.name === 'avatar_pending')) {
+  db.exec('ALTER TABLE users ADD COLUMN avatar_pending TEXT');
+}
+if (!userColumns.some((c) => c.name === 'avatar_status')) {
+  db.exec(`ALTER TABLE users ADD COLUMN avatar_status TEXT NOT NULL DEFAULT 'approved'`);
+}
+if (!userColumns.some((c) => c.name === 'avatar_pending_at')) {
+  db.exec('ALTER TABLE users ADD COLUMN avatar_pending_at INTEGER');
+}
 
 // posts 表幂等迁移：新增 pinned_at 列（NULL = 未置顶，时间戳 = 置顶时间）
 const postColumns = db.prepare('PRAGMA table_info(posts)').all() as { name: string }[];
 if (!postColumns.some((c) => c.name === 'pinned_at')) {
   db.exec('ALTER TABLE posts ADD COLUMN pinned_at INTEGER');
 }
+if (!postColumns.some((c) => c.name === 'deleted_at')) {
+  db.exec('ALTER TABLE posts ADD COLUMN deleted_at INTEGER');
+}
+
+// comments 表幂等迁移：楼中楼、软删除、治理
+const commentColumns = db.prepare('PRAGMA table_info(comments)').all() as { name: string }[];
+if (!commentColumns.some((c) => c.name === 'parent_id')) {
+  db.exec('ALTER TABLE comments ADD COLUMN parent_id INTEGER REFERENCES comments(id) ON DELETE CASCADE');
+}
+if (!commentColumns.some((c) => c.name === 'reply_to_user_id')) {
+  db.exec('ALTER TABLE comments ADD COLUMN reply_to_user_id INTEGER REFERENCES users(id)');
+}
+if (!commentColumns.some((c) => c.name === 'hidden_at')) {
+  db.exec('ALTER TABLE comments ADD COLUMN hidden_at INTEGER');
+}
+if (!commentColumns.some((c) => c.name === 'deleted_at')) {
+  db.exec('ALTER TABLE comments ADD COLUMN deleted_at INTEGER');
+}
+
+// comment_likes 表：评论点赞
+db.exec(`
+  CREATE TABLE IF NOT EXISTS comment_likes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    comment_id INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    UNIQUE(user_id, comment_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_comment_likes_comment ON comment_likes(comment_id);
+`);
+
+// 连载系列
+db.exec(`
+  CREATE TABLE IF NOT EXISTS series (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    author_id INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (author_id) REFERENCES users(id)
+  );
+  CREATE TABLE IF NOT EXISTS post_series (
+    post_id INTEGER PRIMARY KEY,
+    series_id INTEGER NOT NULL,
+    order_in_series INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+    FOREIGN KEY (series_id) REFERENCES series(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_post_series_series ON post_series(series_id, order_in_series);
+`);
+
+// 文章收藏（书签）
+db.exec(`
+  CREATE TABLE IF NOT EXISTS post_bookmarks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    post_id INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    UNIQUE(user_id, post_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON post_bookmarks(user_id);
+  CREATE INDEX IF NOT EXISTS idx_bookmarks_post ON post_bookmarks(post_id);
+`);
+
+// 用户关注关系
+db.exec(`
+  CREATE TABLE IF NOT EXISTS follows (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    follower_id INTEGER NOT NULL,
+    following_id INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    UNIQUE(follower_id, following_id),
+    FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (following_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id);
+  CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
+`);
+
+// 系统通知
+db.exec(`
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    actor_id INTEGER,
+    type TEXT NOT NULL,
+    post_id INTEGER,
+    comment_id INTEGER,
+    content TEXT,
+    read_at INTEGER,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+    FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read_at);
+`);
+
+// 评论举报
+db.exec(`
+  CREATE TABLE IF NOT EXISTS comment_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    comment_id INTEGER NOT NULL,
+    reporter_id INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    handler_id INTEGER,
+    handled_at INTEGER,
+    created_at INTEGER NOT NULL,
+    UNIQUE(comment_id, reporter_id),
+    FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+    FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (handler_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_reports_status ON comment_reports(status);
+`);
 
 
 // 确保管理员账号存在，并与环境变量中的密码保持一致
@@ -225,6 +363,29 @@ export const userQueries = {
   ),
   list: db.prepare('SELECT id, username, email, role, avatar, created_at FROM users ORDER BY created_at DESC'),
   updateBio: db.prepare('UPDATE users SET bio = ? WHERE id = ?'),
+  updateAvatar: db.prepare('UPDATE users SET avatar = ? WHERE id = ?'),
+  // 头像审核流转
+  setAvatarPending: db.prepare(
+    `UPDATE users SET avatar_pending = ?, avatar_status = 'pending', avatar_pending_at = ? WHERE id = ?`
+  ),
+  approveAvatar: db.prepare(
+    `UPDATE users
+     SET avatar = ?, avatar_pending = NULL, avatar_status = 'approved', avatar_pending_at = NULL
+     WHERE id = ?`
+  ),
+  rejectAvatar: db.prepare(
+    `UPDATE users
+     SET avatar_pending = NULL, avatar_status = 'rejected', avatar_pending_at = NULL
+     WHERE id = ?`
+  ),
+  findPendingAvatars: db.prepare(
+    `SELECT id, username, avatar, avatar_pending, avatar_pending_at
+     FROM users WHERE avatar_status = 'pending' AND avatar_pending IS NOT NULL
+     ORDER BY avatar_pending_at ASC`
+  ),
+  countPendingAvatars: db.prepare(
+    `SELECT COUNT(*) AS count FROM users WHERE avatar_status = 'pending' AND avatar_pending IS NOT NULL`
+  ),
 };
 
 // ---- 文章相关查询 ----
@@ -232,34 +393,35 @@ export const postQueries = {
   findApproved: db.prepare(
     `SELECT p.*, u.username AS author_name FROM posts p
      JOIN users u ON p.author_id = u.id
-     WHERE p.status = 'approved'
+     WHERE p.status = 'approved' AND p.deleted_at IS NULL
      ORDER BY (p.pinned_at IS NULL), p.pinned_at DESC, p.created_at DESC`
   ),
   findBySlug: db.prepare(
     `SELECT p.*, u.username AS author_name FROM posts p
      JOIN users u ON p.author_id = u.id
-     WHERE p.slug = ?`
+     WHERE p.slug = ? AND p.deleted_at IS NULL`
   ),
-  findById: db.prepare('SELECT * FROM posts WHERE id = ?'),
+  findById: db.prepare('SELECT * FROM posts WHERE id = ? AND deleted_at IS NULL'),
   findByStatus: db.prepare(
     `SELECT p.*, u.username AS author_name FROM posts p
      JOIN users u ON p.author_id = u.id
-     WHERE p.status = ?
+     WHERE p.status = ? AND p.deleted_at IS NULL
      ORDER BY (p.pinned_at IS NULL), p.pinned_at DESC, p.created_at DESC`
   ),
-  findByAuthor: db.prepare('SELECT * FROM posts WHERE author_id = ? ORDER BY (pinned_at IS NULL), pinned_at DESC, created_at DESC'),
+  findByAuthor: db.prepare('SELECT * FROM posts WHERE author_id = ? AND deleted_at IS NULL ORDER BY (pinned_at IS NULL), pinned_at DESC, created_at DESC'),
   findApprovedByAuthor: db.prepare(
-    `SELECT * FROM posts WHERE author_id = ? AND status = 'approved' ORDER BY (pinned_at IS NULL), pinned_at DESC, created_at DESC`
+    `SELECT * FROM posts WHERE author_id = ? AND status = 'approved' AND deleted_at IS NULL ORDER BY (pinned_at IS NULL), pinned_at DESC, created_at DESC`
   ),
   create: db.prepare(
     'INSERT INTO posts (author_id, slug, title, description, content, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ),
   updateStatus: db.prepare('UPDATE posts SET status = ?, updated_at = ? WHERE id = ?'),
   updatePinned: db.prepare('UPDATE posts SET pinned_at = ?, updated_at = ? WHERE id = ?'),
-  countByStatus: db.prepare('SELECT COUNT(*) AS count FROM posts WHERE status = ?'),
+  countByStatus: db.prepare('SELECT COUNT(*) AS count FROM posts WHERE status = ? AND deleted_at IS NULL'),
   all: db.prepare(
     `SELECT p.*, u.username AS author_name FROM posts p
      JOIN users u ON p.author_id = u.id
+     WHERE p.deleted_at IS NULL
      ORDER BY (p.pinned_at IS NULL), p.pinned_at DESC, p.created_at DESC`
   ),
   findRelated: db.prepare(
@@ -267,7 +429,7 @@ export const postQueries = {
             u.username AS author_name
      FROM posts p
      JOIN users u ON p.author_id = u.id
-     WHERE p.status = 'approved' AND p.id <> ?
+     WHERE p.status = 'approved' AND p.deleted_at IS NULL AND p.id <> ?
        AND (p.author_id = ?
             OR p.id IN (SELECT pt2.post_id FROM post_tags pt1
                         JOIN post_tags pt2 ON pt1.tag_id = pt2.tag_id
@@ -281,8 +443,28 @@ export const postQueries = {
   findApprovedForArchive: db.prepare(
     `SELECT p.id, p.slug, p.title, p.created_at, u.username AS author_name
      FROM posts p JOIN users u ON p.author_id = u.id
-     WHERE p.status = 'approved'
+     WHERE p.status = 'approved' AND p.deleted_at IS NULL
      ORDER BY p.created_at DESC`
+  ),
+  topHot: db.prepare(
+    `SELECT p.*, u.username AS author_name,
+            IFNULL(v.cnt, 0) * 3 +
+            IFNULL(l.cnt, 0) * 7 +
+            IFNULL(c.cnt, 0) * 10 AS score
+     FROM posts p
+     JOIN users u ON p.author_id = u.id
+     LEFT JOIN (SELECT post_id, COUNT(*) AS cnt FROM post_views GROUP BY post_id) v ON v.post_id = p.id
+     LEFT JOIN (SELECT post_id, COUNT(*) AS cnt FROM post_likes GROUP BY post_id) l ON l.post_id = p.id
+     LEFT JOIN (SELECT post_id, COUNT(*) AS cnt FROM comments GROUP BY post_id) c ON c.post_id = p.id
+     WHERE p.status = 'approved' AND p.deleted_at IS NULL
+     ORDER BY score DESC, p.created_at DESC
+     LIMIT 5`
+  ),
+  update: db.prepare(
+    "UPDATE posts SET title = ?, description = ?, content = ?, status = 'pending', updated_at = ? WHERE id = ? AND author_id = ? AND deleted_at IS NULL"
+  ),
+  softDelete: db.prepare(
+    'UPDATE posts SET deleted_at = ?, updated_at = ? WHERE id = ? AND author_id = ? AND deleted_at IS NULL'
   ),
 };
 
@@ -319,6 +501,9 @@ export const likeQueries = {
   add: db.prepare('INSERT INTO post_likes (user_id, post_id, created_at) VALUES (?, ?, ?)'),
   remove: db.prepare('DELETE FROM post_likes WHERE user_id = ? AND post_id = ?'),
   countForPost: db.prepare('SELECT COUNT(*) AS count FROM post_likes WHERE post_id = ?'),
+  countForPostList: db.prepare(
+    'SELECT post_id, COUNT(*) AS count FROM post_likes GROUP BY post_id'
+  ),
   // 某用户名下所有已发布文章收获的点赞总数
   totalReceivedByAuthor: db.prepare(
     `SELECT COUNT(*) AS count FROM post_likes l
@@ -327,20 +512,238 @@ export const likeQueries = {
   ),
 };
 
+// ---- 收藏相关查询 ----
+export const bookmarkQueries = {
+  find: db.prepare('SELECT id FROM post_bookmarks WHERE user_id = ? AND post_id = ?'),
+  add: db.prepare('INSERT INTO post_bookmarks (user_id, post_id, created_at) VALUES (?, ?, ?)'),
+  remove: db.prepare('DELETE FROM post_bookmarks WHERE user_id = ? AND post_id = ?'),
+  countForPost: db.prepare('SELECT COUNT(*) AS count FROM post_bookmarks WHERE post_id = ?'),
+  countForPostList: db.prepare(
+    'SELECT post_id, COUNT(*) AS count FROM post_bookmarks GROUP BY post_id'
+  ),
+  totalReceivedByAuthor: db.prepare(
+    `SELECT COUNT(*) AS count FROM post_bookmarks b
+     JOIN posts p ON b.post_id = p.id
+     WHERE p.author_id = ? AND p.status = 'approved'`
+  ),
+  // 某用户收藏的全部文章（用于个人主页「我的收藏」Tab）
+  listByUser: db.prepare(
+    `SELECT p.id, p.slug, p.title, p.description, p.created_at,
+            u.username AS author_name, b.created_at AS bookmarked_at
+     FROM post_bookmarks b
+     JOIN posts p ON p.id = b.post_id
+     JOIN users u ON p.author_id = u.id
+     WHERE b.user_id = ? AND p.deleted_at IS NULL AND p.status = 'approved'
+     ORDER BY b.created_at DESC`
+  ),
+};
+
+// ---- 关注相关查询 ----
+export const followQueries = {
+  find: db.prepare('SELECT id FROM follows WHERE follower_id = ? AND following_id = ?'),
+  add: db.prepare('INSERT INTO follows (follower_id, following_id, created_at) VALUES (?, ?, ?)'),
+  remove: db.prepare('DELETE FROM follows WHERE follower_id = ? AND following_id = ?'),
+  countFollowers: db.prepare('SELECT COUNT(*) AS count FROM follows WHERE following_id = ?'),
+  countFollowing: db.prepare('SELECT COUNT(*) AS count FROM follows WHERE follower_id = ?'),
+  // 我关注的人最近发布的文章（动态流）
+  feed: db.prepare(
+    `SELECT p.id, p.slug, p.title, p.description, p.created_at, p.pinned_at,
+            u.username AS author_name
+     FROM follows f
+     JOIN posts p ON p.author_id = f.following_id
+     JOIN users u ON u.id = f.following_id
+     WHERE f.follower_id = ? AND p.status = 'approved' AND p.deleted_at IS NULL
+     ORDER BY (p.pinned_at IS NULL), p.pinned_at DESC, p.created_at DESC
+     LIMIT 60`
+  ),
+};
+
+// ---- 通知相关查询 ----
+export type NotificationType =
+  | 'comment'
+  | 'comment_like'
+  | 'post_like'
+  | 'new_follow'
+  | 'avatar_approved'
+  | 'avatar_rejected';
+
+export const notificationQueries = {
+  // 内部 helper：检查是否已有未读的同类型通知（避免"反复点赞再取消"造成刷屏）
+  _hasUnread: db.prepare(
+    `SELECT id FROM notifications
+     WHERE user_id = ? AND actor_id = ? AND type = ?
+       AND ((? IS NULL AND post_id IS NULL) OR post_id = ?)
+       AND ((? IS NULL AND comment_id IS NULL) OR comment_id = ?)
+       AND read_at IS NULL
+     LIMIT 1`
+  ),
+  _add: db.prepare(
+    `INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id, content, read_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`
+  ),
+  // 对外封装：自动去重 + 自己不通知自己
+  create: (opts: {
+    userId: number;
+    actorId: number;
+    type: NotificationType;
+    postId?: number | null;
+    commentId?: number | null;
+    content?: string | null;
+  }) => {
+    if (!opts.userId || !opts.actorId) return;
+    if (opts.userId === opts.actorId) return; // 不通知自己
+    const pid = opts.postId ?? null;
+    const cid = opts.commentId ?? null;
+    const exist = notificationQueries._hasUnread.get(
+      opts.userId, opts.actorId, opts.type, pid, pid, cid, cid
+    ) as { id: number } | undefined;
+    if (exist) return;
+    notificationQueries._add.run(
+      opts.userId, opts.actorId, opts.type, pid, cid, opts.content ?? null, Date.now()
+    );
+  },
+  listByUser: db.prepare(
+    `SELECT n.*, u.username AS actor_name, p.slug AS post_slug, p.title AS post_title
+     FROM notifications n
+     LEFT JOIN users u ON u.id = n.actor_id
+     LEFT JOIN posts p ON p.id = n.post_id
+     WHERE n.user_id = ?
+     ORDER BY (n.read_at IS NULL) DESC, n.created_at DESC
+     LIMIT 100`
+  ),
+  unreadCount: db.prepare(
+    'SELECT COUNT(*) AS count FROM notifications WHERE user_id = ? AND read_at IS NULL'
+  ),
+  markAllRead: db.prepare(
+    'UPDATE notifications SET read_at = ? WHERE user_id = ? AND read_at IS NULL'
+  ),
+  markRead: db.prepare(
+    'UPDATE notifications SET read_at = ? WHERE id = ? AND user_id = ? AND read_at IS NULL'
+  ),
+};
+
+// ---- 评论举报相关查询 ----
+export const reportQueries = {
+  // 同一用户对同一评论只能举报一次（UNIQUE 约束 + INSERT OR IGNORE）
+  add: db.prepare(
+    `INSERT OR IGNORE INTO comment_reports (comment_id, reporter_id, reason, status, created_at)
+     VALUES (?, ?, ?, 'pending', ?)`
+  ),
+  find: db.prepare(
+    'SELECT id FROM comment_reports WHERE comment_id = ? AND reporter_id = ?'
+  ),
+  remove: db.prepare(
+    'DELETE FROM comment_reports WHERE comment_id = ? AND reporter_id = ? AND status = ?'
+  ),
+  pendingList: db.prepare(
+    `SELECT r.id, r.reason, r.created_at, r.status,
+            r.comment_id, c.content AS comment_content, c.post_id, c.user_id AS comment_user_id,
+            cu.username AS comment_author,
+            r.reporter_id, ru.username AS reporter_name,
+            p.slug AS post_slug, p.title AS post_title
+     FROM comment_reports r
+     JOIN comments c ON c.id = r.comment_id
+     JOIN users cu ON cu.id = c.user_id
+     JOIN users ru ON ru.id = r.reporter_id
+     LEFT JOIN posts p ON p.id = c.post_id
+     WHERE r.status = 'pending'
+     ORDER BY r.created_at ASC`
+  ),
+  findById: db.prepare('SELECT * FROM comment_reports WHERE id = ?'),
+  resolve: db.prepare(
+    `UPDATE comment_reports SET status = ?, handler_id = ?, handled_at = ? WHERE id = ? AND status = 'pending'`
+  ),
+  pendingCount: db.prepare(
+    'SELECT COUNT(*) AS count FROM comment_reports WHERE status = ?'
+  ),
+  // 当前用户对该评论列表中哪些 comment 举报过（避免重复举报按钮）
+  reportedByUser: (userId: number, ids: number[]) => {
+    if (!ids.length) return [] as { comment_id: number }[];
+    const qs = ids.map(() => '?').join(',');
+    return db
+      .prepare(
+        `SELECT comment_id FROM comment_reports WHERE reporter_id = ? AND comment_id IN (${qs})`
+      )
+      .all(userId, ...ids) as { comment_id: number }[];
+  },
+};
+
 // ---- 评论相关查询 ----
 export const commentQueries = {
-  create: db.prepare('INSERT INTO comments (post_id, user_id, content, created_at) VALUES (?, ?, ?, ?)'),
-  findByPost: db.prepare(
-    `SELECT c.id, c.content, c.created_at, c.user_id, u.username
-     FROM comments c JOIN users u ON c.user_id = u.id
-     WHERE c.post_id = ? ORDER BY c.created_at DESC`
+  create: db.prepare(
+    'INSERT INTO comments (post_id, user_id, content, created_at, parent_id, reply_to_user_id) VALUES (?, ?, ?, ?, ?, ?)'
   ),
-  countForPost: db.prepare('SELECT COUNT(*) AS count FROM comments WHERE post_id = ?'),
+  findByPost: db.prepare(
+    `SELECT c.id, c.content, c.created_at, c.user_id, u.username, u.avatar, c.parent_id, c.reply_to_user_id,
+            (SELECT username FROM users WHERE id = c.reply_to_user_id) AS reply_to_username,
+            IFNULL(rc.cnt, 0) AS reply_count,
+            IFNULL(cl.cnt, 0) AS like_count
+     FROM comments c
+     JOIN users u ON c.user_id = u.id
+     LEFT JOIN (SELECT parent_id, COUNT(*) AS cnt FROM comments WHERE deleted_at IS NULL AND hidden_at IS NULL GROUP BY parent_id) rc ON rc.parent_id = c.id
+     LEFT JOIN (SELECT comment_id, COUNT(*) AS cnt FROM comment_likes GROUP BY comment_id) cl ON cl.comment_id = c.id
+     WHERE c.post_id = ? AND c.deleted_at IS NULL AND c.hidden_at IS NULL
+     ORDER BY c.created_at DESC`
+  ),
+  findThreadedByPost: (postId: number, sort: 'hot' | 'new' = 'hot') => {
+    const top = db.prepare(
+      `SELECT c.id, c.content, c.created_at, c.user_id, u.username, u.avatar, c.parent_id, c.reply_to_user_id,
+              (SELECT username FROM users WHERE id = c.reply_to_user_id) AS reply_to_username,
+              IFNULL(cl.cnt, 0) AS like_count
+       FROM comments c
+       JOIN users u ON c.user_id = u.id
+       LEFT JOIN (SELECT comment_id, COUNT(*) AS cnt FROM comment_likes GROUP BY comment_id) cl ON cl.comment_id = c.id
+       WHERE c.post_id = ? AND c.parent_id IS NULL AND c.deleted_at IS NULL AND c.hidden_at IS NULL
+       ORDER BY ${sort === 'hot' ? 'like_count DESC, c.created_at DESC' : 'c.created_at DESC'}`
+    ).all(postId) as any[];
+    const replies = db.prepare(
+      `SELECT c.id, c.content, c.created_at, c.user_id, u.username, u.avatar, c.parent_id, c.reply_to_user_id,
+              (SELECT username FROM users WHERE id = c.reply_to_user_id) AS reply_to_username,
+              IFNULL(cl.cnt, 0) AS like_count
+       FROM comments c
+       JOIN users u ON c.user_id = u.id
+       LEFT JOIN (SELECT comment_id, COUNT(*) AS cnt FROM comment_likes GROUP BY comment_id) cl ON cl.comment_id = c.id
+       WHERE c.post_id = ? AND c.parent_id IS NOT NULL AND c.deleted_at IS NULL AND c.hidden_at IS NULL
+       ORDER BY c.created_at ASC`
+    ).all(postId) as any[];
+    const byParent = new Map<number, any[]>();
+    for (const r of replies) {
+      if (!byParent.has(r.parent_id)) byParent.set(r.parent_id, []);
+      byParent.get(r.parent_id)!.push(r);
+    }
+    for (const t of top) t.replies = byParent.get(t.id) || [];
+    return top;
+  },
+  findById: db.prepare(
+    `SELECT c.*, u.username FROM comments c JOIN users u ON c.user_id = u.id WHERE c.id = ?`
+  ),
+  countForPost: db.prepare('SELECT COUNT(*) AS count FROM comments WHERE post_id = ? AND deleted_at IS NULL AND hidden_at IS NULL'),
+  countForPostList: db.prepare(
+    'SELECT post_id, COUNT(*) AS count FROM comments WHERE deleted_at IS NULL AND hidden_at IS NULL GROUP BY post_id'
+  ),
   totalReceivedByAuthor: db.prepare(
     `SELECT COUNT(*) AS count FROM comments c
      JOIN posts p ON c.post_id = p.id
-     WHERE p.author_id = ? AND p.status = 'approved'`
+     WHERE p.author_id = ? AND p.status = 'approved' AND c.deleted_at IS NULL AND c.hidden_at IS NULL`
   ),
+  likeFind: db.prepare('SELECT id FROM comment_likes WHERE user_id = ? AND comment_id = ?'),
+  likeAdd: db.prepare('INSERT INTO comment_likes (user_id, comment_id, created_at) VALUES (?, ?, ?)'),
+  likeRemove: db.prepare('DELETE FROM comment_likes WHERE user_id = ? AND comment_id = ?'),
+  likeCountForList: db.prepare(
+    'SELECT comment_id, COUNT(*) AS count FROM comment_likes GROUP BY comment_id'
+  ),
+  // 某用户点过赞的评论 id 集合（列表渲染时高亮用，避免逐条查询）
+  likedByUser: (userId: number, ids: number[]) => {
+    if (!ids.length) return [] as { comment_id: number }[];
+    const qs = ids.map(() => '?').join(',');
+    return db
+      .prepare(
+        `SELECT comment_id FROM comment_likes WHERE user_id = ? AND comment_id IN (${qs})`
+      )
+      .all(userId, ...ids) as { comment_id: number }[];
+  },
+  softDelete: db.prepare('UPDATE comments SET deleted_at = ? WHERE id = ? AND user_id = ?'),
+  hide: db.prepare('UPDATE comments SET hidden_at = ? WHERE id = ?'),
 };
 
 // ---- 转发相关查询 ----
@@ -465,6 +868,138 @@ export const sessionQueries = {
   deleteExpired: db.prepare('DELETE FROM sessions WHERE expires_at < ?'),
 };
 
+// ---- 系列相关查询 ----
+function seriesSlugify(title: string, authorId: number): string {
+  const base = title
+    .toLowerCase()
+    .replace(/[^\w\u4e00-\u9fa5\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .slice(0, 40) || 'series';
+  return `${base}-${authorId}-${Date.now().toString(36)}`;
+}
+
+export const seriesQueries = {
+  listAll: db.prepare(
+    `SELECT s.*, u.username AS author_name,
+            (SELECT COUNT(*) FROM post_series ps
+             JOIN posts p ON p.id = ps.post_id
+             WHERE ps.series_id = s.id AND p.status = 'approved' AND p.deleted_at IS NULL) AS post_count
+     FROM series s
+     JOIN users u ON s.author_id = u.id
+     ORDER BY s.updated_at DESC`
+  ),
+  listByAuthor: db.prepare(
+    `SELECT s.*, u.username AS author_name,
+            (SELECT COUNT(*) FROM post_series ps
+             JOIN posts p ON p.id = ps.post_id
+             WHERE ps.series_id = s.id AND p.status = 'approved' AND p.deleted_at IS NULL) AS post_count
+     FROM series s
+     JOIN users u ON s.author_id = u.id
+     WHERE s.author_id = ?
+     ORDER BY s.updated_at DESC`
+  ),
+  findBySlug: db.prepare(
+    `SELECT s.*, u.username AS author_name FROM series s
+     JOIN users u ON s.author_id = u.id
+     WHERE s.slug = ?`
+  ),
+  findById: db.prepare('SELECT * FROM series WHERE id = ?'),
+  create: db.prepare(
+    'INSERT INTO series (slug, title, description, author_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+  ),
+  update: db.prepare(
+    'UPDATE series SET title = ?, description = ?, updated_at = ? WHERE id = ? AND author_id = ?'
+  ),
+  postsOfSeries: db.prepare(
+    `SELECT p.id, p.slug, p.title, p.description, p.created_at, p.status,
+            ps.order_in_series, u.username AS author_name
+     FROM post_series ps
+     JOIN posts p ON p.id = ps.post_id
+     JOIN users u ON p.author_id = u.id
+     WHERE ps.series_id = ? AND p.deleted_at IS NULL
+     ORDER BY ps.order_in_series ASC, p.created_at ASC`
+  ),
+  approvedPostsOfSeries: db.prepare(
+    `SELECT p.id, p.slug, p.title, p.description, p.created_at,
+            ps.order_in_series, u.username AS author_name
+     FROM post_series ps
+     JOIN posts p ON p.id = ps.post_id
+     JOIN users u ON p.author_id = u.id
+     WHERE ps.series_id = ? AND p.status = 'approved' AND p.deleted_at IS NULL
+     ORDER BY ps.order_in_series ASC, p.created_at ASC`
+  ),
+  forPost: db.prepare(
+    `SELECT s.*, ps.order_in_series,
+            (SELECT COUNT(*) FROM post_series ps2
+             JOIN posts p2 ON p2.id = ps2.post_id
+             WHERE ps2.series_id = s.id AND p2.status = 'approved' AND p2.deleted_at IS NULL) AS total
+     FROM post_series ps
+     JOIN series s ON s.id = ps.series_id
+     WHERE ps.post_id = ?`
+  ),
+  neighbors: (seriesId: number, orderInSeries: number) => {
+    const prev = db.prepare(
+      `SELECT p.id, p.slug, p.title, p.status, ps.order_in_series
+       FROM post_series ps
+       JOIN posts p ON p.id = ps.post_id
+       WHERE ps.series_id = ? AND ps.order_in_series < ? AND p.deleted_at IS NULL
+         AND p.status = 'approved'
+       ORDER BY ps.order_in_series DESC LIMIT 1`
+    ).get(seriesId, orderInSeries) as any;
+    const next = db.prepare(
+      `SELECT p.id, p.slug, p.title, p.status, ps.order_in_series
+       FROM post_series ps
+       JOIN posts p ON p.id = ps.post_id
+       WHERE ps.series_id = ? AND ps.order_in_series > ? AND p.deleted_at IS NULL
+         AND p.status = 'approved'
+       ORDER BY ps.order_in_series ASC LIMIT 1`
+    ).get(seriesId, orderInSeries) as any;
+    return { prev, next };
+  },
+  setForPost: (postId: number, seriesId: number | null | undefined, order: number | null | undefined) => {
+    const del = db.prepare('DELETE FROM post_series WHERE post_id = ?');
+    const upsert = db.prepare(
+      'INSERT OR REPLACE INTO post_series (post_id, series_id, order_in_series) VALUES (?, ?, ?)'
+    );
+    if (!seriesId) {
+      del.run(postId);
+      return;
+    }
+    const s = seriesQueries.findById.get(seriesId) as any;
+    if (!s) {
+      del.run(postId);
+      return;
+    }
+    let finalOrder = Number.isFinite(order as number) ? Number(order) : null;
+    if (finalOrder == null || finalOrder <= 0) {
+      const row = db.prepare(
+        `SELECT COALESCE(MAX(order_in_series), 0) + 1 AS next_order
+         FROM post_series WHERE series_id = ?`
+      ).get(seriesId) as { next_order: number };
+      finalOrder = row.next_order;
+    }
+    upsert.run(postId, seriesId, finalOrder);
+  },
+  ensureByAuthor: (
+    authorId: number,
+    opts: { id?: number | null; newTitle?: string; newDesc?: string }
+  ): { id: number | null; error?: string } => {
+    const { id, newTitle, newDesc } = opts;
+    if (id && id > 0) {
+      const existing = seriesQueries.findById.get(id) as any;
+      if (!existing) return { id: null, error: '系列不存在' };
+      if (existing.author_id !== authorId) return { id: null, error: '无权限使用该系列' };
+      return { id: existing.id };
+    }
+    const title = (newTitle || '').trim();
+    if (!title) return { id: null };
+    const now = Date.now();
+    const slug = seriesSlugify(title, authorId);
+    const r = seriesQueries.create.run(slug, title, (newDesc || '').trim() || null, authorId, now, now);
+    return { id: Number(r.lastInsertRowid) };
+  },
+};
+
 // 清理过期 session
 sessionQueries.deleteExpired.run(Date.now());
 
@@ -477,6 +1012,9 @@ export type User = {
   avatar: string | null;
   bio: string | null;
   created_at: number;
+  avatar_pending?: string | null;
+  avatar_status?: 'approved' | 'pending' | 'rejected';
+  avatar_pending_at?: number | null;
 };
 
 export type Post = {

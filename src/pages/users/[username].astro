@@ -2,6 +2,7 @@
 import BaseHead from '../../components/BaseHead.astro';
 import Footer from '../../components/Footer.astro';
 import Header from '../../components/Header.astro';
+import Avatar from '../../components/Avatar.astro';
 import { SITE_TITLE } from '../../consts';
 import {
   db,
@@ -9,6 +10,8 @@ import {
   postQueries,
   likeQueries,
   commentQueries,
+  bookmarkQueries,
+  followQueries,
   type User,
 } from '../../lib/db';
 
@@ -33,6 +36,24 @@ if (profile && isSelf) {
   reviewPosts = (postQueries.findByAuthor.all(profile.id) as any[]).filter(
     (p) => p.status !== 'approved'
   );
+}
+
+// 本人收藏的文章（仅自己可见）
+let bookmarkPosts: any[] = [];
+if (profile && isSelf) {
+  bookmarkPosts = bookmarkQueries.listByUser.all(profile.id) as any[];
+}
+
+// 关注数据：profile 的粉丝数 / 关注数；当前用户是否关注了 profile
+let followerCount = 0;
+let followingCount = 0;
+let isFollowing = false;
+if (profile) {
+  followerCount = (followQueries.countFollowers.get(profile.id) as { count: number }).count;
+  followingCount = (followQueries.countFollowing.get(profile.id) as { count: number }).count;
+  if (currentUser && !isSelf) {
+    isFollowing = !!followQueries.find.get(currentUser.id, profile.id);
+  }
 }
 
 if (profile) {
@@ -93,7 +114,41 @@ const joinDate = profile
                 <span class="blob blob-3"></span>
               </div>
               <div class="profile-inner">
-                <div class="profile-avatar">{profile.username.slice(0, 1).toUpperCase()}</div>
+                {isSelf ? (
+                  <div class="profile-avatar-wrap">
+                    <button
+                      type="button"
+                      class="profile-avatar profile-avatar-editable"
+                      id="avatarUploadBtn"
+                      aria-label="更换头像"
+                      title="点击更换头像"
+                    >
+                      {profile.avatar ? (
+                        <img class="profile-avatar-photo" src={profile.avatar} alt={`${profile.username} 的头像`} />
+                      ) : (
+                        <span class="profile-avatar-initial">{profile.username.slice(0, 1).toUpperCase()}</span>
+                      )}
+                      <span class="avatar-mask"><span>📷 更换头像</span></span>
+                    </button>
+                    {profile.avatar_status === 'pending' && (
+                      <span class="avatar-status-badge" title="新头像审核中">审核中</span>
+                    )}
+                    <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
+                    {profile.avatar_status === 'pending' && (
+                      <p class="avatar-upload-tip is-pending" role="status">
+                        ⏳ 新头像已提交，等待管理员审核，通过后自动生效
+                      </p>
+                    )}
+                    {profile.avatar_status === 'rejected' && (
+                      <p class="avatar-upload-tip is-error" role="status">
+                        上次提交的头像未通过审核，仍展示原头像，可重新上传
+                      </p>
+                    )}
+                    <p class="avatar-upload-tip" id="avatarTip" role="status" hidden></p>
+                  </div>
+                ) : (
+                  <Avatar name={profile.username} src={profile.avatar} class="profile-avatar" />
+                )}
                 <div class="profile-main">
                   <div class="profile-name-row">
                     <h1>{profile.username}</h1>
@@ -140,11 +195,30 @@ const joinDate = profile
                       <span class="stat-num">{stats.comments}</span>
                       <span class="stat-label">评论</span>
                     </div>
+                    <div class="stat">
+                      <span class="stat-num">{followingCount}</span>
+                      <span class="stat-label">关注</span>
+                    </div>
+                    <div class="stat">
+                      <span class="stat-num">{followerCount}</span>
+                      <span class="stat-label">粉丝</span>
+                    </div>
                   </div>
                   {!isSelf && currentUser && (
-                    <a href={`/messages?user=${profile.id}`} class="btn btn-outline btn-sm dm-btn">
-                      💬 私信 TA
-                    </a>
+                    <div class="profile-actions">
+                      <button
+                        type="button"
+                        class="btn btn-sm follow-btn"
+                        id="followBtn"
+                        data-username={profile.username}
+                        aria-pressed={isFollowing}
+                      >
+                        <span class="follow-text">{isFollowing ? '已关注' : '+ 关注'}</span>
+                      </button>
+                      <a href={`/messages?user=${profile.id}`} class="btn btn-outline btn-sm dm-btn">
+                        💬 私信
+                      </a>
+                    </div>
                   )}
                   {!currentUser && (
                     <a href="/login" class="btn btn-outline btn-sm dm-btn">登录后互动</a>
@@ -199,24 +273,72 @@ const joinDate = profile
                 <ul class="up-list">
                   {posts.map((p, i) => (
                     <li style={`animation-delay: ${Math.min(i, 10) * 60}ms`}>
-                      <a href={`/blog/${p.slug}/`} class="up-card">
-                        <div class="up-main">
-                          <h3>{p.title}</h3>
-                          {p.description && <p class="up-desc">{p.description}</p>}
-                          <div class="up-foot">
-                            <time>{new Date(p.created_at).toLocaleDateString('zh-CN')}</time>
-                            <span class="up-stats">
-                              <span class="up-like">♥ {likeMap.get(p.id) ?? 0}</span>
-                              <span class="up-comment">💬 {commentMap.get(p.id) ?? 0}</span>
-                            </span>
+                      <div class="up-card" data-post-id={p.id}>
+                        <a href={`/blog/${p.slug}/`} class="up-main">
+                          <div>
+                            <h3>{p.title}</h3>
+                            {p.description && <p class="up-desc">{p.description}</p>}
+                            <div class="up-foot">
+                              <time>{new Date(p.created_at).toLocaleDateString('zh-CN')}</time>
+                              <span class="up-stats">
+                                <span class="up-like">♥ {likeMap.get(p.id) ?? 0}</span>
+                                <span class="up-comment">💬 {commentMap.get(p.id) ?? 0}</span>
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      </a>
+                        </a>
+                        {isSelf && (
+                          <div class="up-actions">
+                            <a href={`/edit/${p.id}`} class="up-btn up-btn-edit" title="编辑文章" data-action="edit">
+                              ✎ 编辑
+                            </a>
+                            <button type="button" class="up-btn up-btn-del" title="删除文章" data-action="delete" data-id={p.id}>
+                              🗑 删除
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>
               )}
             </section>
+
+            {/* 我的收藏（仅本人可见） */}
+            {isSelf && (
+              <section class="user-bookmarks">
+                <h2 class="section-title">
+                  我的收藏{bookmarkPosts.length ? `（${bookmarkPosts.length}）` : ''}
+                </h2>
+                {bookmarkPosts.length === 0 ? (
+                  <div class="empty-state card">
+                    <div class="empty-icon">⭐</div>
+                    <p>还没有收藏文章，看到喜欢的文章点 ⭐ 即可收藏。</p>
+                  </div>
+                ) : (
+                  <ul class="up-list">
+                    {bookmarkPosts.map((p, i) => (
+                      <li style={`animation-delay: ${Math.min(i, 10) * 60}ms`}>
+                        <div class="up-card">
+                          <a href={`/blog/${p.slug}/`} class="up-main">
+                            <div>
+                              <h3>{p.title}</h3>
+                              {p.description && <p class="up-desc">{p.description}</p>}
+                              <div class="up-foot">
+                                <span class="up-author">✍️ {p.author_name}</span>
+                                <span class="up-bookmarked-at">
+                                  收藏于 {new Date(p.bookmarked_at).toLocaleDateString('zh-CN')}
+                                </span>
+                              </div>
+                            </div>
+                          </a>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
           </>
         )
       }
@@ -232,6 +354,48 @@ const joinDate = profile
         const saveBtn = document.getElementById('bioSave');
         const cancelBtn = document.getElementById('bioCancel');
         const tip = document.getElementById('bioTip');
+
+        // ---------- 头像上传 ----------
+        const avatarBtn = document.getElementById('avatarUploadBtn');
+        const avatarInput = document.getElementById('avatarInput') as HTMLInputElement | null;
+        const avatarTip = document.getElementById('avatarTip');
+        const showAvatarTip = (msg: string, kind: '' | 'ok' | 'error' = '') => {
+          if (!avatarTip) return;
+          avatarTip.textContent = msg;
+          avatarTip.classList.toggle('is-ok', kind === 'ok');
+          avatarTip.classList.toggle('is-error', kind === 'error');
+          avatarTip.removeAttribute('hidden');
+        };
+        avatarBtn?.addEventListener('click', () => avatarInput?.click());
+        avatarInput?.addEventListener('change', async () => {
+          const file = avatarInput.files?.[0];
+          if (!file) return;
+          if (file.size > 5 * 1024 * 1024) {
+            showAvatarTip('图片不能超过 5MB', 'error');
+            avatarInput.value = '';
+            return;
+          }
+          showAvatarTip('上传处理中…');
+          const fd = new FormData();
+          fd.append('avatar', file);
+          try {
+            const res = await fetch('/api/profile', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '上传失败');
+            if (data.pending) {
+              showAvatarTip('已提交，等待管理员审核，通过后自动生效…', 'ok');
+              // 刷新后展示「审核中」状态；线上头像仍是旧图
+              window.setTimeout(() => window.location.reload(), 1200);
+              return;
+            }
+            showAvatarTip('头像已更新，正在刷新…', 'ok');
+            // 刷新后 Header、评论区等所有头像位置都会拿到新地址（?v= 已变化）
+            window.setTimeout(() => window.location.reload(), 700);
+          } catch (e) {
+            showAvatarTip(e instanceof Error ? e.message : '上传失败', 'error');
+            avatarInput.value = '';
+          }
+        });
 
         editBtn?.addEventListener('click', () => {
           editor?.removeAttribute('hidden');
@@ -273,6 +437,69 @@ const joinDate = profile
             if (tip) tip.textContent = e instanceof Error ? e.message : '保存失败';
           } finally {
             saveBtn.removeAttribute('disabled');
+          }
+        });
+
+        // 文章删除（事件委托）
+        document.addEventListener('click', async (e) => {
+          const target = e.target as HTMLElement;
+          const btn = target.closest?.('[data-action="delete"]') as HTMLButtonElement | null;
+          if (!btn) return;
+          const id = btn.dataset.id;
+          if (!id) return;
+          if (!window.confirm('确认删除这篇文章？删除后不可恢复。')) return;
+          btn.setAttribute('disabled', 'true');
+          try {
+            const res = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '删除失败');
+            const card = btn.closest('.up-card')?.closest('li');
+            card?.style.setProperty('transition', 'all .3s var(--ease)');
+            card?.style.setProperty('transform', 'translateY(8px) scale(.96)');
+            card?.style.setProperty('opacity', '0');
+            setTimeout(() => card?.remove(), 280);
+          } catch (err) {
+            window.alert(err instanceof Error ? err.message : '删除失败');
+            btn.removeAttribute('disabled');
+          }
+        });
+      </script>
+    )}
+
+    {!isSelf && currentUser && (
+      <script>
+        const followBtn = document.getElementById('followBtn');
+        followBtn?.addEventListener('click', async () => {
+          if (followBtn.dataset.loading === '1') return;
+          followBtn.dataset.loading = '1';
+          const username = followBtn.dataset.username;
+          const textEl = followBtn.querySelector('.follow-text');
+          const wasFollowing = followBtn.getAttribute('aria-pressed') === 'true';
+          // 乐观更新
+          followBtn.classList.toggle('is-following', !wasFollowing);
+          followBtn.setAttribute('aria-pressed', String(!wasFollowing));
+          if (textEl) textEl.textContent = !wasFollowing ? '已关注' : '+ 关注';
+          try {
+            const res = await fetch(`/api/users/${username}/follow`, { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '操作失败');
+            followBtn.classList.toggle('is-following', data.following);
+            followBtn.setAttribute('aria-pressed', String(data.following));
+            if (textEl) textEl.textContent = data.following ? '已关注' : '+ 关注';
+            // 更新粉丝数显示
+            const stats = document.querySelectorAll('.stat-num');
+            // profile-side 里第 5 个 stat-num 是粉丝数
+            const followerStat = document.querySelectorAll('.profile-side .stat')[4]?.querySelector('.stat-num');
+            if (followerStat) followerStat.textContent = String(data.followers);
+            // 当前用户的关注数（在 Header 没有，这里不更新）
+          } catch (e) {
+            // 回滚
+            followBtn.classList.toggle('is-following', wasFollowing);
+            followBtn.setAttribute('aria-pressed', String(wasFollowing));
+            if (textEl) textEl.textContent = wasFollowing ? '已关注' : '+ 关注';
+            alert(e instanceof Error ? e.message : '操作失败');
+          } finally {
+            followBtn.dataset.loading = '';
           }
         });
       </script>
@@ -378,6 +605,87 @@ const joinDate = profile
   .profile-card:hover .profile-avatar {
     transform: translateY(-3px) scale(1.03);
     box-shadow: 0 14px 30px rgba(95, 136, 157, 0.3);
+  }
+  /* 头像上传入口（仅本人主页） */
+  .profile-avatar-wrap {
+    flex: none;
+    position: relative;
+  }
+  .profile-avatar-editable {
+    padding: 0;
+    border: 4px solid var(--bg-white);
+    font-family: inherit;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .profile-avatar-initial { line-height: 1; }
+  .profile-avatar-photo {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  .avatar-mask {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(22, 33, 41, 0.48);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.3;
+    opacity: 0;
+    transition: opacity 0.25s var(--ease);
+    pointer-events: none;
+  }
+  .profile-avatar-editable:hover .avatar-mask,
+  .profile-avatar-editable:focus-visible .avatar-mask { opacity: 1; }
+  .avatar-upload-tip {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    padding: 2px 10px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    color: var(--text-light);
+    background: var(--bg-white);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-sm);
+    z-index: 5;
+  }
+  .avatar-upload-tip.is-ok { color: #219653; border-color: rgba(33,150,83,.35); }
+  .avatar-upload-tip.is-error { color: #e74c3c; border-color: rgba(231,76,60,.35); }
+  .avatar-upload-tip.is-pending {
+    color: #b8860b;
+    border-color: rgba(224,169,46,.4);
+    white-space: normal;
+    width: max-content;
+    max-width: 250px;
+    text-align: center;
+    line-height: 1.45;
+  }
+  /* 审核中角标：挂在 wrap 上，避免被按钮 overflow:hidden 裁掉 */
+  .avatar-status-badge {
+    position: absolute;
+    right: -6px;
+    bottom: 2px;
+    background: #e0a92e;
+    color: #fff;
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    border: 2px solid var(--bg-white);
+    box-shadow: var(--shadow-sm);
+    pointer-events: none;
+    z-index: 4;
   }
   .profile-main {
     flex: 1;
@@ -495,7 +803,42 @@ const joinDate = profile
     justify-content: center;
   }
 
-  /* ---------- 审核状态 ---------- */
+  /* ---------- 关注按钮 ---------- */
+  .profile-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .profile-actions .follow-btn,
+  .profile-actions .dm-btn {
+    flex: 1;
+    justify-content: center;
+  }
+  .follow-btn {
+    background: var(--monet-blue);
+    color: #fff;
+    border: 1px solid var(--monet-blue);
+    font-weight: 600;
+    transition: var(--transition);
+  }
+  .follow-btn:hover {
+    background: var(--monet-blue-dark);
+    border-color: var(--monet-blue-dark);
+    transform: translateY(-1px);
+  }
+  .follow-btn.is-following {
+    background: var(--monet-blue-lighter);
+    color: var(--text-gray);
+    border-color: var(--border-light);
+    font-weight: 500;
+  }
+  .follow-btn.is-following:hover {
+    background: #fde8e6;
+    color: #e26d5c;
+    border-color: #f3c5be;
+  }
+  :global([data-theme="dark"]) .follow-btn.is-following:hover {
+    background: rgba(226, 109, 92, 0.14);
+  }
   .review-posts {
     margin-top: 2.2rem;
   }
@@ -563,7 +906,9 @@ const joinDate = profile
     animation: fadeInUp 0.5s var(--ease) both;
   }
   .up-card {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
     height: 100%;
     padding: 1.3rem 1.5rem;
     background: var(--bg-white);
@@ -578,12 +923,18 @@ const joinDate = profile
     box-shadow: var(--shadow-md);
     border-color: #d2e3eb;
   }
+  a.up-main {
+    color: inherit;
+    text-decoration: none;
+    display: block;
+    flex: 1;
+  }
   .up-main h3 {
     font-size: 1.08rem;
-    margin-bottom: 0.45rem;
+    margin: 0 0 0.45rem;
     transition: color 0.2s var(--ease);
   }
-  .up-card:hover h3 { color: var(--monet-blue-dark); }
+  .up-card:hover .up-main h3 { color: var(--monet-blue-dark); }
   .up-desc {
     color: var(--text-gray);
     font-size: 0.88rem;
@@ -607,6 +958,56 @@ const joinDate = profile
   }
   .up-like { color: var(--heart); font-weight: 600; }
   .up-comment { color: var(--monet-blue-dark); }
+  .up-author { color: var(--monet-blue-dark); font-weight: 550; }
+  .up-bookmarked-at { color: var(--text-light); }
+  .user-bookmarks { margin-top: 2.6rem; }
+
+  .up-actions {
+    display: inline-flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 0.9rem;
+    border-top: 1px dashed var(--border-light);
+  }
+  .up-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 11px;
+    font-size: 0.8rem;
+    font-family: inherit;
+    border-radius: var(--radius-pill);
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s var(--ease);
+  }
+  .up-btn-edit {
+    background: var(--monet-blue-lighter);
+    color: var(--monet-blue-dark);
+    border-color: transparent;
+  }
+  .up-btn-edit:hover {
+    background: var(--monet-blue-light);
+    transform: translateY(-1px);
+  }
+  .up-btn-del {
+    color: #c85060;
+    border-color: #f2d1d6;
+    background: #fff5f7;
+  }
+  [data-theme="dark"] .up-btn-del {
+    color: #f2a3ad;
+    background: rgba(239, 111, 131, 0.12);
+    border-color: rgba(239, 111, 131, 0.3);
+  }
+  .up-btn-del:hover {
+    background: #ef6f83;
+    color: #fff;
+    border-color: #ef6f83;
+    transform: translateY(-1px);
+  }
 
   .empty-state {
     text-align: center;

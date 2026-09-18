@@ -1,0 +1,26 @@
+---
+// 通用头像：有自定义头像时渲染 <img>，否则回退为首字母渐变圆形。
+// 尺寸/颜色完全由调用方传入的 class 决定（与原首字母头像共用一套样式）。
+interface Props {
+  name: string;
+  src?: string | null;
+  class?: string;
+  alt?: string;
+}
+const { name, src = null, class: className = '', alt } = Astro.props;
+const initial = (name || '?').slice(0, 1).toUpperCase();
+---
+
+{src ? (
+  <img class={`md-avatar ${className}`} src={src} alt={alt || `${name} 的头像`} loading="lazy" decoding="async" />
+) : (
+  <span class={`md-avatar ${className}`} aria-hidden="true">{initial}</span>
+)}
+
+<style>
+  /* global：PostInteract 等组件在客户端动态创建的头像 img 也复用 .md-avatar */
+  :global(img.md-avatar) {
+    object-fit: cover;
+    background: var(--bg-body, #f3f8fb);
+  }
+</style>

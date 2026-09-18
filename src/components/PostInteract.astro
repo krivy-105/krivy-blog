@@ -1,31 +1,49 @@
 ---
-import { commentQueries, likeQueries, shareQueries } from '../lib/db';
+import { commentQueries, likeQueries, shareQueries, bookmarkQueries, reportQueries } from '../lib/db';
+import Avatar from './Avatar.astro';
 
 interface Props {
   postId: number;
   slug: string;
   title: string;
-  user?: { id: number; username: string } | null;
+  user?: { id: number; username: string; avatar?: string | null } | null;
 }
 
 const { postId, slug, title, user } = Astro.props;
 
 const likes = (likeQueries.countForPost.get(postId) as { count: number }).count;
-const comments = commentQueries.findByPost.all(postId) as {
-  id: number;
-  content: string;
-  created_at: number;
-  user_id: number;
-  username: string;
-}[];
+const comments = commentQueries.findThreadedByPost(postId, 'hot') as any[];
+const totalComments = (commentQueries.countForPost.get(postId) as { count: number }).count;
 const shares = (shareQueries.countForPost.get(postId) as { count: number }).count;
 const liked = user ? !!likeQueries.find.get(user.id, postId) : false;
+const bookmarks = (bookmarkQueries.countForPost.get(postId) as { count: number }).count;
+const bookmarked = user ? !!bookmarkQueries.find.get(user.id, postId) : false;
+
+// 预先查每个评论当前用户是否点过赞（列表用）
+const likedCommentIds = new Set<number>();
+const reportedCommentIds = new Set<number>();
+if (user) {
+  // 收集所有展平后的 comment id（顶层 + 回复）
+  const ids: number[] = [];
+  const walk = (arr: any[]) => {
+    for (const c of arr) {
+      ids.push(c.id);
+      if (c.replies?.length) walk(c.replies);
+    }
+  };
+  walk(comments);
+  if (ids.length) {
+    const rows = commentQueries.likedByUser(user.id, ids);
+    for (const r of rows) likedCommentIds.add(r.comment_id);
+    const rrows = reportQueries.reportedByUser(user.id, ids);
+    for (const r of rrows) reportedCommentIds.add(r.comment_id);
+  }
+}
 
 const shareUrl = new URL(`/blog/${slug}/`, Astro.site).href;
 
 const formatDate = (ts: number) =>
   new Date(ts).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
-
 ---
 
 <div
@@ -34,6 +52,7 @@ const formatDate = (ts: number) =>
   data-share-url={shareUrl}
   data-share-title={title}
   data-username={user?.username ?? ''}
+  data-user-id={user?.id ?? ''}
 >
   <!-- 互动操作条 -->
   <div class="interact-bar">
@@ -73,7 +92,7 @@ const formatDate = (ts: number) =>
         />
       </svg>
       <span class="act-text">评论</span>
-      <span class="act-count" id="piCommentCount">{comments.length}</span>
+      <span class="act-count" id="piCommentCount">{totalComments}</span>
     </a>
 
     <button type="button" class="act act-share" id="piShareBtn">
@@ -85,20 +104,61 @@ const formatDate = (ts: number) =>
       <span class="act-text">转发</span>
       <span class="act-count" id="piShareCount">{shares}</span>
     </button>
+
+    {
+      user ? (
+        <button type="button" class={`act act-bookmark${bookmarked ? ' is-bookmarked' : ''}`} id="piBookmarkBtn" aria-pressed={bookmarked}>
+          <svg class="ic ic-bookmark" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+          </svg>
+          <span class="act-text">收藏</span>
+          <span class="act-count" id="piBookmarkCount">{bookmarks}</span>
+        </button>
+      ) : (
+        <a href="/login" class="act act-bookmark" title="登录后即可收藏">
+          <svg class="ic ic-bookmark" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+          </svg>
+          <span class="act-text">收藏</span>
+          <span class="act-count">{bookmarks}</span>
+        </a>
+      )
+    }
   </div>
 
   <!-- 评论区 -->
   <section class="comments" id="piComments">
-    <h3 class="comments-title">
-      评论
-      <span class="comments-num" id="piCommentNum">{comments.length}</span>
-    </h3>
+    <div class="comments-head">
+      <h3 class="comments-title">
+        评论
+        <span class="comments-num" id="piCommentNum">{totalComments}</span>
+      </h3>
+      <div class="sort-tabs" role="tablist" aria-label="评论排序">
+        <button type="button" class="sort-tab is-active" role="tab" data-sort="hot" aria-selected="true">
+          🔥 最热
+        </button>
+        <button type="button" class="sort-tab" role="tab" data-sort="new" aria-selected="false">
+          ⏱ 最新
+        </button>
+      </div>
+    </div>
 
     {
       user ? (
-        <form class="comment-form" id="piCommentForm">
-          <span class="comment-avatar">{user.username.slice(0, 1).toUpperCase()}</span>
+        <form class="comment-form" id="piCommentForm" data-parent-id="" data-reply-to-user-id="">
+          <a
+            href={user ? `/users/${user.username}` : '/login'}
+            class="comment-avatar-link"
+            title={`@${user.username} 的主页`}
+          >
+            <Avatar name={user.username} src={user.avatar} class="comment-avatar" />
+          </a>
           <div class="comment-field">
+            <div class="reply-to-banner" id="piReplyBanner" hidden>
+              <span class="reply-to-label">回复</span>
+              <span class="reply-to-user" id="piReplyToUser"></span>
+              <button type="button" class="reply-cancel" id="piCancelReply" aria-label="取消回复">×</button>
+            </div>
             <textarea
               id="piCommentInput"
               name="content"
@@ -108,7 +168,7 @@ const formatDate = (ts: number) =>
             ></textarea>
             <div class="comment-form-foot">
               <span class="comment-tip" id="piCommentTip"></span>
-              <button type="submit" class="btn btn-primary btn-sm">发表评论</button>
+              <button type="submit" class="btn btn-primary btn-sm" id="piCommentSubmit">发表评论</button>
             </div>
           </div>
         </form>
@@ -123,9 +183,13 @@ const formatDate = (ts: number) =>
     <ul class="comment-list" id="piCommentList">
       {
         comments.map((c, i) => (
-          <li class="comment-item" style={`animation-delay: ${Math.min(i, 12) * 50}ms`}>
+          <li
+            class="comment-item"
+            data-comment-id={c.id}
+            style={`animation-delay: ${Math.min(i, 12) * 50}ms`}
+          >
             <a href={`/users/${c.username}`} class="comment-avatar-link" title={`@${c.username} 的主页`}>
-              <span class="comment-avatar">{c.username.slice(0, 1).toUpperCase()}</span>
+              <Avatar name={c.username} src={c.avatar} class="comment-avatar" />
             </a>
             <div class="comment-body">
               <div class="comment-head">
@@ -133,12 +197,92 @@ const formatDate = (ts: number) =>
                 <time datetime={new Date(c.created_at).toISOString()}>{formatDate(c.created_at)}</time>
               </div>
               <p class="comment-text">{c.content}</p>
+              <div class="comment-actions" data-comment-id={c.id} data-author-id={c.user_id} data-author-name={c.username}>
+                <button type="button" class="cact cact-reply" aria-label={`回复 ${c.username}`}>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"></polyline><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>
+                  回复
+                </button>
+                <button type="button" class={`cact cact-like${likedCommentIds.has(c.id) ? ' is-liked' : ''}`} aria-label="点赞评论">
+                  <svg class="cact-like-ic" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                  </svg>
+                  <span class="cact-like-count">{c.like_count ?? 0}</span>
+                </button>
+                {user && c.user_id !== user.id && (
+                  <button
+                    type="button"
+                    class={`cact cact-report${reportedCommentIds.has(c.id) ? ' is-reported' : ''}`}
+                    aria-label="举报评论"
+                    data-comment-id={c.id}
+                    data-reported={reportedCommentIds.has(c.id) ? '1' : '0'}
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V4s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+                      <line x1="4" y1="22" x2="4" y2="15"/>
+                    </svg>
+                    <span>{reportedCommentIds.has(c.id) ? '已举报' : '举报'}</span>
+                  </button>
+                )}
+              </div>
+              {
+                Array.isArray(c.replies) && c.replies.length > 0 && (
+                  <ul class="reply-list">
+                    {c.replies.map((r: any) => (
+                      <li class="reply-item" data-comment-id={r.id} data-author-id={r.user_id} data-author-name={r.username}>
+                        <a href={`/users/${r.username}`} class="reply-avatar-link">
+                          <Avatar name={r.username} src={r.avatar} class="reply-avatar" />
+                        </a>
+                        <div class="reply-body">
+                          <div class="reply-head">
+                            <a href={`/users/${r.username}`} class="reply-user">{r.username}</a>
+                            {r.reply_to_username && r.reply_to_username !== c.username && (
+                              <>
+                                <span class="reply-arrow">回复</span>
+                                <a href={`/users/${r.reply_to_username}`} class="reply-to">@{r.reply_to_username}</a>
+                              </>
+                            )}
+                            <time datetime={new Date(r.created_at).toISOString()}>{formatDate(r.created_at)}</time>
+                          </div>
+                          <p class="reply-text">{r.content}</p>
+                          <div class="reply-actions" data-comment-id={r.id} data-author-id={r.user_id} data-author-name={r.username} data-parent-id={c.id}>
+                            <button type="button" class="cact cact-reply sm" aria-label={`回复 ${r.username}`}>
+                              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"></polyline><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>
+                              回复
+                            </button>
+                            <button type="button" class="cact cact-like sm" aria-label="点赞回复">
+                              <svg class="cact-like-ic" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                              </svg>
+                              <span class="cact-like-count">{r.like_count ?? 0}</span>
+                            </button>
+                            {user && r.user_id !== user.id && (
+                              <button
+                                type="button"
+                                class={`cact cact-report sm${reportedCommentIds.has(r.id) ? ' is-reported' : ''}`}
+                                aria-label="举报回复"
+                                data-comment-id={r.id}
+                                data-reported={reportedCommentIds.has(r.id) ? '1' : '0'}
+                              >
+                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V4s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+                                  <line x1="4" y1="22" x2="4" y2="15"/>
+                                </svg>
+                                <span>{reportedCommentIds.has(r.id) ? '已举报' : '举报'}</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )
+              }
             </div>
           </li>
         ))
       }
     </ul>
-    {comments.length === 0 && <p class="comment-empty" id="piCommentEmpty">还没有评论，来做第一个发声的人吧。</p>}
+    {totalComments === 0 && <p class="comment-empty" id="piCommentEmpty">还没有评论，来做第一个发声的人吧。</p>}
   </section>
 
   <!-- 轻提示 -->
@@ -152,6 +296,7 @@ const formatDate = (ts: number) =>
     const shareUrl = root.dataset.shareUrl!;
     const shareTitle = root.dataset.shareTitle!;
     const username = root.dataset.username || '';
+    const userId = Number(root.dataset.userId) || 0;
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const toastEl = root.querySelector<HTMLElement>('#piToast')!;
@@ -165,9 +310,46 @@ const formatDate = (ts: number) =>
 
     function bump(el: HTMLElement) {
       el.classList.remove('is-bump');
-      void el.offsetWidth; // 重启动画
+      void el.offsetWidth;
       el.classList.add('is-bump');
     }
+
+    // ---------- 举报评论（事件委托） ----------
+    root.addEventListener('click', async (e: Event) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.cact-report');
+      if (!btn) return;
+      if (!userId) {
+        window.location.href = '/login';
+        return;
+      }
+      if (btn.dataset.reported === '1' || btn.dataset.loading === '1') return;
+      const reason = window.prompt('请填写举报理由（必填，最长 200 字）：');
+      if (reason === null) return;
+      if (!reason.trim()) {
+        toast('举报理由不能为空');
+        return;
+      }
+      const cid = btn.dataset.commentId;
+      btn.dataset.loading = '1';
+      try {
+        const res = await fetch(`/api/comments/${cid}/report`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason: reason.trim().slice(0, 200) }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || '举报失败');
+        btn.dataset.reported = '1';
+        btn.classList.add('is-reported');
+        const span = btn.querySelector('span:last-child');
+        if (span) span.textContent = '已举报';
+        toast('已提交举报，等待管理员处理');
+      } catch (err) {
+        toast(err instanceof Error ? err.message : '网络错误');
+      } finally {
+        btn.dataset.loading = '0';
+      }
+    });
 
     // ---------- 点赞 ----------
     const likeBtn = root.querySelector<HTMLButtonElement>('#piLikeBtn');
@@ -181,7 +363,7 @@ const formatDate = (ts: number) =>
       for (let i = 0; i < total; i++) {
         const p = document.createElement('span');
         p.className = 'like-particle';
-        const angle = (Math.PI * (0.15 + 0.7 * (i / (total - 1)))) + Math.PI; // 向上扇形
+        const angle = (Math.PI * (0.15 + 0.7 * (i / (total - 1)))) + Math.PI;
         const dist = 34 + Math.random() * 26;
         p.style.setProperty('--tx', `${Math.cos(angle) * dist}px`);
         p.style.setProperty('--ty', `${Math.sin(angle) * dist}px`);
@@ -198,7 +380,6 @@ const formatDate = (ts: number) =>
     likeBtn?.addEventListener('click', async () => {
       if (likeBtn.dataset.loading === '1') return;
       likeBtn.dataset.loading = '1';
-      // 乐观更新，失败回滚
       const wasLiked = likeBtn.classList.contains('is-liked');
       likeBtn.classList.toggle('is-liked', !wasLiked);
       likeBtn.setAttribute('aria-pressed', String(!wasLiked));
@@ -239,6 +420,9 @@ const formatDate = (ts: number) =>
     const commentNum = root.querySelector<HTMLElement>('#piCommentNum');
     const emptyHint = root.querySelector<HTMLElement>('#piCommentEmpty');
     const tip = root.querySelector<HTMLElement>('#piCommentTip');
+    const replyBanner = root.querySelector<HTMLElement>('#piReplyBanner');
+    const replyToUser = root.querySelector<HTMLElement>('#piReplyToUser');
+    const cancelReplyBtn = root.querySelector<HTMLButtonElement>('#piCancelReply');
 
     function relativeTime(ts: number): string {
       const diff = Date.now() - ts;
@@ -250,42 +434,198 @@ const formatDate = (ts: number) =>
       return new Date(ts).toLocaleDateString('zh-CN');
     }
 
+    function formatLocalDate(ts: number) {
+      return new Date(ts).toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    }
+
+    function setReplyContext(parentId: number | '', replyUserId: number | '', replyToUname: string) {
+      if (!form) return;
+      form.dataset.parentId = String(parentId || '');
+      form.dataset.replyToUserId = String(replyUserId || '');
+      if (parentId && replyToUname) {
+        replyBanner!.hidden = false;
+        replyToUser!.textContent = `@${replyToUname}`;
+        input!.focus();
+      } else {
+        replyBanner!.hidden = true;
+        replyToUser!.textContent = '';
+      }
+    }
+
+    cancelReplyBtn?.addEventListener('click', () => {
+      setReplyContext('', '', '');
+    });
+
+    // 绑定：回复按钮 / 评论点赞（顶层 + 回复里都有）
+    function bindCommentInteractions(scope: ParentNode = root) {
+      scope.querySelectorAll<HTMLElement>('.comment-actions, .reply-actions').forEach((wrap) => {
+        const cid = Number(wrap.dataset.commentId);
+        const authorId = Number(wrap.dataset.authorId);
+        const authorName = String(wrap.dataset.authorName || '');
+        const parentId = wrap.dataset.parentId ? Number(wrap.dataset.parentId) : 0;
+        const replyBtn = wrap.querySelector<HTMLButtonElement>('.cact-reply');
+        const likeBtnC = wrap.querySelector<HTMLButtonElement>('.cact-like');
+        const likeCountC = likeBtnC?.querySelector<HTMLElement>('.cact-like-count');
+
+        replyBtn?.addEventListener('click', () => {
+          if (!userId) {
+            window.location.href = '/login';
+            return;
+          }
+          // 对于回复项，挂的 parent 是顶层 comment id
+          const realParent = parentId ? parentId : cid;
+          // reply_to_user_id = 被点击项作者
+          setReplyContext(realParent, authorId, authorName);
+          // 视觉滚到输入框
+          input?.focus({ preventScroll: false });
+          form?.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'center' });
+        });
+
+        likeBtnC?.addEventListener('click', async () => {
+          if (!userId) {
+            window.location.href = '/login';
+            return;
+          }
+          if (likeBtnC.dataset.loading === '1') return;
+          likeBtnC.dataset.loading = '1';
+          const wasLiked = likeBtnC.classList.contains('is-liked');
+          const cur = Number(likeCountC?.textContent || 0);
+          const next = Math.max(0, cur + (wasLiked ? -1 : 1));
+          likeBtnC.classList.toggle('is-liked', !wasLiked);
+          if (likeCountC) likeCountC.textContent = String(next);
+          if (likeCountC) bump(likeCountC);
+
+          try {
+            const res = await fetch(`/api/comments/${cid}/like`, { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '操作失败');
+            likeBtnC.classList.toggle('is-liked', data.liked);
+            if (likeCountC) likeCountC.textContent = String(data.likes);
+          } catch (e) {
+            likeBtnC.classList.toggle('is-liked', wasLiked);
+            if (likeCountC) likeCountC.textContent = String(cur);
+            toast(e instanceof Error ? e.message : '操作失败');
+          } finally {
+            likeBtnC.dataset.loading = '';
+          }
+        });
+      });
+    }
+    bindCommentInteractions(root);
+
     function createCommentNode(c: {
       id: number | bigint;
       username: string;
+      avatar?: string | null;
       content: string;
       created_at: number;
-    }, fresh = false) {
+      parent_id?: number | null;
+      reply_to_username?: string | null;
+      like_count?: number;
+      replies?: any[];
+    }, fresh = false, mode: 'top' | 'reply' = 'top', threadRootEl?: HTMLElement | null) {
       const li = document.createElement('li');
-      li.className = 'comment-item' + (fresh ? ' is-fresh' : '');
+      if (mode === 'top') {
+        li.className = 'comment-item' + (fresh ? ' is-fresh' : '');
+        li.dataset.commentId = String(c.id);
+      } else {
+        li.className = 'reply-item' + (fresh ? ' is-fresh' : '');
+        li.dataset.commentId = String(c.id);
+      }
 
       const avatarLink = document.createElement('a');
       avatarLink.href = `/users/${encodeURIComponent(c.username)}`;
-      avatarLink.className = 'comment-avatar-link';
-      const av = document.createElement('span');
-      av.className = 'comment-avatar';
-      av.textContent = c.username.slice(0, 1).toUpperCase();
-      avatarLink.appendChild(av);
+      avatarLink.className = mode === 'top' ? 'comment-avatar-link' : 'reply-avatar-link';
+      const avatarClass = mode === 'top' ? 'comment-avatar' : 'reply-avatar';
+      if (c.avatar) {
+        const img = document.createElement('img');
+        img.className = `md-avatar ${avatarClass}`;
+        img.src = c.avatar;
+        img.alt = `${c.username} 的头像`;
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        avatarLink.appendChild(img);
+      } else {
+        const span = document.createElement('span');
+        span.className = avatarClass;
+        span.textContent = c.username.slice(0, 1).toUpperCase();
+        avatarLink.appendChild(span);
+      }
 
       const body = document.createElement('div');
-      body.className = 'comment-body';
+      body.className = mode === 'top' ? 'comment-body' : 'reply-body';
       const head = document.createElement('div');
-      head.className = 'comment-head';
+      head.className = mode === 'top' ? 'comment-head' : 'reply-head';
       const userLink = document.createElement('a');
       userLink.href = `/users/${encodeURIComponent(c.username)}`;
-      userLink.className = 'comment-user';
+      userLink.className = mode === 'top' ? 'comment-user' : 'reply-user';
       userLink.textContent = c.username;
       const time = document.createElement('time');
       time.dateTime = new Date(c.created_at).toISOString();
       time.textContent = fresh ? '刚刚' : relativeTime(c.created_at);
-      head.append(userLink, time);
+
+      if (mode === 'reply' && c.reply_to_username && c.reply_to_username !== (threadRootEl?.querySelector('.comment-user') as HTMLElement | null)?.textContent) {
+        head.append(userLink);
+        const arrow = document.createElement('span');
+        arrow.className = 'reply-arrow';
+        arrow.textContent = '回复';
+        const toA = document.createElement('a');
+        toA.href = `/users/${encodeURIComponent(c.reply_to_username)}`;
+        toA.className = 'reply-to';
+        toA.textContent = `@${c.reply_to_username}`;
+        head.append(arrow, toA, time);
+      } else {
+        head.append(userLink, time);
+      }
 
       const text = document.createElement('p');
-      text.className = 'comment-text';
-      text.textContent = c.content; // 以文本渲染，天然防 XSS
+      text.className = mode === 'top' ? 'comment-text' : 'reply-text';
+      text.textContent = c.content;
 
-      body.append(head, text);
+      // actions
+      const actions = document.createElement('div');
+      actions.className = mode === 'top' ? 'comment-actions' : 'reply-actions';
+      actions.dataset.commentId = String(c.id);
+      actions.dataset.authorId = String(Number(BigInt(c.id).toString().replace(/\D/g, '')) || '0');
+      actions.dataset.authorName = c.username;
+
+      const replyAct = document.createElement('button');
+      replyAct.type = 'button';
+      replyAct.className = 'cact cact-reply' + (mode === 'reply' ? ' sm' : '');
+      replyAct.setAttribute('aria-label', `回复 ${c.username}`);
+      replyAct.innerHTML = `<svg viewBox="0 0 24 24" width="${mode === 'reply' ? 12 : 14}" height="${mode === 'reply' ? 12 : 14}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"></polyline><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>回复`;
+
+      const likeAct = document.createElement('button');
+      likeAct.type = 'button';
+      likeAct.className = 'cact cact-like' + (mode === 'reply' ? ' sm' : '');
+      likeAct.setAttribute('aria-label', '点赞评论');
+      likeAct.innerHTML = `<svg class="cact-like-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><span class="cact-like-count">${c.like_count ?? 0}</span>`;
+
+      actions.append(replyAct, likeAct);
+
+      body.append(head, text, actions);
       li.append(avatarLink, body);
+      if (mode === 'top' && Array.isArray(c.replies) && c.replies.length) {
+        const repList = document.createElement('ul');
+        repList.className = 'reply-list';
+        for (const r of c.replies) {
+          repList.appendChild(
+            createCommentNode(
+              { ...r, replies: [] },
+              false,
+              'reply',
+              li
+            )
+          );
+        }
+        body.append(repList);
+      }
+      // 新创建节点绑定事件
+      bindCommentInteractions(li);
       return li;
     }
 
@@ -297,20 +637,39 @@ const formatDate = (ts: number) =>
         input!.focus();
         return;
       }
-      const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+      const parentId = form.dataset.parentId ? Number(form.dataset.parentId) : null;
+      const replyToUserId = form.dataset.replyToUserId ? Number(form.dataset.replyToUserId) : null;
+
+      const btn = form.querySelector<HTMLButtonElement>('#piCommentSubmit')!;
       btn.disabled = true;
       tip!.textContent = '';
       try {
         const res = await fetch(`/api/posts/${postId}/comments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content }),
+          body: JSON.stringify({ content, parent_id: parentId, reply_to_user_id: replyToUserId }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || '评论失败');
         emptyHint?.remove();
-        list!.prepend(createCommentNode(data.comment, true));
+        // 判断是顶层评论还是回复
+        if (!parentId) {
+          list!.prepend(createCommentNode(data.comment, true, 'top'));
+        } else {
+          const parentLi = list!.querySelector<HTMLElement>(`li.comment-item[data-comment-id="${parentId}"]`);
+          if (parentLi) {
+            let repList = parentLi.querySelector<HTMLUListElement>('ul.reply-list');
+            if (!repList) {
+              repList = document.createElement('ul');
+              repList.className = 'reply-list';
+              const cb = parentLi.querySelector('.comment-body');
+              cb?.append(repList);
+            }
+            repList.append(createCommentNode(data.comment, true, 'reply', parentLi));
+          }
+        }
         input!.value = '';
+        setReplyContext('', '', '');
         const n = Number(commentCount?.textContent || 0) + 1;
         if (commentCount) commentCount.textContent = String(n);
         if (commentNum) {
@@ -330,6 +689,50 @@ const formatDate = (ts: number) =>
         e.preventDefault();
         form?.requestSubmit();
       }
+    });
+
+    // 排序 Tab 切换：通过 mode=threaded&sort=hot|new 拉取并替换列表
+    const sortTabs = root.querySelectorAll<HTMLButtonElement>('.sort-tab');
+    sortTabs.forEach((tab) => {
+      tab.addEventListener('click', async () => {
+        if (tab.classList.contains('is-active')) return;
+        sortTabs.forEach((t) => {
+          t.classList.remove('is-active');
+          t.setAttribute('aria-selected', 'false');
+        });
+        tab.classList.add('is-active');
+        tab.setAttribute('aria-selected', 'true');
+        const sort = tab.dataset.sort as 'hot' | 'new';
+        try {
+          list!.style.opacity = '0.55';
+          const res = await fetch(`/api/posts/${postId}/comments?mode=threaded&sort=${sort}`);
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.error || '刷新失败');
+          list!.innerHTML = '';
+          const arr = data.comments as any[];
+          if (arr.length === 0) {
+            if (!emptyHint) {
+              const p = document.createElement('p');
+              p.className = 'comment-empty';
+              p.id = 'piCommentEmpty';
+              p.textContent = '还没有评论，来做第一个发声的人吧。';
+              list!.after(p);
+            }
+          } else {
+            emptyHint?.remove();
+            for (let i = 0; i < arr.length; i++) {
+              const c = arr[i];
+              const li = createCommentNode(c, false, 'top');
+              if (li.style) li.style.animationDelay = `${Math.min(i, 12) * 50}ms`;
+              list!.append(li);
+            }
+          }
+        } catch (e) {
+          toast(e instanceof Error ? e.message : '加载失败');
+        } finally {
+          list!.style.opacity = '';
+        }
+      });
     });
 
     // ---------- 转发 ----------
@@ -352,9 +755,7 @@ const formatDate = (ts: number) =>
       }
     }
 
-    // 复制兜底：clipboard API 在页面失焦或非安全上下文下可能被拒绝
     async function copyText(text: string): Promise<boolean> {
-      // 页面失焦/隐藏时 clipboard API 会被拒绝（控制台还会打印错误），直接走兜底方案
       const canUseClipboard =
         !!navigator.clipboard &&
         document.visibilityState === 'visible' &&
@@ -396,7 +797,6 @@ const formatDate = (ts: number) =>
           return;
         }
       } catch (err) {
-        // 用户取消系统分享面板时不提示、不计次数
         if ((err as Error)?.name === 'AbortError') return;
       }
       const copied = await copyText(shareUrl);
@@ -406,6 +806,43 @@ const formatDate = (ts: number) =>
       } else {
         window.prompt('复制以下链接进行转发：', shareUrl);
         recordShare();
+      }
+    });
+
+    // ---------- 收藏 ----------
+    const bookmarkBtn = root.querySelector<HTMLButtonElement>('#piBookmarkBtn');
+    const bookmarkCount = root.querySelector<HTMLElement>('#piBookmarkCount');
+
+    bookmarkBtn?.addEventListener('click', async () => {
+      if (bookmarkBtn.dataset.loading === '1') return;
+      bookmarkBtn.dataset.loading = '1';
+      const wasMarked = bookmarkBtn.classList.contains('is-bookmarked');
+      bookmarkBtn.classList.toggle('is-bookmarked', !wasMarked);
+      bookmarkBtn.setAttribute('aria-pressed', String(!wasMarked));
+      let cur = Number(bookmarkCount?.textContent || 0);
+      cur = Math.max(0, cur + (wasMarked ? -1 : 1));
+      if (bookmarkCount) bookmarkCount.textContent = String(cur);
+      if (bookmarkCount) bump(bookmarkCount);
+      bookmarkBtn.classList.remove('is-pop');
+      void bookmarkBtn.offsetWidth;
+      bookmarkBtn.classList.add('is-pop');
+
+      try {
+        const res = await fetch(`/api/posts/${postId}/bookmark`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '操作失败');
+        bookmarkBtn.classList.toggle('is-bookmarked', data.bookmarked);
+        bookmarkBtn.setAttribute('aria-pressed', String(data.bookmarked));
+        if (bookmarkCount) bookmarkCount.textContent = String(data.bookmarks);
+        if (bookmarkCount) bump(bookmarkCount);
+        toast(data.bookmarked ? '已收藏' : '已取消收藏');
+      } catch (e) {
+        bookmarkBtn.classList.toggle('is-bookmarked', wasMarked);
+        bookmarkBtn.setAttribute('aria-pressed', String(wasMarked));
+        if (bookmarkCount) bookmarkCount.textContent = String(Math.max(0, cur + (wasMarked ? 1 : -1)));
+        toast(e instanceof Error ? e.message : '操作失败');
+      } finally {
+        bookmarkBtn.dataset.loading = '';
       }
     });
   }
@@ -564,16 +1001,48 @@ const formatDate = (ts: number) =>
     animation: likePop 0.45s var(--ease);
   }
 
+  /* ---------- 收藏 ---------- */
+  .ic-bookmark {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    transition: fill 0.25s var(--ease), stroke 0.25s var(--ease);
+  }
+  .act-bookmark.is-bookmarked {
+    color: var(--star, #e6a23c);
+  }
+  .act-bookmark.is-bookmarked:hover {
+    color: #c9851b;
+    background: #fdf6e3;
+  }
+  .act-bookmark.is-bookmarked .ic-bookmark {
+    fill: var(--star, #e6a23c);
+    stroke: var(--star, #e6a23c);
+  }
+  .act-bookmark.is-pop {
+    animation: likePop 0.45s var(--ease);
+  }
+  :global([data-theme="dark"]) .act-bookmark.is-bookmarked:hover {
+    background: rgba(230, 162, 60, 0.14);
+  }
+
   /* ---------- 评论区 ---------- */
   .comments {
     margin-top: 2.4rem;
   }
-  .comments-title {
+  .comments-head {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.2rem;
+    gap: 1rem;
+  }
+  .comments-title {
+    display: inline-flex;
     align-items: baseline;
     gap: 0.5rem;
     font-size: 1.15rem;
-    margin-bottom: 1.2rem;
+    margin: 0;
   }
   .comments-num {
     display: inline-flex;
@@ -592,6 +1061,32 @@ const formatDate = (ts: number) =>
     animation: countBump 0.35s var(--ease);
   }
 
+  .sort-tabs {
+    display: inline-flex;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--bg-white);
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-xs);
+  }
+  .sort-tab {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-gray);
+    transition: all 0.25s var(--ease);
+    font-family: inherit;
+  }
+  .sort-tab.is-active {
+    background: linear-gradient(135deg, var(--monet-blue-light), var(--monet-blue-lighter));
+    color: var(--monet-blue-dark);
+    box-shadow: var(--shadow-xs);
+  }
+
   .comment-form {
     display: flex;
     gap: 0.8rem;
@@ -601,6 +1096,40 @@ const formatDate = (ts: number) =>
   .comment-field {
     flex: 1;
     min-width: 0;
+  }
+  .reply-to-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 6px 10px;
+    margin-bottom: 0.55rem;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(107, 148, 168, 0.08), rgba(239, 111, 131, 0.06));
+    font-size: 0.83rem;
+    color: var(--monet-blue-dark);
+  }
+  .reply-to-label {
+    color: var(--text-light);
+    font-weight: 500;
+  }
+  .reply-to-user {
+    font-weight: 600;
+  }
+  .reply-cancel {
+    margin-left: auto;
+    border: 0;
+    background: transparent;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--text-light);
+    padding: 0 4px;
+    border-radius: 4px;
+    transition: color 0.2s var(--ease), background 0.2s var(--ease);
+  }
+  .reply-cancel:hover {
+    color: var(--heart);
+    background: rgba(239,111,131,0.08);
   }
   .comment-form textarea {
     width: 100%;
@@ -710,6 +1239,152 @@ const formatDate = (ts: number) =>
     word-break: break-word;
     white-space: pre-wrap;
   }
+  .comment-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    margin-top: 0.4rem;
+  }
+
+  /* 回复列表 */
+  .reply-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.75rem 0 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border-left: 2px solid var(--monet-blue-lighter);
+    border-radius: 0 0 0 10px;
+  }
+  .reply-item {
+    display: flex;
+    gap: 0.6rem;
+    padding: 0.75rem 0 0.75rem 0.9rem;
+    position: relative;
+    animation: commentIn 0.4s var(--ease) both;
+  }
+  .reply-item.is-fresh {
+    animation: freshComment 0.7s var(--ease) both;
+  }
+  .reply-avatar-link { flex: none; }
+  .reply-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #b0cbd7, #8fa8b5);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+  .reply-body { flex: 1; min-width: 0; }
+  .reply-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.2rem;
+    flex-wrap: wrap;
+  }
+  .reply-user {
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--monet-blue-dark);
+  }
+  .reply-arrow {
+    font-size: 0.75rem;
+    color: var(--text-light);
+  }
+  .reply-to {
+    font-weight: 600;
+    font-size: 0.86rem;
+    color: var(--text-gray);
+    text-decoration: none;
+  }
+  .reply-to:hover { color: var(--monet-blue-dark); text-decoration: underline; }
+  .reply-head time {
+    font-size: 0.75rem;
+    color: var(--text-light);
+  }
+  .reply-text {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: var(--text-dark);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .reply-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    margin-top: 0.3rem;
+  }
+
+  /* 评论操作（回复/点赞）按钮 */
+  .cact {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 4px 9px;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    color: var(--text-light);
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    font-family: inherit;
+    transition: all 0.22s var(--ease);
+  }
+  .cact:hover {
+    background: var(--monet-blue-lighter);
+    color: var(--monet-blue-dark);
+  }
+  .cact.sm {
+    padding: 2px 7px;
+    font-size: 0.74rem;
+  }
+  .cact-reply svg { stroke: currentColor; fill: none; }
+
+  .cact-like.is-liked {
+    color: var(--heart, #ef6f83);
+  }
+  .cact-like.is-liked:hover {
+    background: #fdf0f3;
+  }
+  .cact-report:hover {
+    background: #fdf0f0;
+    color: #c44a3a;
+  }
+  .cact-report.is-reported {
+    color: var(--text-light);
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+  .cact-report.is-reported:hover {
+    background: transparent;
+    color: var(--text-light);
+  }
+  .cact-like-ic {
+    width: 13px;
+    height: 13px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+  }
+  .cact-like.is-liked .cact-like-ic {
+    fill: currentColor;
+    stroke: currentColor;
+  }
+  .cact-like-count {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.78rem;
+  }
+  .cact-like-count.is-bump { animation: countBump 0.3s var(--ease); }
+
   .comment-empty {
     text-align: center;
     color: var(--text-light);
@@ -754,13 +1429,23 @@ const formatDate = (ts: number) =>
     .act .act-text { display: none; }
     .act .ic,
     .act .ic-heart { width: 21px; height: 21px; }
+
+    .comments-head { flex-wrap: wrap; margin-bottom: 0.9rem; }
+    .comment-form {
+      gap: 0.55rem;
+    }
+    .comment-avatar {
+      width: 34px; height: 34px; font-size: 0.88rem;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .like-particle,
     .like-ring { display: none !important; }
     .comment-item,
-    .comment-item.is-fresh { animation: none !important; }
+    .comment-item.is-fresh,
+    .reply-item,
+    .reply-item.is-fresh { animation: none !important; }
     .act-like.is-pop,
     .act-share.is-pop,
     .act-count.is-bump,

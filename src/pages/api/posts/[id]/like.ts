@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { likeQueries, postQueries } from '../../../../lib/db';
+import { likeQueries, postQueries, notificationQueries } from '../../../../lib/db';
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -15,7 +15,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
   const postId = Number(params.id);
   if (!Number.isFinite(postId)) return json({ error: '文章不存在' }, 404);
 
-  const post = postQueries.findById.get(postId) as { status: string } | undefined;
+  const post = postQueries.findById.get(postId) as { status: string; author_id: number } | undefined;
   if (!post || post.status !== 'approved') return json({ error: '文章不存在' }, 404);
 
   const existing = likeQueries.find.get(user.id, postId);
@@ -26,6 +26,13 @@ export const POST: APIRoute = async ({ params, locals }) => {
   } else {
     likeQueries.add.run(user.id, postId, Date.now());
     liked = true;
+    // 通知文章作者被点赞
+    notificationQueries.create({
+      userId: post.author_id,
+      actorId: user.id,
+      type: 'post_like',
+      postId,
+    });
   }
 
   const likes = (likeQueries.countForPost.get(postId) as { count: number }).count;

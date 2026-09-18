@@ -12,6 +12,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
         id: user.id,
         username: user.username,
         role: user.role,
+        avatar: user.avatar,
       };
     }
   }

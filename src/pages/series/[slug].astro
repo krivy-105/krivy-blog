@@ -1,0 +1,245 @@
+---
+import BaseHead from '../../components/BaseHead.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import { SITE_TITLE } from '../../consts';
+import { seriesQueries } from '../../lib/db';
+
+const slug = Astro.params.slug as string;
+const series = seriesQueries.findBySlug.get(slug) as any;
+if (!series) {
+  Astro.response.status = 404;
+}
+
+const posts = series ? (seriesQueries.approvedPostsOfSeries.all(series.id) as any[]) : [];
+const total = posts.length;
+
+const currentUser = Astro.locals.user;
+const isAuthor = currentUser?.id === series?.author_id;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead
+      title={series ? `${series.title} - 连载系列 - ${SITE_TITLE}` : `系列不存在 - ${SITE_TITLE}`}
+      description={series?.description || ''}
+    />
+    <style>
+      .back-link {
+        display: inline-flex;
+        align-items: center;
+        color: var(--text-gray);
+        font-size: 0.9rem;
+        margin-bottom: 1.6rem;
+        text-decoration: none;
+        transition: all 0.2s var(--ease);
+      }
+      .back-link:hover { color: var(--monet-blue-dark); transform: translateX(-3px); }
+
+      .series-header {
+        background: var(--bg-white);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-xl);
+        padding: 2rem 2.2rem;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 2.2rem;
+        position: relative;
+        overflow: hidden;
+        animation: fadeInUp 0.5s var(--ease) both;
+      }
+      .series-header::before {
+        content: '';
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--monet-blue-light), var(--monet-blue-deep));
+      }
+      .series-top {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        margin-bottom: 0.8rem;
+      }
+      .series-title {
+        font-size: 1.85rem;
+        margin: 0;
+        color: var(--text-dark);
+      }
+      .series-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-top: 0.4rem;
+        color: var(--text-light);
+        font-size: 0.86rem;
+      }
+      .series-meta a { color: var(--monet-blue-dark); font-weight: 550; text-decoration: none; }
+      .series-meta a:hover { text-decoration: underline; }
+      .series-count-badge {
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 14px;
+        border-radius: var(--radius-pill);
+        background: var(--monet-blue-lighter);
+        color: var(--monet-blue-dark);
+        font-weight: 600;
+        font-size: 0.85rem;
+      }
+      .series-desc {
+        color: var(--text-gray);
+        font-size: 0.96rem;
+        line-height: 1.8;
+        margin: 0.8rem 0 0;
+      }
+      .not-found { text-align: center; padding: 4rem 2rem; }
+      .not-found h1 { margin-bottom: 0.6rem; }
+      .not-found p { color: var(--text-gray); margin-bottom: 1.5rem; }
+      .nf-icon { font-size: 3rem; margin-bottom: 0.8rem; }
+
+      .section-title {
+        font-size: 1.15rem;
+        margin: 0 0 1.1rem;
+        padding-left: 0.25rem;
+      }
+
+      .toc-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+      }
+      .toc-item {
+        background: var(--bg-white);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-lg);
+        padding: 1.1rem 1.3rem;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.25s var(--ease);
+        animation: fadeInUp 0.45s var(--ease) both;
+      }
+      .toc-item:hover {
+        transform: translateX(3px);
+        border-color: var(--monet-blue-light);
+        box-shadow: var(--shadow-md);
+      }
+      .toc-num {
+        flex: none;
+        width: 44px;
+        height: 44px;
+        border-radius: var(--radius-md);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1rem;
+        color: #fff;
+        background: linear-gradient(145deg, var(--monet-blue-light), var(--monet-blue-deep));
+      }
+      .toc-main { flex: 1; min-width: 0; }
+      .toc-main h3 {
+        margin: 0 0 0.35rem;
+        font-size: 1.02rem;
+        color: var(--text-dark);
+        transition: color 0.2s var(--ease);
+      }
+      .toc-item:hover .toc-main h3 { color: var(--monet-blue-dark); }
+      .toc-main p {
+        margin: 0;
+        color: var(--text-gray);
+        font-size: 0.85rem;
+        line-height: 1.65;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .toc-meta {
+        flex: none;
+        color: var(--text-light);
+        font-size: 0.8rem;
+        white-space: nowrap;
+        padding-top: 2px;
+      }
+
+      @media (max-width: 580px) {
+        .series-header { padding: 1.5rem 1.3rem; }
+        .series-title { font-size: 1.45rem; }
+        .toc-num { width: 38px; height: 38px; font-size: 0.9rem; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .series-header, .toc-item { animation: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <Header />
+    <main class="narrow">
+      {!series ? (
+        <div class="not-found card">
+          <div class="nf-icon">🌫️</div>
+          <h1>找不到这个系列</h1>
+          <p>你访问的系列可能已被删除或未创建。</p>
+          <a href="/series" class="btn btn-primary">返回系列列表</a>
+        </div>
+      ) : (
+        <>
+          <a href="/series" class="back-link">← 返回所有系列</a>
+
+          <header class="series-header">
+            <div class="series-top">
+              <div>
+                <h1 class="series-title">📚 {series.title}</h1>
+                <div class="series-meta">
+                  <span>作者 <a href={`/users/${series.author_name}`}>@{series.author_name}</a></span>
+                  <span>创建于 {new Date(series.created_at).toLocaleDateString('zh-CN')}</span>
+                  <span>更新于 {new Date(series.updated_at).toLocaleDateString('zh-CN')}</span>
+                </div>
+              </div>
+              <span class="series-count-badge">{total} 篇文章</span>
+            </div>
+            {series.description && <p class="series-desc">{series.description}</p>}
+          </header>
+
+          <h2 class="section-title">📖 目录（{total}）</h2>
+
+          {total === 0 ? (
+            <div class="empty-state card" style="text-align:center;padding:3rem 2rem;">
+              <div class="empty-icon">📝</div>
+              <p style="color:var(--text-gray);">该系列还没有已发布的文章。</p>
+              {isAuthor && <a href="/write" class="btn btn-primary">为该系列写第一篇</a>}
+            </div>
+          ) : (
+            <ul class="toc-list">
+              {posts.map((p, i) => (
+                <li style={`animation-delay:${Math.min(i, 30) * 45}ms`}>
+                  <a class="toc-item" href={`/blog/${p.slug}/`}>
+                    <span class="toc-num">{p.order_in_series ?? i + 1}</span>
+                    <div class="toc-main">
+                      <h3>{p.title}</h3>
+                      {p.description && <p>{p.description}</p>}
+                    </div>
+                    <div class="toc-meta">
+                      {new Date(p.created_at).toLocaleDateString('zh-CN')}
+                    </div>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </main>
+    <Footer />
+  </body>
+</html>

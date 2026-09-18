@@ -11,6 +11,21 @@ const today = new Date();
       <span class="footer-domain">krivy.cyou</span>
     </div>
     <p class="footer-slogan">用心记录，慢慢生长。</p>
+    <ul class="footer-links" aria-label="页脚快捷链接">
+      <li><a href="/tags" class="footer-link">🏷️ 标签</a></li>
+      <li><a href="/archive" class="footer-link">📅 归档</a></li>
+      <li><a href="/links" class="footer-link">🔗 友链</a></li>
+      <li>
+        <a href="/rss.xml" class="footer-link rss-link" aria-label="RSS 订阅最新文章">
+          <svg class="rss-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 11a9 9 0 0 1 9 9" />
+            <path d="M4 4a16 16 0 0 1 16 16" />
+            <circle cx="5" cy="19" r="1.5" fill="currentColor" />
+          </svg>
+          RSS 订阅
+        </a>
+      </li>
+    </ul>
     <p class="copyright">&copy; {today.getFullYear()} {SITE_TITLE}. All rights reserved.</p>
   </div>
 </footer>
@@ -52,11 +67,58 @@ const today = new Date();
   .footer-slogan {
     color: var(--text-gray);
     font-size: 0.9rem;
-    margin-bottom: 0.9rem;
+    margin-bottom: 0.75rem;
+  }
+  .footer-links {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.25rem;
+  }
+  .footer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: var(--radius-pill);
+    color: var(--monet-blue-dark);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.25s var(--ease);
+  }
+  .footer-link:hover {
+    background: var(--monet-blue-lighter);
+    transform: translateY(-1px);
+  }
+  .rss-link {
+    background: linear-gradient(135deg, rgba(255, 165, 85, 0.14), rgba(255, 115, 95, 0.1));
+    color: #cc6a3d;
+  }
+  .rss-link:hover {
+    background: linear-gradient(135deg, rgba(255, 165, 85, 0.28), rgba(255, 115, 95, 0.22));
+  }
+  :global([data-theme="dark"]) .rss-link {
+    color: #ffb087;
+    background: linear-gradient(135deg, rgba(255, 165, 85, 0.1), rgba(255, 115, 95, 0.06));
+  }
+  .rss-icon {
+    transition: transform 0.25s var(--ease);
+  }
+  .rss-link:hover .rss-icon {
+    transform: rotate(-8deg) scale(1.08);
   }
   .copyright {
     color: var(--text-light);
     font-size: 0.78rem;
     margin: 0;
+  }
+  @media (max-width: 560px) {
+    .footer-links { gap: 0.3rem 0.1rem; }
+    .footer-link { padding: 5px 10px; font-size: 0.8rem; }
   }
 </style>

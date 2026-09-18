@@ -1,0 +1,265 @@
+---
+import BaseHead from '../../components/BaseHead.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import MarkdownToolbar from '../../components/MarkdownToolbar.astro';
+import { SITE_TITLE } from '../../consts';
+import { postQueries, tagQueries, seriesQueries } from '../../lib/db';
+
+const user = Astro.locals.user;
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+const idParam = Astro.params.id;
+const postId = Number(idParam);
+if (!Number.isFinite(postId) || postId <= 0) {
+  return Astro.redirect('/');
+}
+
+const post = postQueries.findById.get(postId) as any;
+if (!post) {
+  Astro.response.status = 404;
+}
+if (post && post.author_id !== user.id) {
+  Astro.response.status = 403;
+}
+
+const rawTags = post ? (tagQueries.forPost.all(post.id) as { name: string }[]).map((t) => t.name).join(', ') : '';
+const tagsStr = post ? rawTags : '';
+const myUsername = user.username;
+
+const mySeries = post ? (seriesQueries.listByAuthor.all(user.id) as any[]) : [];
+const postSeries = post ? (seriesQueries.forPost.get(post.id) as { id: number; order_in_series: number } | undefined) : undefined;
+const currentSeriesId = postSeries?.id ?? null;
+const currentOrder = postSeries?.order_in_series ?? null;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title={`编辑文章 - ${SITE_TITLE}`} description="编辑已发布的文章" />
+    <style>
+      .page-head { margin-bottom: 1.8rem; }
+      .page-head h1 { margin-bottom: 0.35rem; }
+      .page-head p { color: var(--text-gray); font-size: 0.92rem; margin: 0; }
+      .write-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        min-height: 70vh;
+      }
+      .write-panel, .preview-panel {
+        background: var(--bg-white);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+      }
+      .panel-title {
+        font-size: 0.9rem;
+        color: var(--text-gray);
+        margin-bottom: 1rem;
+        font-weight: 500;
+      }
+      .form-group input,
+      .form-group textarea,
+      .form-group select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1.5px solid var(--border-light);
+        border-radius: var(--radius-md);
+        outline: none;
+        font-size: 0.95rem;
+        font-family: inherit;
+        transition: border-color 0.2s var(--ease);
+        box-sizing: border-box;
+        background: var(--bg-white);
+        color: inherit;
+      }
+      .form-group input:focus,
+      .form-group textarea:focus,
+      .form-group select:focus {
+        border-color: var(--monet-blue);
+      }
+      .form-group { margin-bottom: 0.9rem; }
+      .field-label {
+        display: block;
+        font-size: 0.82rem;
+        color: var(--text-light);
+        margin-bottom: 5px;
+        font-weight: 500;
+      }
+      .series-row {
+        display: grid;
+        grid-template-columns: 1.6fr 1fr;
+        gap: 0.9rem;
+      }
+      .new-series-box {
+        padding: 0.9rem 1rem;
+        background: var(--monet-blue-lighter);
+        border: 1px dashed var(--monet-blue-light);
+        border-radius: var(--radius-md);
+      }
+      .new-series-box .field-label { color: var(--monet-blue-dark); }
+      @media (max-width: 600px) {
+        .series-row { grid-template-columns: 1fr; }
+      }
+      #content {
+        flex: 1;
+        min-height: 400px;
+        resize: vertical;
+        line-height: 1.6;
+      }
+      .preview-content {
+        flex: 1;
+        overflow-y: auto;
+      }
+      .preview-content > :first-child { margin-top: 0; }
+      .submit-row {
+        margin-top: 1rem;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+      }
+      .msg {
+        font-size: 0.9rem;
+      }
+      .msg-success { color: #27ae60; }
+      .msg-error { color: #e74c3c; }
+      @media (max-width: 768px) {
+        .write-container { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <Header />
+    <main>
+      {
+        !post ? (
+          <div class="empty-state card" style="padding:3rem 2rem;text-align:center;">
+            <h1>文章不存在</h1>
+            <p style="color:var(--text-gray);">你要编辑的文章可能已被删除。</p>
+            <a href="/" class="btn btn-primary">返回首页</a>
+          </div>
+        ) : post.author_id !== user.id ? (
+          <div class="empty-state card" style="padding:3rem 2rem;text-align:center;">
+            <h1>无权限</h1>
+            <p style="color:var(--text-gray);">你只能编辑自己的文章。</p>
+            <a href="/" class="btn btn-primary">返回首页</a>
+          </div>
+        ) : (
+          <>
+            <header class="page-head">
+              <h1>✏️ 编辑文章</h1>
+              <p>修改后重新提交，将再次进入审核流程。</p>
+            </header>
+            <div class="write-container">
+              <div class="write-panel">
+                <div class="panel-title">编辑</div>
+                <form id="writeForm">
+                  <div class="form-group">
+                    <input type="text" name="title" placeholder="文章标题" required maxlength="100" value={post.title} />
+                  </div>
+                  <div class="form-group">
+                    <input type="text" name="description" placeholder="一句话描述（可选）" maxlength="200" value={post.description || ''} />
+                  </div>
+                  <div class="form-group">
+                    <input type="text" name="tags" placeholder="标签，用逗号或空格分隔（可选，最多5个）" maxlength="100" value={tagsStr} />
+                  </div>
+                  <div class="form-group series-row">
+                    <div class="series-left">
+                      <label class="field-label" for="seriesId">所属系列</label>
+                      <select id="seriesId" name="series_id">
+                        <option value="">不加入系列</option>
+                        {mySeries.map((s) => (
+                          <option value={s.id} selected={currentSeriesId === s.id}>{s.title}（{s.post_count ?? 0}篇）</option>
+                        ))}
+                        <option value="__new__">+ 新建系列…</option>
+                      </select>
+                    </div>
+                    <div class="series-right">
+                      <label class="field-label" for="seriesOrder">系列中的序号</label>
+                      <input type="number" id="seriesOrder" name="series_order" min="0" value={currentOrder ?? ''} placeholder="留空=自动追加" />
+                    </div>
+                  </div>
+                  <div class="form-group new-series-box" id="newSeriesBox" hidden>
+                    <label class="field-label">新建系列</label>
+                    <input type="text" name="series_new_title" placeholder="新系列名称（必填）" maxlength="80" />
+                    <input type="text" name="series_new_desc" placeholder="新系列简介（可选）" maxlength="200" style="margin-top:8px;" />
+                  </div>
+                  <div class="form-group" style="flex:1; display:flex; flex-direction:column;">
+                    <MarkdownToolbar />
+                    <textarea id="content" name="content" placeholder="用 Markdown 书写正文..." required>{post.content}</textarea>
+                  </div>
+                  <div class="submit-row">
+                    <button type="submit" class="btn btn-primary">保存修改</button>
+                    <a href={`/users/${user.username}`} class="btn btn-ghost btn-sm">取消</a>
+                    <span id="submitMsg" class="msg"></span>
+                  </div>
+                </form>
+              </div>
+
+              <div class="preview-panel">
+                <div class="panel-title">预览</div>
+                <div id="preview" class="preview-content prose"></div>
+              </div>
+            </div>
+          </>
+        )
+      }
+    </main>
+    <Footer />
+
+    {post && post.author_id === user.id && (
+      <script define:vars={{ postId: post.id, myUsername }}>
+        import { marked } from 'marked';
+
+        const contentEl = document.getElementById('content') as HTMLTextAreaElement;
+        const previewEl = document.getElementById('preview');
+        const form = document.getElementById('writeForm') as HTMLFormElement;
+        const msgEl = document.getElementById('submitMsg');
+
+        const seriesSel = form.querySelector('#seriesId') as HTMLSelectElement | null;
+        const newBox = document.getElementById('newSeriesBox');
+        seriesSel?.addEventListener('change', () => {
+          if (!newBox) return;
+          if (seriesSel.value === '__new__') {
+            newBox.removeAttribute('hidden');
+          } else {
+            newBox.setAttribute('hidden', '');
+          }
+        });
+
+        function renderPreview() {
+          previewEl.innerHTML = marked.parse(contentEl.value) as string;
+        }
+        renderPreview();
+        contentEl.addEventListener('input', renderPreview);
+
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          msgEl.textContent = '';
+          msgEl.className = 'msg';
+          const formData = new FormData(form);
+          try {
+            const res = await fetch(`/api/posts/${postId}`, { method: 'PUT', body: formData });
+            const data = await res.json();
+            if (res.ok) {
+              msgEl.textContent = data.message || '保存成功';
+              msgEl.classList.add('msg-success');
+              setTimeout(() => { window.location.href = `/users/${myUsername}`; }, 1200);
+            } else {
+              msgEl.textContent = data.error || '保存失败';
+              msgEl.classList.add('msg-error');
+            }
+          } catch {
+            msgEl.textContent = '网络错误';
+            msgEl.classList.add('msg-error');
+          }
+        });
+      </script>
+    )}
+  </body>
+</html>

@@ -1,0 +1,225 @@
+---
+import BaseHead from '../../components/BaseHead.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import { SITE_TITLE } from '../../consts';
+import { tagQueries } from '../../lib/db';
+
+const tags = tagQueries.allWithCount.all() as { name: string; cnt: number }[];
+
+const maxCnt = tags.length ? Math.max(...tags.map((t) => t.cnt)) : 1;
+
+function tagSize(cnt: number): string {
+  const ratio = cnt / maxCnt;
+  if (tags.length <= 1) return '1.05rem';
+  if (ratio >= 0.8) return '1.75rem';
+  if (ratio >= 0.55) return '1.45rem';
+  if (ratio >= 0.3) return '1.2rem';
+  if (ratio >= 0.1) return '1.05rem';
+  return '0.92rem';
+}
+
+function tagWeight(cnt: number): number {
+  const ratio = cnt / maxCnt;
+  if (ratio >= 0.8) return 700;
+  if (ratio >= 0.55) return 650;
+  if (ratio >= 0.3) return 600;
+  return 500;
+}
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title={`标签 · ${SITE_TITLE}`} description="浏览所有文章标签，发现你感兴趣的话题。" />
+  </head>
+  <body>
+    <Header />
+
+    <main>
+      <section class="page-head">
+        <div class="section-head wrap">
+          <span class="eyebrow">TAGS</span>
+          <h1>标签云</h1>
+          <p class="head-sub">
+            {tags.length > 0
+              ? `共 ${tags.length} 个标签 · ${tags.reduce((a, b) => a + b.cnt, 0)} 篇关联文章`
+              : '还没有标签，写文章时添加标签吧。'}
+          </p>
+        </div>
+      </section>
+
+      <section class="wrap tags-section">
+        {tags.length > 0 ? (
+          <div class="tag-cloud card">
+            {tags.map((t, i) => (
+              <a
+                href={`/tags/${t.name}/`}
+                class="cloud-tag"
+                style={`
+                  font-size: ${tagSize(t.cnt)};
+                  font-weight: ${tagWeight(t.cnt)};
+                  animation-delay: ${i * 30}ms;
+                `}
+                aria-label={`查看标签 ${t.name} 下的 ${t.cnt} 篇文章`}
+              >
+                <span class="cloud-name">{t.name}</span>
+                <span class="cloud-count">{t.cnt}</span>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div class="empty-state card">
+            <div class="empty-icon">🏷️</div>
+            <p>还没有标签，先去写文章添加一些吧。</p>
+            {Astro.locals.user && <a href="/write" class="btn btn-primary">去写文章</a>}
+          </div>
+        )}
+
+        {tags.length > 0 && (
+          <div class="list-head">
+            <h2>按字母排序</h2>
+            <span class="eyebrow small">A — Z</span>
+          </div>
+        )}
+
+        {tags.length > 0 && (
+          <ul class="tag-list-full">
+            {[...tags]
+              .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+              .map((t) => (
+                <li class="tag-row card">
+                  <a class="tag-row-main" href={`/tags/${t.name}/`}>
+                    <span class="tag-chip inline">#{t.name}</span>
+                    <span class="tag-desc">共 {t.cnt} 篇文章</span>
+                  </a>
+                  <a class="btn btn-ghost btn-sm" href={`/tags/${t.name}/`}>查看 →</a>
+                </li>
+              ))}
+          </ul>
+        )}
+      </section>
+    </main>
+
+    <Footer />
+  </body>
+</html>
+
+<style>
+  .page-head {
+    padding: 4.4rem 1.5rem 2rem;
+    background:
+      radial-gradient(800px 320px at 50% -10%, rgba(126, 166, 184, 0.14), transparent 70%);
+  }
+  .section-head.wrap,
+  .tags-section.wrap {
+    max-width: var(--width-wide);
+    margin: 0 auto;
+  }
+  .tags-section {
+    padding: 0 1.5rem 4rem;
+  }
+  .head-sub {
+    margin: 0.6rem 0 0;
+    color: var(--text-gray);
+    font-size: 0.95rem;
+  }
+
+  /* 标签云 */
+  .tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.85rem 1.2rem;
+    padding: 2.6rem 2rem;
+  }
+  .cloud-tag {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: var(--radius-pill);
+    color: var(--monet-blue-dark);
+    transition: all 0.25s var(--ease);
+    text-decoration: none;
+    animation: fadeInUp 0.45s var(--ease) both;
+  }
+  .cloud-tag:hover {
+    background: linear-gradient(135deg, #e8f1f7, #f4c9c914);
+    background: var(--monet-blue-lighter);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+  }
+  .cloud-name {
+    background: linear-gradient(135deg, var(--monet-blue-dark) 0%, #4a6a7b 70%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .cloud-count {
+    font-size: 0.72em;
+    color: var(--text-light);
+    font-weight: 500;
+    background: rgba(255,255,255,0.65);
+    :global([data-theme="dark"]) & {
+      background: rgba(255,255,255,0.06);
+    }
+    padding: 1px 7px;
+    border-radius: 10px;
+  }
+
+  .list-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 3rem 0 1.2rem;
+    padding: 0 0.2rem;
+  }
+  .list-head h2 {
+    margin: 0;
+    color: var(--text-dark);
+    font-size: 1.15rem;
+    letter-spacing: 0.03em;
+  }
+  .eyebrow.small {
+    font-size: 0.68rem;
+    letter-spacing: 0.28em;
+  }
+  .tag-list-full {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.8rem;
+  }
+  .tag-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.1rem;
+  }
+  .tag-row-main {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    flex: 1;
+    color: inherit;
+    text-decoration: none;
+    min-width: 0;
+  }
+  .tag-chip.inline {
+    min-width: fit-content;
+  }
+  .tag-desc {
+    color: var(--text-light);
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 560px) {
+    .page-head { padding: 3.2rem 1.2rem 1.6rem; }
+    .tag-cloud { padding: 1.8rem 1rem; gap: 0.6rem 0.8rem; }
+    .tag-row { padding: 0.85rem 0.9rem; flex-wrap: wrap; gap: 0.7rem; }
+    .tag-row .btn { margin-left: auto; }
+  }
+</style>

@@ -2,7 +2,7 @@
 import BaseHead from '../../components/BaseHead.astro';
 import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
-import { postQueries, userQueries } from '../../lib/db';
+import { postQueries, userQueries, reportQueries } from '../../lib/db';
 import { SITE_TITLE } from '../../consts';
 
 const user = Astro.locals.user;
@@ -13,6 +13,8 @@ if (!user || user.role !== 'admin') {
 const pendingPosts = postQueries.findByStatus.all('pending') as any[];
 const allPosts = postQueries.all.all() as any[];
 const users = userQueries.list.all() as any[];
+const pendingReports = (reportQueries.pendingCount.get('pending') as { count: number }).count;
+const pendingAvatars = (userQueries.countPendingAvatars.get() as { count: number }).count;
 
 const statusLabel: Record<string, string> = {
   pending: '待审核',
@@ -119,6 +121,21 @@ const formatTime = (ts: number) =>
       .admin-sublinks a:hover {
         background: var(--monet-blue-light);
       }
+      .sublink-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 17px;
+        height: 17px;
+        padding: 0 5px;
+        margin-left: 4px;
+        background: #e0a92e;
+        color: #fff;
+        font-size: 0.66rem;
+        font-weight: 600;
+        border-radius: 9px;
+        vertical-align: middle;
+      }
     </style>
   </head>
   <body>
@@ -129,6 +146,12 @@ const formatTime = (ts: number) =>
       <div class="admin-sublinks">
         <a href="/admin/stats">📊 统计</a>
         <a href="/admin/links">🔗 友链</a>
+        <a href="/admin/reports">
+          🚩 举报{pendingReports > 0 && <span class="sublink-badge">{pendingReports}</span>}
+        </a>
+        <a href="/admin/avatars">
+          🖼️ 头像{pendingAvatars > 0 && <span class="sublink-badge">{pendingAvatars}</span>}
+        </a>
       </div>
 
       <div class="admin-tabs">

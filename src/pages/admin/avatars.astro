@@ -1,0 +1,209 @@
+---
+import BaseHead from '../../components/BaseHead.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import Avatar from '../../components/Avatar.astro';
+import { SITE_TITLE } from '../../consts';
+import { userQueries } from '../../lib/db';
+
+const user = Astro.locals.user;
+if (!user || user.role !== 'admin') {
+  return Astro.redirect('/');
+}
+
+interface PendingAvatarRow {
+  id: number;
+  username: string;
+  avatar: string | null;
+  avatar_pending: string;
+  avatar_pending_at: number;
+}
+
+const pending = userQueries.findPendingAvatars.all() as PendingAvatarRow[];
+
+function timeAgo(ts: number): string {
+  const diff = Date.now() - ts;
+  const min = 60 * 1000;
+  const hr = 60 * min;
+  const day = 24 * hr;
+  if (diff < min) return '刚刚';
+  if (diff < hr) return `${Math.floor(diff / min)} 分钟前`;
+  if (diff < day) return `${Math.floor(diff / hr)} 小时前`;
+  if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`;
+  return new Date(ts).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+}
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <BaseHead title={`头像审核 - ${SITE_TITLE}`} description="用户上传头像的人工审核后台" />
+    <style>
+      .page-head { margin-bottom: 1.4rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-light); }
+      .page-head h1 { margin: 0 0 0.4rem; font-size: 1.6rem; }
+      .page-head p { color: var(--text-gray); font-size: 0.92rem; margin: 0; }
+
+      .avatar-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 1rem; }
+      .avatar-card {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1.1rem;
+        background: var(--bg-white);
+        border: 1px solid var(--border-light);
+        border-left: 4px solid #e0a92e;
+        border-radius: var(--radius-lg);
+        padding: 1.1rem 1.3rem;
+      }
+      .avatar-stage { display: flex; align-items: center; gap: 0.8rem; }
+      .stage-label {
+        display: block;
+        font-size: 0.72rem;
+        color: var(--text-light);
+        text-align: center;
+        margin-top: 0.35rem;
+      }
+      .avatar-now {
+        width: 64px; height: 64px; border-radius: 50%;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 1.5rem; font-weight: 700; color: #fff;
+        background: linear-gradient(135deg, var(--monet-blue-light), var(--monet-blue-dark));
+        overflow: hidden; flex-shrink: 0;
+      }
+      .avatar-now img { width: 100%; height: 100%; object-fit: cover; }
+      .avatar-new {
+        width: 96px; height: 96px; border-radius: 50%;
+        object-fit: cover; border: 2px solid var(--monet-blue-light);
+        box-shadow: 0 4px 14px rgba(0,0,0,.12); background: var(--bg-body, #f3f8fb);
+        flex-shrink: 0;
+      }
+      .stage-arrow { color: var(--text-light); font-size: 1.4rem; }
+      .avatar-info { flex: 1 1 200px; min-width: 180px; }
+      .avatar-info .uname { font-weight: 600; font-size: 1.02rem; }
+      .avatar-info .uname a { color: var(--text-dark); }
+      .avatar-info .utime { font-size: 0.82rem; color: var(--text-light); margin-top: 0.25rem; }
+      .avatar-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+      .btn-sm { padding: 6px 16px; font-size: 0.82rem; min-height: 36px; }
+      .empty {
+        text-align: center;
+        padding: 3rem 1rem;
+        background: var(--bg-white);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-lg);
+        color: var(--text-gray);
+      }
+      .empty-icon { font-size: 2.4rem; margin-bottom: 0.4rem; }
+      .empty p { margin: 0.4rem 0 0; font-size: 0.9rem; }
+      .back-link { display: inline-block; color: var(--text-gray); font-size: 0.9rem; margin-bottom: 1rem; }
+      .back-link:hover { color: var(--monet-blue-dark); }
+
+      @media (max-width: 560px) {
+        .avatar-card { padding: 0.9rem 1rem; gap: 0.8rem; }
+        .avatar-new { width: 76px; height: 76px; }
+        .avatar-now { width: 52px; height: 52px; font-size: 1.2rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <Header />
+    <main>
+      <a href="/admin" class="back-link">← 返回管理后台</a>
+      <header class="page-head">
+        <h1>🖼️ 头像审核</h1>
+        <p>
+          {pending.length > 0
+            ? `当前有 ${pending.length} 个待审核头像。通过后全站即刻生效，驳回则保留用户原头像并站内通知。`
+            : '暂无待审核头像。'}
+        </p>
+      </header>
+
+      {pending.length === 0 ? (
+        <div class="empty">
+          <div class="empty-icon">🕊️</div>
+          <p>暂无待审核头像</p>
+        </div>
+      ) : (
+        <ul class="avatar-list">
+          {pending.map((u) => (
+            <li class="avatar-card" data-user-id={u.id}>
+              <div class="avatar-stage">
+                <div>
+                  <Avatar name={u.username} src={u.avatar} class="avatar-now" />
+                  <span class="stage-label">当前头像</span>
+                </div>
+                <span class="stage-arrow">→</span>
+                <div>
+                  <img class="avatar-new" src={u.avatar_pending} alt={`${u.username} 提交的新头像`} loading="lazy" decoding="async" />
+                  <span class="stage-label">新头像</span>
+                </div>
+              </div>
+              <div class="avatar-info">
+                <div class="uname"><a href={`/users/${u.username}`} target="_blank" rel="noopener">{u.username}</a></div>
+                <div class="utime">提交于 {timeAgo(u.avatar_pending_at)}</div>
+              </div>
+              <div class="avatar-actions">
+                <button class="btn btn-primary btn-sm act-btn" data-id={u.id} data-action="approve">
+                  通过
+                </button>
+                <button class="btn btn-outline btn-sm act-btn" data-id={u.id} data-action="reject">
+                  驳回
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </main>
+    <Footer />
+
+    <script>
+      document.querySelectorAll<HTMLButtonElement>('.act-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          const action = btn.dataset.action;
+          if (!id || !action) return;
+
+          let reason = '';
+          if (action === 'reject') {
+            const input = window.prompt('驳回理由（可选，将通过站内通知发给用户，留空则不填）：');
+            if (input === null) return; // 取消
+            reason = input.trim().slice(0, 200);
+          } else if (!window.confirm('确认通过该头像？通过后将立即替换用户当前头像。')) {
+            return;
+          }
+
+          btn.disabled = true;
+          try {
+            const res = await fetch(`/api/admin/avatars/${id}/${action}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reason }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || '处理失败');
+            btn.closest('.avatar-card')?.remove();
+            const rest = document.querySelectorAll('.avatar-card').length;
+            const sub = document.querySelector('.page-head p');
+            if (sub)
+              sub.textContent =
+                rest > 0
+                  ? `当前有 ${rest} 个待审核头像。通过后全站即刻生效，驳回则保留用户原头像并站内通知。`
+                  : '暂无待审核头像。';
+            if (rest === 0) {
+              document.querySelector('.avatar-list')?.remove();
+              const empty = document.createElement('div');
+              empty.className = 'empty';
+              empty.innerHTML = '<div class="empty-icon">🕊️</div><p>暂无待审核头像</p>';
+              document.querySelector('main')?.appendChild(empty);
+            }
+          } catch (e) {
+            window.alert(e instanceof Error ? e.message : '网络错误，请重试');
+            btn.disabled = false;
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -5,7 +5,8 @@ import Header from '../../components/Header.astro';
 import PostInteract from '../../components/PostInteract.astro';
 import ReadingProgress from '../../components/ReadingProgress.astro';
 import TableOfContents from '../../components/TableOfContents.astro';
-import { postQueries, tagQueries, viewQueries } from '../../lib/db';
+import Avatar from '../../components/Avatar.astro';
+import { postQueries, tagQueries, viewQueries, seriesQueries, userQueries } from '../../lib/db';
 import { marked } from 'marked';
 
 const slug = Astro.params.slug as string;
@@ -21,14 +22,19 @@ if (!post || (post.status !== 'approved' && !isAdmin)) {
 
 const htmlContent = marked.parse(post.content) as string;
 const author = post.author_name;
+const authorUser = userQueries.findByUsername.get(author) as { avatar: string | null } | undefined;
 const interactionUser = currentUser
-  ? { id: currentUser.id, username: currentUser.username }
+  ? { id: currentUser.id, username: currentUser.username, avatar: currentUser.avatar }
   : null;
 const dateStr = new Date(post.created_at).toLocaleDateString('zh-CN', {
   year: 'numeric',
   month: 'long',
   day: 'numeric',
 });
+
+// 字数与阅读时间（中文按字符算，约 400 字/分钟）
+const wordCount = post.content.replace(/\s+/g, '').length;
+const readMinutes = Math.max(1, Math.ceil(wordCount / 400));
 
 // 文章标签
 const tags = tagQueries.forPost.all(post.id) as { name: string }[];
@@ -40,6 +46,20 @@ const viewCount = post.status === 'approved'
 const related = post.status === 'approved'
   ? (postQueries.findRelated.all(post.id, post.author_id, post.id, post.id) as any[])
   : [];
+
+// 系列导航
+const seriesInfo = post ? (seriesQueries.forPost.get(post.id) as any) : null;
+let seriesNav: { series: any; total: number; order: number; prev: any; next: any } | null = null;
+if (seriesInfo) {
+  const { prev, next } = seriesQueries.neighbors(seriesInfo.id, seriesInfo.order_in_series);
+  seriesNav = {
+    series: seriesInfo,
+    total: Number(seriesInfo.total || 0),
+    order: Number(seriesInfo.order_in_series || 0),
+    prev,
+    next,
+  };
+}
 ---
 
 <!doctype html>
@@ -54,6 +74,37 @@ const related = post.status === 'approved'
       <a href={post.status === 'approved' ? '/blog' : '/admin'} class="back-link">
         {post.status === 'approved' ? '← 返回文章列表' : '← 返回管理后台'}
       </a>
+
+      {seriesNav && post.status === 'approved' && (
+        <div class="series-nav">
+          <a href={`/series/${seriesNav.series.slug}/`} class="series-nav-head">
+            <span class="series-nav-icon">📚</span>
+            <div class="series-nav-head-main">
+              <strong class="series-nav-title">{seriesNav.series.title}</strong>
+              <span class="series-nav-progress">
+                第 {seriesNav.order} / {seriesNav.total} 篇
+              </span>
+            </div>
+            <span class="series-nav-chevron">›</span>
+          </a>
+          {(seriesNav.prev || seriesNav.next) && (
+            <div class="series-pager">
+              {seriesNav.prev ? (
+                <a class="pager pager-prev" href={`/blog/${seriesNav.prev.slug}/`}>
+                  <span class="pager-label">‹ 上一篇</span>
+                  <span class="pager-title">{seriesNav.prev.title}</span>
+                </a>
+              ) : <span class="pager pager-disabled"><span class="pager-label">‹ 上一篇</span><span class="pager-title">已是第一篇</span></span>}
+              {seriesNav.next ? (
+                <a class="pager pager-next" href={`/blog/${seriesNav.next.slug}/`}>
+                  <span class="pager-label">下一篇 ›</span>
+                  <span class="pager-title">{seriesNav.next.title}</span>
+                </a>
+              ) : <span class="pager pager-disabled"><span class="pager-label">下一篇 ›</span><span class="pager-title">已是最后一篇</span></span>}
+            </div>
+          )}
+        </div>
+      )}
 
       {
         post.status !== 'approved' && (
@@ -88,12 +139,15 @@ const related = post.status === 'approved'
           {post.description && <p class="article-desc">{post.description}</p>}
           <div class="article-meta">
             <a href={`/users/${author}`} class="author-chip">
-              <span class="author-avatar">{author.slice(0, 1).toUpperCase()}</span>
+              <Avatar name={author} src={authorUser?.avatar} class="author-avatar" />
               {author}
             </a>
             <time datetime={new Date(post.created_at).toISOString()}>{dateStr}</time>
             {post.status === 'approved' && (
               <span class="view-count">👁 {viewCount}</span>
+            )}
+            {post.status === 'approved' && (
+              <span class="read-info">📖 约 {wordCount} 字 · {readMinutes} 分钟</span>
             )}
           </div>
           {tags.length > 0 && (
@@ -187,6 +241,49 @@ const related = post.status === 'approved'
     {post.status === 'approved' && (
       <script is:inline set:html={`fetch('/api/posts/${post.id}/view', { method: 'POST' }).catch(function () {});`} />
     )}
+
+    <script>
+      // 代码块复制按钮
+      document.querySelectorAll('.article-content pre').forEach((pre) => {
+        if (pre.querySelector('.code-copy-btn')) return;
+        pre.style.position = 'relative';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'code-copy-btn';
+        btn.setAttribute('aria-label', '复制代码');
+        btn.innerHTML =
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span class="cc-text">复制</span>';
+        pre.appendChild(btn);
+        btn.addEventListener('click', async () => {
+          const code = pre.querySelector('code')?.textContent ?? pre.textContent ?? '';
+          const textEl = btn.querySelector('.cc-text');
+          let ok = false;
+          try {
+            await navigator.clipboard.writeText(code);
+            ok = true;
+          } catch {
+            try {
+              const ta = document.createElement('textarea');
+              ta.value = code;
+              ta.style.position = 'fixed';
+              ta.style.top = '-9999px';
+              document.body.appendChild(ta);
+              ta.select();
+              ok = document.execCommand('copy');
+              ta.remove();
+            } catch {}
+          }
+          if (ok) {
+            btn.classList.add('is-copied');
+            if (textEl) textEl.textContent = '已复制';
+            setTimeout(() => {
+              btn.classList.remove('is-copied');
+              if (textEl) textEl.textContent = '复制';
+            }, 1600);
+          }
+        });
+      });
+    </script>
   </body>
 </html>
 
@@ -249,6 +346,89 @@ const related = post.status === 'approved'
   }
   .back-link:hover { color: var(--monet-blue-dark); transform: translateX(-3px); }
 
+  .series-nav {
+    background: var(--bg-white);
+    border: 1px solid var(--monet-blue-lighter);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 1.8rem;
+    animation: fadeInUp 0.45s var(--ease);
+  }
+  .series-nav-head {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.9rem 1.2rem;
+    background: linear-gradient(90deg, var(--monet-blue-lighter) 0%, transparent 100%);
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.25s var(--ease);
+  }
+  .series-nav-head:hover { background: linear-gradient(90deg, var(--monet-blue-light) 0%, var(--monet-blue-lighter) 100%); }
+  .series-nav-icon { font-size: 1.4rem; line-height: 1; }
+  .series-nav-head-main { flex: 1; min-width: 0; }
+  .series-nav-title {
+    display: block;
+    color: var(--monet-blue-dark);
+    font-size: 0.98rem;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .series-nav-progress {
+    font-size: 0.8rem;
+    color: var(--text-light);
+  }
+  .series-nav-chevron {
+    color: var(--monet-blue-dark);
+    font-size: 1.4rem;
+    font-weight: 300;
+    line-height: 1;
+  }
+  .series-pager {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid var(--border-light);
+  }
+  .pager {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 0.8rem 1.1rem;
+    text-decoration: none;
+    color: inherit;
+    min-width: 0;
+    transition: background 0.2s var(--ease);
+  }
+  a.pager:hover { background: var(--monet-blue-lighter); }
+  .pager-prev { border-right: 1px solid var(--border-light); }
+  .pager-next { text-align: right; }
+  .pager-label {
+    font-size: 0.74rem;
+    color: var(--text-light);
+    letter-spacing: 0.03em;
+  }
+  .pager-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pager-disabled { opacity: 0.45; cursor: default; }
+
+  @media (max-width: 560px) {
+    .series-pager { grid-template-columns: 1fr; }
+    .pager-prev { border-right: none; border-bottom: 1px solid var(--border-light); }
+    .pager-next { text-align: left; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .series-nav { animation: none !important; }
+  }
+
   .article-header {
     margin-bottom: 2.4rem;
     padding-bottom: 1.8rem;
@@ -305,6 +485,70 @@ const related = post.status === 'approved'
 
   .article-content {
     animation: fadeIn 0.55s var(--ease);
+  }
+
+  /* 字数 / 阅读时间 */
+  .read-info {
+    color: var(--text-light);
+    font-size: 0.82rem;
+  }
+
+  /* 代码块复制按钮 */
+  .article-content pre {
+    position: relative;
+  }
+  .code-copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.88);
+    color: var(--text-gray);
+    font-size: 0.74rem;
+    font-family: inherit;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s var(--ease), background 0.2s var(--ease), color 0.2s var(--ease);
+    z-index: 2;
+    backdrop-filter: blur(4px);
+  }
+  .article-content pre:hover .code-copy-btn {
+    opacity: 1;
+  }
+  .code-copy-btn:hover {
+    background: var(--monet-blue-lighter);
+    color: var(--monet-blue-dark);
+    border-color: var(--monet-blue-light);
+  }
+  .code-copy-btn.is-copied {
+    background: #e3f6e8;
+    color: #27ae60;
+    border-color: #a8e0b8;
+  }
+  .code-copy-btn svg {
+    width: 13px;
+    height: 13px;
+  }
+  :global([data-theme="dark"]) .code-copy-btn {
+    background: rgba(40, 50, 56, 0.82);
+    color: var(--text-gray);
+  }
+  :global([data-theme="dark"]) .code-copy-btn:hover {
+    background: var(--monet-blue-lighter);
+  }
+  :global([data-theme="dark"]) .code-copy-btn.is-copied {
+    background: rgba(39, 174, 96, 0.18);
+    color: #6ee7a3;
+    border-color: rgba(39, 174, 96, 0.4);
+  }
+  /* 触屏设备常驻显示，无 hover */
+  @media (hover: none) {
+    .code-copy-btn { opacity: 1; }
   }
 
   .article-tags {
