@@ -8,27 +8,40 @@ import { SITE_TITLE } from '../consts';
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <BaseHead title={`关于我 - ${SITE_TITLE}`} description="关于这个博客和作者" />
+    <BaseHead title={`关于本站 - ${SITE_TITLE}`} description="这个站点的技术实现：Astro SSR、SQLite、FTS5 与部署方案" />
   </head>
   <body>
     <Header />
     <main class="narrow">
       <header class="about-hero">
-        <div class="avatar">👋</div>
-        <h1>关于我</h1>
-        <p class="about-sub">你好，很高兴在这里遇见你。</p>
+        <div class="avatar">🛠️</div>
+        <h1>关于本站</h1>
+        <p class="about-sub">简单交代下，这个站是怎么跑起来的。</p>
       </header>
       <div class="about-content prose">
+        <h3>架构</h3>
         <p>
-          欢迎来到我的个人空间。这里是我记录<strong>技术成长</strong>、<strong>生活点滴</strong>与<strong>思考感悟</strong>的地方——不追逐热点，只留下真实的痕迹。
+          Astro 7 SSR + <code>@astrojs/node</code>（Node 22），入口是自己写的一层
+          <code>server.mjs</code>，顺带用 <code>ws</code> 挂了 WebSocket——私信因此是实时推送，而非轮询。
         </p>
+        <h3>数据</h3>
         <p>
-          我热爱编程，喜欢用代码创造有趣的东西。这个博客采用 Astro 构建，以莫奈蓝为主色调，希望每一次到访都能给你安静、舒适的阅读体验。
+          全部状态收敛进一个 SQLite 文件（<code>better-sqlite3</code>，同步 API + 事务）；
+          全文检索直接用 FTS5，触发器维护索引，文章增删改无需手动同步。
+          数据库与上传文件落在挂载的持久卷上，重新部署也不丢数据。
         </p>
+        <h3>安全与处理</h3>
         <p>
-          如果你有任何想法，欢迎<a href="/login">注册账号</a>后给我<a href="/messages">发私信</a>交流，也可以浏览<a href="/blog">文章列表</a>，或在文章页直接与我对话。
+          bcrypt 存密码，session cookie 走 <code>httpOnly</code> + <code>sameSite=lax</code>；
+          头像经 sharp 自动旋转、居中裁剪为 256×256 的 WebP，上传后先进人工审核队列；
+          正文用 marked 渲染，写作页带工具栏、实时预览和本地草稿自动保存。
         </p>
-        <blockquote>用心记录，慢慢生长。</blockquote>
+        <h3>部署</h3>
+        <p>
+          代码托管在 GitHub，推送到 <code>main</code> 后由 Railway 自动构建运行，前置 Cloudflare 缓存静态资源；
+          站点另带 RSS 订阅、sitemap、明暗模式与移动端自适应。
+        </p>
+        <blockquote>一个仓库、一个进程、一个 .db 文件——够用，且好维护。</blockquote>
       </div>
     </main>
     <Footer />
