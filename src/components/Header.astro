@@ -2,6 +2,7 @@
 import { SITE_TITLE } from '../consts';
 import HeaderLink from './HeaderLink.astro';
 import Avatar from './Avatar.astro';
+import DevToolbarHeart from './DevToolbarHeart.astro';
 import { postQueries, reportQueries, userQueries } from '../lib/db';
 
 const user = Astro.locals.user;
@@ -127,6 +128,7 @@ const pendingCount = isAdmin
     </div>
   </nav>
 </header>
+<DevToolbarHeart />
 
 <style>
   header {

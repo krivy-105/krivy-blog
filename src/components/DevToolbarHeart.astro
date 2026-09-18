@@ -1,0 +1,76 @@
+---
+// 仅本地开发：把 Astro 开发工具条（astro-dev-toolbar）整体改成莫奈蓝风格——
+// 蓝色胶囊底 + 白色图标（最左侧换成与 Header 同款爱心）+ 白底气泡 tooltip。
+// 该工具条只在 dev 模式注入，线上访客看不到；生产构建中此脚本不输出。
+---
+
+{
+  import.meta.env.DEV && (
+    <script
+      is:inline
+      set:html={`(function () {
+  var STYLE_ID = 'monet-dev-toolbar-style';
+  var SELECTOR = '#dev-bar .item[data-app-id="astro:home"]';
+
+  // 与 Header.astro 品牌标同款爱心；蓝底上用白色，和其余三个图标统一
+  var HEART =
+    '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" style="display:block">' +
+    '<path fill="#ffffff" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>' +
+    '</svg>';
+
+  // 莫奈蓝覆盖样式：注入到 shadowRoot 内、置于原样式之后，同优先级后生效
+  var CSS =
+    '#dev-bar {' +
+    '  background: linear-gradient(180deg, #7fa4b7 0%, #5f889d 100%) !important;' +
+    '  border: 1px solid rgba(255,255,255,.45) !important;' +
+    '  box-shadow: 0 8px 24px rgba(95,136,157,.35), 0 2px 6px rgba(95,136,157,.25) !important;' +
+    '}' +
+    '#dev-bar #bar-container .item:hover,' +
+    '#dev-bar #bar-container .item:focus-visible { background: rgba(255,255,255,.22) !important; }' +
+    '#dev-bar #bar-container .item.active { background: rgba(255,255,255,.30) !important; }' +
+    '#dev-bar .separator { background: rgba(255,255,255,.38) !important; }' +
+    '#dev-bar .item-tooltip {' +
+    '  background: #ffffff !important;' +
+    '  border: 1px solid #d3e3ea !important;' +
+    '  color: #2d3f4a !important;' +
+    '  box-shadow: 0 4px 14px rgba(45,63,74,.18);' +
+    '}' +
+    '#dev-bar .item-tooltip::after { border-top-color: #ffffff !important; }';
+
+  function apply(root) {
+    if (!root.getElementById(STYLE_ID)) {
+      var st = document.createElement('style');
+      st.id = STYLE_ID;
+      st.textContent = CSS;
+      root.appendChild(st);
+    }
+    var btn = root.querySelector(SELECTOR);
+    if (btn && btn.getAttribute('data-heart') !== '1') {
+      btn.innerHTML = HEART;
+      btn.setAttribute('data-heart', '1');
+    }
+  }
+
+  function watch(host) {
+    var root = host.shadowRoot;
+    if (!root) return false;
+    apply(root);
+    // 工具条内部若重渲染，幂等补回样式与爱心
+    new MutationObserver(function () { apply(root); }).observe(root, {
+      childList: true,
+      subtree: true,
+    });
+    return true;
+  }
+
+  var tries = 0;
+  var timer = setInterval(function () {
+    tries++;
+    var host = document.querySelector('astro-dev-toolbar');
+    if (host && watch(host)) clearInterval(timer);
+    if (tries > 100) clearInterval(timer); // 约 20s 兜底
+  }, 200);
+})();`}
+    />
+  )
+}
