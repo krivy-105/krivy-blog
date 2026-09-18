@@ -122,7 +122,9 @@ db.exec(`
     INSERT INTO post_fts(post_fts, rowid, title, description, content)
     VALUES ('delete', old.id, old.title, old.description, old.content);
   END;
-  CREATE TRIGGER IF NOT EXISTS posts_fts_au AFTER UPDATE ON posts BEGIN
+  -- 仅在标题/描述/正文变化时同步索引；软删除/状态/置顶等 UPDATE 不应触发
+  -- （否则对缺失的 FTS 行执行 delete 会抛 SQLITE_CORRUPT_VTAB 导致删除失败）
+  CREATE TRIGGER IF NOT EXISTS posts_fts_au AFTER UPDATE OF title, description, content ON posts BEGIN
     INSERT INTO post_fts(post_fts, rowid, title, description, content)
     VALUES ('delete', old.id, old.title, old.description, old.content);
     INSERT INTO post_fts(rowid, title, description, content)
@@ -201,6 +203,26 @@ if (!postColumns.some((c) => c.name === 'pinned_at')) {
 }
 if (!postColumns.some((c) => c.name === 'deleted_at')) {
   db.exec('ALTER TABLE posts ADD COLUMN deleted_at INTEGER');
+}
+
+// FTS UPDATE 触发器升级：旧版 AFTER UPDATE 在软删除/改状态/置顶等任意列
+// 更新时都重建索引，对缺失的 FTS 行执行 delete 会抛 SQLITE_CORRUPT_VTAB
+// （表现为删除文章接口 500「删除失败，请重试」）。
+// 替换为仅监听 title/description/content，并 rebuild 修复历史索引不同步。
+const ftsAuTrigger = db
+  .prepare("SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = 'posts_fts_au'")
+  .get() as { sql: string } | undefined;
+if (ftsAuTrigger && !/UPDATE\s+OF\s+title/i.test(ftsAuTrigger.sql)) {
+  db.exec(`
+    DROP TRIGGER IF EXISTS posts_fts_au;
+    INSERT INTO post_fts(post_fts) VALUES('rebuild');
+    CREATE TRIGGER posts_fts_au AFTER UPDATE OF title, description, content ON posts BEGIN
+      INSERT INTO post_fts(post_fts, rowid, title, description, content)
+      VALUES ('delete', old.id, old.title, old.description, old.content);
+      INSERT INTO post_fts(rowid, title, description, content)
+      VALUES (new.id, new.title, new.description, new.content);
+    END;
+  `);
 }
 
 // comments 表幂等迁移：楼中楼、软删除、治理
