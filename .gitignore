@@ -1,8 +1,8 @@
 # build output
 dist/
 
-# database
-data/
+# database（仅根目录的 data/，不影响 src/data）
+/data/
 # generated types
 .astro/
 
