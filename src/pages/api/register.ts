@@ -1,8 +1,25 @@
 import type { APIRoute } from 'astro';
 import { userQueries } from '../../lib/db';
 import { hashPassword, createSession, COOKIE_NAME, SESSION_DURATION } from '../../lib/auth';
+import { bumpRateLimit, getClientIp } from '../../lib/rate-limit';
 
 export const POST: APIRoute = async ({ request, cookies, redirect }) => {
+  // 限流：同一 IP 每小时最多 5 次注册，防止批量灌水
+  const ip = getClientIp(request.headers);
+  const limit = bumpRateLimit(`register:${ip}`, 5, 60 * 60 * 1000);
+  if (!limit.ok) {
+    return new Response(
+      JSON.stringify({ error: '注册过于频繁，请一小时后再试' }),
+      {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'Retry-After': String(limit.retryAfterSec),
+        },
+      }
+    );
+  }
+
   const formData = await request.formData();
   const username = (formData.get('username') as string)?.trim();
   const email = (formData.get('email') as string)?.trim();

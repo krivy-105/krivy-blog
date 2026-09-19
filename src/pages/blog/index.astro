@@ -5,7 +5,13 @@ import Header from '../../components/Header.astro';
 import { SITE_TITLE } from '../../consts';
 import { postQueries, tagQueries, viewQueries } from '../../lib/db';
 
-const posts = postQueries.findApproved.all() as any[];
+const PER_PAGE = 12;
+const total = (postQueries.countApproved.get() as { count: number }).count;
+const pageCount = Math.max(1, Math.ceil(total / PER_PAGE));
+// URL ?page=N；非法值回落到第 1 页
+const page = Math.min(pageCount, Math.max(1, Number(Astro.url.searchParams.get('page')) || 1));
+
+const posts = postQueries.findApprovedPaged.all(PER_PAGE, (page - 1) * PER_PAGE) as any[];
 
 // post_id -> tags
 const tagRows = tagQueries.forPostList.all() as { post_id: number; tags: string | null }[];
@@ -31,8 +37,8 @@ for (const r of viewRows) viewMap.set(r.post_id, r.count);
       <header class="page-head">
         <h1>全部文章</h1>
         <p>
-          {posts.length > 0
-            ? `共 ${posts.length} 篇文章，慢慢读。`
+          {total > 0
+            ? `共 ${total} 篇文章，慢慢读。${pageCount > 1 ? `第 ${page} / ${pageCount} 页` : ''}`
             : '还没有文章发布。'}
         </p>
       </header>
@@ -79,6 +85,22 @@ for (const r of viewRows) viewMap.set(r.post_id, r.count);
           <a href="/" class="btn btn-outline">返回首页</a>
         </div>
       )}
+
+      {pageCount > 1 && (
+        <nav class="pagination" aria-label="文章分页">
+          {page > 1 ? (
+            <a class="page-btn" href={`/blog?page=${page - 1}`} rel="prev">← 上一页</a>
+          ) : (
+            <span class="page-btn is-disabled">← 上一页</span>
+          )}
+          <span class="page-current">{page} / {pageCount}</span>
+          {page < pageCount ? (
+            <a class="page-btn" href={`/blog?page=${page + 1}`} rel="next">下一页 →</a>
+          ) : (
+            <span class="page-btn is-disabled">下一页 →</span>
+          )}
+        </nav>
+      )}
     </main>
     <Footer />
   </body>
@@ -95,6 +117,39 @@ for (const r of viewRows) viewMap.set(r.post_id, r.count);
     color: var(--text-gray);
     font-size: 0.95rem;
     margin: 0;
+  }
+
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 2.2rem;
+  }
+  .page-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1.1rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-pill);
+    background: var(--bg-white);
+    color: var(--monet-blue-dark);
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: var(--transition);
+  }
+  a.page-btn:hover {
+    border-color: var(--monet-blue);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+  .page-btn.is-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+  .page-current {
+    color: var(--text-gray);
+    font-size: 0.9rem;
   }
 
   .post-list {

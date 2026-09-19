@@ -7,7 +7,7 @@ import ReadingProgress from '../../components/ReadingProgress.astro';
 import TableOfContents from '../../components/TableOfContents.astro';
 import Avatar from '../../components/Avatar.astro';
 import { postQueries, tagQueries, viewQueries, seriesQueries, userQueries } from '../../lib/db';
-import { marked } from 'marked';
+import { renderMarkdown } from '../../lib/markdown';
 
 const slug = Astro.params.slug as string;
 const post = postQueries.findBySlug.get(slug) as any;
@@ -25,7 +25,7 @@ if (!post || (post.status !== 'approved' && !isAdmin)) {
 const canEdit = isOwner;
 const canDelete = isOwner || (isAdmin && post.status === 'approved');
 
-const htmlContent = marked.parse(post.content) as string;
+const htmlContent = renderMarkdown(post.content);
 const author = post.author_name;
 const authorUser = userQueries.findByUsername.get(author) as { avatar: string | null } | undefined;
 const interactionUser = currentUser
@@ -70,7 +70,22 @@ if (seriesInfo) {
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <BaseHead title={`${post.title} - ${author}`} description={post.description || ''} />
+    <BaseHead
+      title={`${post.title} - ${author}`}
+      description={post.description || ''}
+      type="article"
+      publishedTime={new Date(post.created_at).toISOString()}
+    />
+    <script type="application/ld+json" set:html={JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: post.title,
+      description: post.description || '',
+      datePublished: new Date(post.created_at).toISOString(),
+      dateModified: new Date(post.updated_at).toISOString(),
+      author: { '@type': 'Person', name: author },
+      mainEntityOfPage: new URL(Astro.url.pathname, Astro.site).toString(),
+    })} />
   </head>
   <body>
     <Header />

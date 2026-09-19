@@ -19,9 +19,20 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const res = await next();
 
-  // 站点 PV/UV 统计（仅在 GET 请求、跳过静态资源 / API）
+  // 安全响应头（覆盖所有 SSR 页面；静态资源由 server.mjs 直出无需这些头）
+  res.headers.set('X-Content-Type-Options', 'nosniff');
+  res.headers.set('X-Frame-Options', 'DENY');
+  res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+
+  // 站点 PV/UV 统计（仅在 GET 请求、跳过静态资源 / API / 爬虫）
   try {
     if (context.request.method === 'GET') {
+      const ua = context.request.headers.get('user-agent') || '';
+      if (/bot|crawler|spider|slurp|curl|wget|headless/i.test(ua)) {
+        return res;
+      }
       const url = new URL(context.request.url);
       const path = url.pathname;
       if (
@@ -40,11 +51,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
               .slice(0, 16)
           : '';
         const date = new Date().toISOString().slice(0, 10);
-        statQueries.ensureUv.run(date);
-        if (visitorQueries.recordUv.run(date, ipHash).changes > 0) {
+        // 记录访客去重；返回 changes 判断是否新访客，从而把 PV/UV 各缩减为一条 UPSERT
+        const isNewVisitor = visitorQueries.recordUv.run(date, ipHash).changes > 0;
+        if (isNewVisitor) {
           statQueries.bumpUv.run(date);
+        } else {
+          statQueries.bumpPv.run(date);
         }
-        statQueries.bumpPv.run(date);
       }
     }
   } catch {}

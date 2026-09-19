@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
 import { join, dirname } from 'node:path';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, existsSync, readdirSync, unlinkSync } from 'node:fs';
 
 // 数据库路径：优先使用 DB_PATH 环境变量（Railway 等部署环境的持久卷挂载点），
 // 否则以进程工作目录为基准，指向项目根目录的 data/
@@ -11,6 +11,10 @@ export const DATA_DIR = dirname(DB_PATH);
 export const AVATAR_DIR = join(DATA_DIR, 'avatars');
 mkdirSync(DATA_DIR, { recursive: true });
 mkdirSync(AVATAR_DIR, { recursive: true });
+// 数据库每日备份目录（同一持久卷内）
+const BACKUP_DIR = join(DATA_DIR, 'backups');
+const BACKUP_KEEP = 7;
+mkdirSync(BACKUP_DIR, { recursive: true });
 
 export const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
@@ -452,6 +456,25 @@ export const postQueries = {
      WHERE p.status = 'approved' AND p.deleted_at IS NULL
      ORDER BY (p.pinned_at IS NULL), p.pinned_at DESC, p.created_at DESC`
   ),
+  // 首页最近文章：SQL 层 LIMIT，避免全量加载后内存截断
+  findApprovedRecent: db.prepare(
+    `SELECT p.*, u.username AS author_name FROM posts p
+     JOIN users u ON p.author_id = u.id
+     WHERE p.status = 'approved' AND p.deleted_at IS NULL
+     ORDER BY (p.pinned_at IS NULL), p.pinned_at DESC, p.created_at DESC
+     LIMIT ?`
+  ),
+  // 列表页分页
+  findApprovedPaged: db.prepare(
+    `SELECT p.*, u.username AS author_name FROM posts p
+     JOIN users u ON p.author_id = u.id
+     WHERE p.status = 'approved' AND p.deleted_at IS NULL
+     ORDER BY (p.pinned_at IS NULL), p.pinned_at DESC, p.created_at DESC
+     LIMIT ? OFFSET ?`
+  ),
+  countApproved: db.prepare(
+    `SELECT COUNT(*) AS count FROM posts WHERE status = 'approved' AND deleted_at IS NULL`
+  ),
   findBySlug: db.prepare(
     `SELECT p.*, u.username AS author_name FROM posts p
      JOIN users u ON p.author_id = u.id
@@ -890,14 +913,14 @@ export const linkQueries = {
 
 // ---- 站点统计相关查询 ----
 export const statQueries = {
-  ensureUv: db.prepare(
-    `INSERT OR IGNORE INTO site_stats (date, pv, uv) VALUES (?, 0, 0)`
-  ),
+  // UPSERT 自建行：省去先 ensureUv 的额外语句
   bumpPv: db.prepare(
-    `UPDATE site_stats SET pv = pv + 1 WHERE date = ?`
+    `INSERT INTO site_stats (date, pv, uv) VALUES (?, 1, 0)
+     ON CONFLICT(date) DO UPDATE SET pv = pv + 1`
   ),
   bumpUv: db.prepare(
-    `UPDATE site_stats SET uv = uv + 1 WHERE date = ?`
+    `INSERT INTO site_stats (date, pv, uv) VALUES (?, 1, 1)
+     ON CONFLICT(date) DO UPDATE SET uv = uv + 1`
   ),
   last30: db.prepare(
     `SELECT date, pv, uv FROM site_stats
@@ -1090,6 +1113,38 @@ export type Post = {
   pinned_at: number | null;
   author_name?: string;
 };
+
+// ---- 每日自动备份 ----
+// 使用 SQLite online backup（db.backup），WAL 模式下可安全在线执行；
+// 文件按日期命名，保留最近 BACKUP_KEEP 份。可用 DISABLE_DB_BACKUP=1 关闭。
+async function runDailyBackup(): Promise<void> {
+  const stamp = new Date().toISOString().slice(0, 10);
+  const target = join(BACKUP_DIR, `blog-${stamp}.db`);
+  try {
+    if (existsSync(target)) return; // 当天已备份
+    await db.backup(target);
+    const files = readdirSync(BACKUP_DIR)
+      .filter((f) => /^blog-\d{4}-\d{2}-\d{2}\.db$/.test(f))
+      .sort();
+    while (files.length > BACKUP_KEEP) {
+      const oldest = files.shift();
+      if (oldest) {
+        try {
+          unlinkSync(join(BACKUP_DIR, oldest));
+        } catch {}
+      }
+    }
+    console.log(`[db-backup] 已备份: ${target}`);
+  } catch (err) {
+    console.error('[db-backup] 备份失败:', err);
+  }
+}
+
+if (process.env.DISABLE_DB_BACKUP !== '1') {
+  void runDailyBackup();
+  // 每 6 小时检查一次：新的一天 + 服务长时间不重启时也能按天滚动
+  setInterval(() => void runDailyBackup(), 6 * 60 * 60 * 1000).unref();
+}
 
 export type Message = {
   id: number;

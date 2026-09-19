@@ -475,58 +475,26 @@ const pendingCount = isAdmin
   });
 </script>
 
-{isAdmin && (
+{isLoggedIn && (
   <script>
-    // 管理后台待审核角标轮询
-    async function updatePending() {
+    // 角标轮询：一次请求带全 未读消息/通知 +（管理员）待办
+    function setBadge(id, count) {
+      const badge = document.getElementById(id);
+      if (!badge) return;
+      badge.textContent = count > 99 ? '99+' : count;
+      badge.style.display = count > 0 ? 'inline-flex' : 'none';
+    }
+    async function updateBadges() {
       try {
-        const res = await fetch('/api/admin/posts/pending-count');
+        const res = await fetch('/api/me/summary');
         if (!res.ok) return;
-        const data = await res.json();
-        const badge = document.getElementById('pendingBadge');
-        if (badge) {
-          badge.textContent = data.count > 99 ? '99+' : data.count;
-          badge.style.display = data.count > 0 ? 'inline-flex' : 'none';
-        }
+        const d = await res.json();
+        setBadge('unreadBadge', d.messages);
+        setBadge('notifBadge', d.notifications);
+        setBadge('pendingBadge', d.pending);
       } catch {}
     }
-    updatePending();
-    setInterval(updatePending, 20000);
-  </script>
-)}
-
-{isLoggedIn && (
-  <script>
-    async function updateUnread() {
-      try {
-        const res = await fetch('/api/messages/unread');
-        const data = await res.json();
-        const badge = document.getElementById('unreadBadge');
-        if (badge) {
-          badge.textContent = data.count > 99 ? '99+' : data.count;
-          badge.style.display = data.count > 0 ? 'inline-flex' : 'none';
-        }
-      } catch {}
-    }
-    updateUnread();
-    setInterval(updateUnread, 15000);
-  </script>
-)}
-
-{isLoggedIn && (
-  <script>
-    async function updateNotif() {
-      try {
-        const res = await fetch('/api/notifications/unread');
-        const data = await res.json();
-        const badge = document.getElementById('notifBadge');
-        if (badge) {
-          badge.textContent = data.count > 99 ? '99+' : data.count;
-          badge.style.display = data.count > 0 ? 'inline-flex' : 'none';
-        }
-      } catch {}
-    }
-    updateNotif();
-    setInterval(updateNotif, 20000);
+    updateBadges();
+    setInterval(updateBadges, 45000);
   </script>
 )}

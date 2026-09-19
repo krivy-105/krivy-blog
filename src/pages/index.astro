@@ -5,8 +5,8 @@ import Footer from '../components/Footer.astro';
 import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 import { postQueries, tagQueries, viewQueries, likeQueries, commentQueries } from '../lib/db';
 
-const posts = postQueries.findApproved.all() as any[];
-const recent = posts.slice(0, 6);
+const recent = postQueries.findApprovedRecent.all(6) as any[];
+const totalApproved = (postQueries.countApproved.get() as { count: number }).count;
 const hotPosts = postQueries.topHot.all() as any[];
 
 // post_id -> tags 数组
@@ -133,9 +133,9 @@ for (const r of cmtRows) cmtMap.set(r.post_id, r.count);
           </div>
         )}
 
-        {posts.length > recent.length && (
+        {totalApproved > recent.length && (
           <div class="more-wrap">
-            <a href="/blog" class="btn btn-outline">查看全部 {posts.length} 篇 →</a>
+            <a href="/blog" class="btn btn-outline">查看全部 {totalApproved} 篇 →</a>
           </div>
         )}
       </section>
