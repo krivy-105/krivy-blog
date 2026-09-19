@@ -19,7 +19,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const res = await next();
 
-  // 站点 PV/UV 统计（仅在 GET 请求、跳过静态资源 / API / rss）
+  // 站点 PV/UV 统计（仅在 GET 请求、跳过静态资源 / API）
   try {
     if (context.request.method === 'GET') {
       const url = new URL(context.request.url);
@@ -27,7 +27,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
       if (
         !path.startsWith('/api/') &&
         !path.startsWith('/_astro/') &&
-        !path.startsWith('/rss') &&
         !/\.[a-z0-9]+$/i.test(path)
       ) {
         const ip = (context.request.headers.get('x-forwarded-for') || '')

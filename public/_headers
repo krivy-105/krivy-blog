@@ -32,8 +32,6 @@
 /favicon.svg
   Cache-Control: public, max-age=86400
 
-# RSS / sitemap 不缓存，保证实时更新
-/rss.xml
-  Cache-Control: no-cache
+# sitemap 不缓存，保证实时更新
 /sitemap-index.xml
   Cache-Control: no-cache
