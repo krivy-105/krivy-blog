@@ -76,9 +76,13 @@
     if (e.target === overlay) close();
   });
 
-  // 点击导航栏搜索框直接唤起面板（保留回车跳转 /search 的原生行为）
+  // 点击导航栏搜索框直接唤起面板
+  // 用 flag 区分用户主动聚焦 vs 浏览器加载时自动聚焦到首个 input
+  let userInteracted = false;
+  document.addEventListener('pointerdown', () => { userInteracted = true; }, { once: true });
   document.querySelectorAll<HTMLElement>('[data-cmdk-open]').forEach((el) => {
     el.addEventListener('focus', () => {
+      if (!userInteracted) { return; }
       el.blur();
       open();
     });
