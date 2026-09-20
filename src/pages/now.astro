@@ -1,0 +1,163 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE_TITLE } from '../consts';
+
+// 状态有变化时更新这两个值即可
+const updated = '2026-09-20';
+const updatedText = new Date(updated).toLocaleDateString('zh-CN', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+
+const sections = [
+  {
+    icon: '🛠️',
+    title: '正在做',
+    items: [
+      '持续打磨这个独立博客：PWA 可安装、文章分享卡、自定义 404，慢慢补齐细节。',
+      '写更多技术笔记，把平时踩过的坑沉淀成文章。',
+    ],
+  },
+  {
+    icon: '📚',
+    title: '最近在读',
+    items: ['一些关于 Web 性能与系统设计的长文', '偶尔翻翻散文和画册，给眼睛放个假'],
+  },
+  {
+    icon: '🌿',
+    title: '生活',
+    items: ['保持规律的作息和运动', '给房间里的植物浇水，观察它们慢慢长'],
+  },
+  {
+    icon: '💡',
+    title: '接下来想试',
+    items: ['文章收藏与书签', '编辑器粘贴图片直传', '留言板板块'],
+  },
+];
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title={`Now - ${SITE_TITLE}`} description="我最近在做什么：正在做的事、在读的东西和生活状态。" />
+  </head>
+  <body>
+    <Header />
+    <main class="narrow now-page">
+      <header class="now-hero">
+        <div class="now-emoji">🌤️</div>
+        <h1>Now</h1>
+        <p class="now-sub">我最近在做什么——一页能说完的状态。</p>
+        <p class="now-updated">最后更新：{updatedText}</p>
+      </header>
+
+      <div class="now-grid">
+        {sections.map((s) => (
+          <section class="now-card">
+            <h2><span class="now-icon">{s.icon}</span>{s.title}</h2>
+            <ul>
+              {s.items.map((item) => <li>{item}</li>)}
+            </ul>
+          </section>
+        ))}
+      </div>
+
+      <blockquote class="now-note">
+        这是一个 <a href="https://nownownow.com/about" target="_blank" rel="noopener noreferrer">/now 页面</a>——
+        个人网站上「此刻状态」的约定。状态变了，我就回来改一行。
+      </blockquote>
+    </main>
+    <Footer />
+  </body>
+</html>
+
+<style>
+  .now-page {
+    padding-top: 0.5rem;
+  }
+  .now-hero {
+    text-align: center;
+    padding: 1.5rem 0 2.2rem;
+  }
+  .now-emoji {
+    font-size: 2.6rem;
+    margin-bottom: 0.8rem;
+    animation: floaty 5s ease-in-out infinite;
+  }
+  @keyframes floaty {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  .now-hero h1 { margin-bottom: 0.5rem; }
+  .now-sub {
+    color: var(--text-gray);
+    margin: 0 0 0.4rem;
+    font-size: 1rem;
+  }
+  .now-updated {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-light);
+  }
+
+  .now-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.1rem;
+    animation: fadeIn 0.5s var(--ease) 0.1s both;
+  }
+  .now-card {
+    background: var(--bg-white);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 1.2rem 1.4rem 1.3rem;
+    transition: var(--transition);
+  }
+  .now-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  .now-card h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 1.05rem;
+    margin: 0 0 0.7rem;
+    color: var(--monet-blue-dark);
+  }
+  .now-icon { font-size: 1.2rem; }
+  .now-card ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--text-gray);
+    font-size: 0.93rem;
+    line-height: 1.75;
+  }
+  .now-card li + li { margin-top: 0.3rem; }
+  .now-note {
+    margin: 1.8rem 0 0;
+    text-align: center;
+    font-size: 0.86rem;
+    color: var(--text-light);
+    line-height: 1.8;
+    background: transparent;
+    border-left: none;
+    padding: 0;
+  }
+  .now-note a { color: var(--monet-blue-dark); }
+
+  :global([data-theme="dark"]) .now-card {
+    background: rgba(22, 31, 36, 0.65);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+  @media (max-width: 700px) {
+    .now-grid { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .now-emoji { animation: none; }
+  }
+</style>

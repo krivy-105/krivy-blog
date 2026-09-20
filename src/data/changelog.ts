@@ -8,6 +8,16 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: '2026-09-20',
+    type: 'feat',
+    title: '质感升级',
+    detail: [
+      'PWA 支持：可添加到主屏幕、离线可访问',
+      '文章分享卡：微信 / X 分享自动展示标题大图',
+      '全新 404 页面与 /now 状态页',
+    ],
+  },
+  {
     date: '2026-09-19',
     type: 'security',
     title: '安全与体验加固',

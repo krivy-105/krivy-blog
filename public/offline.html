@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>离线了 - want to see you</title>
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: linear-gradient(160deg, #f3f8fb 0%, #e4eef3 100%);
+    color: #2c3e46;
+    text-align: center;
+    padding: 2rem;
+  }
+  .heart { font-size: 3rem; animation: beat 1.6s infinite; }
+  @keyframes beat { 0%,100%{transform:scale(1)} 25%{transform:scale(1.15)} }
+  h1 { font-size: 1.3rem; margin: 0; }
+  p { color: #5f7785; margin: 0; line-height: 1.7; }
+  button {
+    margin-top: 0.5rem;
+    padding: 0.6rem 1.4rem;
+    border: none;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #8fb4c5, #4f7a90);
+    color: #fff;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div class="heart">💙</div>
+  <h1>现在处于离线状态</h1>
+  <p>网络似乎开小差了。<br />已缓存的页面稍后仍可访问，联网后会自动恢复。</p>
+  <button onclick="location.href='/'">重试</button>
+</body>
+</html>

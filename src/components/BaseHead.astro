@@ -13,6 +13,8 @@ interface Props {
 	image?: ImageMetadata;
 	type?: 'website' | 'article';
 	publishedTime?: string;
+	// 动态生成的 OG 图（如文章标题卡 /og/xxx.png），优先于 image
+	ogImage?: string;
 }
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
@@ -23,14 +25,23 @@ const {
 	image = FallbackImage,
 	type = 'website',
 	publishedTime,
+	ogImage,
 } = Astro.props;
+
+const resolvedOgImage = ogImage
+	? new URL(ogImage, Astro.url)
+	: new URL(image.src, Astro.url);
 ---
 
 <!-- Global Metadata -->
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
 <link rel="icon" href="/favicon.ico" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<meta name="theme-color" content="#5f889d" />
 <link rel="sitemap" href="/sitemap-index.xml" />
 <meta name="generator" content={Astro.generator} />
 
@@ -62,8 +73,22 @@ const {
 <meta property="og:url" content={Astro.url} />
 <meta property="og:title" content={title} />
 <meta property="og:description" content={description} />
-<meta property="og:image" content={new URL(image.src, Astro.url)} />
+<meta property="og:image" content={resolvedOgImage} />
 {publishedTime && <meta property="article:published_time" content={publishedTime} />}
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={resolvedOgImage} />
+
+<!-- PWA：仅生产环境注册 Service Worker（dev 环境会干扰 HMR） -->
+{import.meta.env.PROD && (
+  <script is:inline>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
+)}

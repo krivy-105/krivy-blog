@@ -16,8 +16,12 @@ const currentUser = Astro.locals.user;
 const isAdmin = currentUser?.role === 'admin';
 const isOwner = currentUser?.id === post?.author_id;
 
+// 文章不存在：内部渲染 404 页（URL 不变、状态码 404，利于搜索引擎）
+if (!post) {
+  return Astro.rewrite('/404');
+}
 // 未发布文章仅管理员可预览，其他访客回到列表
-if (!post || (post.status !== 'approved' && !isAdmin)) {
+if (post.status !== 'approved' && !isAdmin) {
   return Astro.redirect('/blog');
 }
 
@@ -75,6 +79,7 @@ if (seriesInfo) {
       description={post.description || ''}
       type="article"
       publishedTime={new Date(post.created_at).toISOString()}
+      ogImage={`/og/${post.slug}.png`}
     />
     <script type="application/ld+json" set:html={JSON.stringify({
       '@context': 'https://schema.org',

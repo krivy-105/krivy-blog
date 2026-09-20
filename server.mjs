@@ -15,6 +15,7 @@ const MIME_TYPES = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -39,7 +40,21 @@ function serveStatic(req, res) {
   try { stat = statSync(filePath); } catch { return false; }
   if (!stat.isFile()) return false;
   const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase();
-  res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
+  // 缓存策略：SW/manifest 必须每次校验；哈希构建产物与图标可长缓存
+  let cacheControl = 'public, max-age=3600';
+  if (pathname === '/sw.js' || pathname === '/manifest.webmanifest') {
+    cacheControl = 'no-cache';
+  } else if (pathname.startsWith('/_astro/')) {
+    cacheControl = 'public, max-age=31536000, immutable';
+  } else if (ext === '.ico' || ext === '.png' || ext === '.jpg' || ext === '.jpeg' ||
+             ext === '.gif' || ext === '.webp' || ext === '.svg' || ext === '.woff' ||
+             ext === '.woff2' || ext === '.ttf') {
+    cacheControl = 'public, max-age=604800';
+  }
+  res.writeHead(200, {
+    'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
+    'Cache-Control': cacheControl,
+  });
   createReadStream(filePath).pipe(res);
   return true;
 }

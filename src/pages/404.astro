@@ -1,0 +1,170 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE_TITLE } from '../consts';
+
+// 作为错误页被 Astro.rewrite / 适配器调用时确保真实 404 状态码
+Astro.response.status = 404;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title={`页面走丢了 - ${SITE_TITLE}`} description="你访问的页面不存在或已被移除。" />
+    <meta name="robots" content="noindex, follow" />
+  </head>
+  <body>
+    <Header />
+    <main class="nf-page">
+      <div class="nf-blob nf-blob-1" aria-hidden="true"></div>
+      <div class="nf-blob nf-blob-2" aria-hidden="true"></div>
+
+      <section class="nf-card">
+        <div class="nf-code" aria-hidden="true">
+          <span class="digit">4</span>
+          <span class="heart">
+            <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            </svg>
+          </span>
+          <span class="digit">4</span>
+        </div>
+        <h1>这页内容走丢了</h1>
+        <p class="nf-sub">
+          链接可能输错了，或者文章已被作者删除 / 下架。<br />
+          不如换个地方逛逛。
+        </p>
+        <div class="nf-actions">
+          <a href="/" class="nf-btn nf-btn-primary">← 回到首页</a>
+          <a href="/blog" class="nf-btn">📚 浏览文章</a>
+          <a href="/archive" class="nf-btn">📅 归档时间线</a>
+        </div>
+      </section>
+    </main>
+    <Footer />
+  </body>
+</html>
+
+<style>
+  .nf-page {
+    position: relative;
+    min-height: 62vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1.5rem;
+    overflow: hidden;
+  }
+  .nf-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.35;
+    pointer-events: none;
+    animation: floaty 9s ease-in-out infinite;
+  }
+  .nf-blob-1 {
+    width: 380px;
+    height: 380px;
+    background: #9dc1d3;
+    top: -120px;
+    left: -100px;
+  }
+  .nf-blob-2 {
+    width: 320px;
+    height: 320px;
+    background: #c8dcc8;
+    bottom: -140px;
+    right: -80px;
+    animation-delay: -4.5s;
+  }
+  @keyframes floaty {
+    0%, 100% { transform: translateY(0) translateX(0); }
+    50% { transform: translateY(22px) translateX(-14px); }
+  }
+
+  .nf-card {
+    position: relative;
+    text-align: center;
+    max-width: 560px;
+    animation: nf-in 0.6s var(--ease) both;
+  }
+  @keyframes nf-in {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .nf-code {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.06em;
+    font-size: clamp(4.5rem, 16vw, 8rem);
+    font-weight: 800;
+    line-height: 1;
+    color: var(--monet-blue);
+    user-select: none;
+  }
+  .nf-code .digit {
+    background: linear-gradient(135deg, var(--monet-blue) 0%, var(--monet-blue-dark) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .nf-code .heart {
+    font-size: 0.62em;
+    color: #e08a9a;
+    animation: heartbeat 1.6s ease-in-out infinite;
+    transform-origin: center;
+  }
+  @keyframes heartbeat {
+    0%, 100% { transform: scale(1); }
+    14% { transform: scale(1.18); }
+    28% { transform: scale(1); }
+    42% { transform: scale(1.12); }
+  }
+  .nf-card h1 {
+    margin: 1.4rem 0 0.7rem;
+    font-size: 1.5rem;
+  }
+  .nf-sub {
+    color: var(--text-gray);
+    font-size: 0.97rem;
+    line-height: 1.8;
+    margin: 0 0 1.8rem;
+  }
+  .nf-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+  }
+  .nf-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.62rem 1.3rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-light);
+    background: var(--bg-white);
+    color: var(--monet-blue-dark);
+    font-size: 0.92rem;
+    text-decoration: none;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+  }
+  .nf-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--monet-blue);
+  }
+  .nf-btn-primary {
+    background: linear-gradient(135deg, var(--monet-blue) 0%, var(--monet-blue-dark) 100%);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  :global([data-theme="dark"]) .nf-blob { opacity: 0.18; }
+  @media (prefers-reduced-motion: reduce) {
+    .nf-blob, .heart, .nf-card { animation: none; }
+  }
+</style>

@@ -22,6 +22,11 @@ RUN npm prune --omit=dev
 # ---- 运行阶段：精简镜像 ----
 FROM node:22-slim AS runner
 
+# OG 分享图动态生成（SVG→PNG）需要中文字体
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 ENV NODE_ENV=production
