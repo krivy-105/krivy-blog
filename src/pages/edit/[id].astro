@@ -5,6 +5,7 @@ import Footer from '../../components/Footer.astro';
 import MarkdownToolbar from '../../components/MarkdownToolbar.astro';
 import { SITE_TITLE } from '../../consts';
 import { postQueries, tagQueries, seriesQueries } from '../../lib/db';
+import { signPreview } from '../../lib/preview-token';
 
 const user = Astro.locals.user;
 if (!user) {
@@ -33,6 +34,21 @@ const mySeries = post ? (seriesQueries.listByAuthor.all(user.id) as any[]) : [];
 const postSeries = post ? (seriesQueries.forPost.get(post.id) as { id: number; order_in_series: number } | undefined) : undefined;
 const currentSeriesId = postSeries?.id ?? null;
 const currentOrder = postSeries?.order_in_series ?? null;
+
+// 免登录预览链接（草稿/待审/定时文章都可用；编辑后旧链接自动失效）
+const previewToken = post ? signPreview(post.id, post.updated_at) : '';
+const previewUrl = post
+  ? `${Astro.site?.toString().replace(/\/$/, '') || ''}/blog/${post.slug}/?p=${previewToken}`
+  : '';
+const isScheduled = post?.status === 'scheduled';
+const scheduleDefault =
+  isScheduled && post.publish_at
+    ? (() => {
+        const d = new Date(post.publish_at);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      })()
+    : '';
 ---
 
 <!doctype html>
@@ -128,6 +144,35 @@ const currentOrder = postSeries?.order_in_series ?? null;
       }
       .msg-success { color: #27ae60; }
       .msg-error { color: #e74c3c; }
+      .schedule-group {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        flex-wrap: wrap;
+        padding: 0.7rem 0.9rem;
+        background: var(--monet-blue-lighter);
+        border: 1px dashed var(--monet-blue-light);
+        border-radius: var(--radius-md);
+      }
+      .schedule-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.88rem;
+        color: var(--monet-blue-dark);
+        cursor: pointer;
+      }
+      .schedule-input {
+        padding: 6px 10px;
+        border: 1.5px solid var(--border-light);
+        border-radius: var(--radius-md);
+        background: var(--bg-white);
+        color: inherit;
+        font-family: inherit;
+        font-size: 0.88rem;
+      }
+      .schedule-input:disabled { opacity: 0.45; }
+      .schedule-hint { color: var(--text-light); font-size: 0.76rem; }
       @media (max-width: 768px) {
         .write-container { grid-template-columns: 1fr; }
       }
@@ -193,8 +238,24 @@ const currentOrder = postSeries?.order_in_series ?? null;
                     <MarkdownToolbar />
                     <textarea id="content" name="content" placeholder="用 Markdown 书写正文..." required>{post.content}</textarea>
                   </div>
+                  <div class="form-group schedule-group">
+                    <label class="schedule-toggle">
+                      <input type="checkbox" id="scheduleChk" checked={isScheduled} />
+                      <span>🕐 定时发布</span>
+                    </label>
+                    <input
+                      type="datetime-local"
+                      name="publish_at"
+                      id="publishAt"
+                      class="schedule-input"
+                      value={scheduleDefault}
+                      disabled={!isScheduled}
+                    />
+                    <small class="schedule-hint">到点自动发布；留空则保存后重新进入审核队列。</small>
+                  </div>
                   <div class="submit-row">
                     <button type="submit" class="btn btn-primary">保存修改</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="copyPreviewBtn">🔗 复制预览链接</button>
                     <a href={`/users/${user.username}`} class="btn btn-ghost btn-sm">取消</a>
                     <span id="submitMsg" class="msg"></span>
                   </div>
@@ -213,7 +274,7 @@ const currentOrder = postSeries?.order_in_series ?? null;
     <Footer />
 
     {post && post.author_id === user.id && (
-      <script define:vars={{ postId: post.id, myUsername }}>
+      <script define:vars={{ postId: post.id, myUsername, previewUrl }}>
         import { marked } from 'marked';
 
         const contentEl = document.getElementById('content') as HTMLTextAreaElement;
@@ -229,6 +290,69 @@ const currentOrder = postSeries?.order_in_series ?? null;
             newBox.removeAttribute('hidden');
           } else {
             newBox.setAttribute('hidden', '');
+          }
+        });
+
+        // 定时发布勾选联动
+        const scheduleChk = document.getElementById('scheduleChk') as HTMLInputElement;
+        const publishAt = document.getElementById('publishAt') as HTMLInputElement;
+        scheduleChk?.addEventListener('change', () => {
+          publishAt.disabled = !scheduleChk.checked;
+          if (scheduleChk.checked && !publishAt.value) {
+            const d = new Date(Date.now() + 24 * 3600 * 1000);
+            d.setSeconds(0, 0);
+            const pad = (n: number) => String(n).padStart(2, '0');
+            publishAt.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+          }
+        });
+
+        // 复制免登录预览链接
+        const copyBtn = document.getElementById('copyPreviewBtn');
+        copyBtn?.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(previewUrl);
+            copyBtn.textContent = '✓ 已复制到剪贴板';
+            setTimeout(() => { copyBtn.textContent = '🔗 复制预览链接'; }, 2000);
+          } catch {
+            window.prompt('复制预览链接：', previewUrl);
+          }
+        });
+
+        // 粘贴图片直传：在正文里 Ctrl+V 贴图自动上传插入 Markdown
+        let uploadSeq = 0;
+        function insertAtCursor(text: string) {
+          const s = contentEl.selectionStart ?? contentEl.value.length;
+          const en = contentEl.selectionEnd ?? s;
+          contentEl.value = contentEl.value.slice(0, s) + text + contentEl.value.slice(en);
+          contentEl.selectionStart = contentEl.selectionEnd = s + text.length;
+          renderPreview();
+        }
+        function replaceText(from: string, to: string) {
+          contentEl.value = contentEl.value.replace(from, to);
+          renderPreview();
+        }
+        contentEl.addEventListener('paste', async (e: ClipboardEvent) => {
+          const items = e.clipboardData?.items;
+          if (!items) return;
+          for (const item of Array.from(items)) {
+            if (!item.type.startsWith('image/')) continue;
+            const file = item.getAsFile();
+            if (!file) continue;
+            e.preventDefault();
+            const seq = ++uploadSeq;
+            const placeholder = `\n\n![上传中…${seq}](#uploading-${seq})\n\n`;
+            insertAtCursor(placeholder);
+            try {
+              const fd = new FormData();
+              fd.append('image', file);
+              const res = await fetch('/api/upload/image', { method: 'POST', body: fd });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error || '上传失败');
+              replaceText(`![上传中…${seq}](#uploading-${seq})`, `![图片](${data.url})`);
+            } catch (err) {
+              replaceText(`![上传中…${seq}](#uploading-${seq})`, `<!-- 图片上传失败：${err instanceof Error ? err.message : '网络错误'} -->`);
+            }
+            break;
           }
         });
 

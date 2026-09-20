@@ -8,6 +8,7 @@ import TableOfContents from '../../components/TableOfContents.astro';
 import Avatar from '../../components/Avatar.astro';
 import { postQueries, tagQueries, viewQueries, seriesQueries, userQueries } from '../../lib/db';
 import { renderMarkdown } from '../../lib/markdown';
+import { verifyPreview } from '../../lib/preview-token';
 
 const slug = Astro.params.slug as string;
 const post = postQueries.findBySlug.get(slug) as any;
@@ -20,10 +21,16 @@ const isOwner = currentUser?.id === post?.author_id;
 if (!post) {
   return Astro.rewrite('/404');
 }
-// 未发布文章仅管理员可预览，其他访客回到列表
-if (post.status !== 'approved' && !isAdmin) {
+// 未发布文章：管理员可看；其他人持有免登录预览令牌（?p=）也可看
+const isPreviewTokenValid =
+  post.status !== 'approved' &&
+  verifyPreview(Astro.url.searchParams.get('p'), post.id, post.updated_at);
+const previewMode = post.status !== 'approved' && !isAdmin && isPreviewTokenValid;
+if (post.status !== 'approved' && !isAdmin && !isPreviewTokenValid) {
   return Astro.redirect('/blog');
 }
+// 预览模式下告诉搜索引擎不要索引
+if (previewMode) Astro.response.headers.set('X-Robots-Tag', 'noindex');
 
 // 作者可管理自己的文章；管理员可下架他人已发布文章
 const canEdit = isOwner;
@@ -56,6 +63,14 @@ const related = post.status === 'approved'
   ? (postQueries.findRelated.all(post.id, post.author_id, post.id, post.id) as any[])
   : [];
 
+// 上一篇 / 下一篇（按发布时间）
+const prevPost = post.status === 'approved'
+  ? (postQueries.prevNeighbor.get(post.created_at) as { slug: string; title: string } | undefined)
+  : undefined;
+const nextPost = post.status === 'approved'
+  ? (postQueries.nextNeighbor.get(post.created_at) as { slug: string; title: string } | undefined)
+  : undefined;
+
 // 系列导航
 const seriesInfo = post ? (seriesQueries.forPost.get(post.id) as any) : null;
 let seriesNav: { series: any; total: number; order: number; prev: any; next: any } | null = null;
@@ -81,6 +96,7 @@ if (seriesInfo) {
       publishedTime={new Date(post.created_at).toISOString()}
       ogImage={`/og/${post.slug}.png`}
     />
+    {post.status !== 'approved' && <meta name="robots" content="noindex, nofollow" />}
     <script type="application/ld+json" set:html={JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'BlogPosting',
@@ -96,8 +112,8 @@ if (seriesInfo) {
     <Header />
     <ReadingProgress />
     <main class="narrow">
-      <a href={post.status === 'approved' ? '/blog' : '/admin'} class="back-link">
-        {post.status === 'approved' ? '← 返回文章列表' : '← 返回管理后台'}
+      <a href={post.status === 'approved' ? '/blog' : previewMode ? '/' : '/admin'} class="back-link">
+        {post.status === 'approved' ? '← 返回文章列表' : previewMode ? '← 返回首页' : '← 返回管理后台'}
       </a>
 
       {seriesNav && post.status === 'approved' && (
@@ -132,16 +148,29 @@ if (seriesInfo) {
       )}
 
       {
-        post.status !== 'approved' && (
+        previewMode ? (
+          <div class="review-banner review-pending">
+            <div class="review-banner-info">
+              <strong>👀 草稿预览</strong>
+              <span>这是一篇尚未发布的文章，当前页面仅持有预览链接的人可见。</span>
+            </div>
+          </div>
+        ) : post.status !== 'approved' ? (
           <div class={`review-banner review-${post.status}`} data-post-id={post.id}>
             <div class="review-banner-info">
               <strong>
-                {post.status === 'pending' ? '⏳ 待审核文章预览' : '⛔ 已被驳回的文章'}
+                {post.status === 'pending'
+                  ? '⏳ 待审核文章预览'
+                  : post.status === 'scheduled'
+                    ? '🕐 定时发布中的文章'
+                    : '⛔ 已被驳回的文章'}
               </strong>
               <span>
                 {post.status === 'pending'
                   ? '只有管理员能看到此页面，审核通过后才会公开发布。'
-                  : '该文章已被驳回，不会公开展示。'}
+                  : post.status === 'scheduled'
+                    ? `将于 ${new Date(post.publish_at).toLocaleString('zh-CN')} 自动发布。`
+                    : '该文章已被驳回，不会公开展示。'}
               </span>
             </div>
             {post.status === 'pending' && (
@@ -155,7 +184,7 @@ if (seriesInfo) {
               </div>
             )}
           </div>
-        )
+        ) : null
       }
 
       <article>
@@ -214,6 +243,25 @@ if (seriesInfo) {
         }
 
         <TableOfContents />
+
+        {
+          post.status === 'approved' && (prevPost || nextPost) && (
+            <nav class="post-neighbors" aria-label="文章导航">
+              {prevPost ? (
+                <a class="neighbor neighbor-prev" href={`/blog/${prevPost.slug}/`}>
+                  <span class="neighbor-label">‹ 上一篇</span>
+                  <span class="neighbor-title">{prevPost.title}</span>
+                </a>
+              ) : <span class="neighbor neighbor-placeholder" />}
+              {nextPost ? (
+                <a class="neighbor neighbor-next" href={`/blog/${nextPost.slug}/`}>
+                  <span class="neighbor-label">下一篇 ›</span>
+                  <span class="neighbor-title">{nextPost.title}</span>
+                </a>
+              ) : <span class="neighbor neighbor-placeholder" />}
+            </nav>
+          )
+        }
 
         {
           post.status === 'approved' && (
@@ -342,6 +390,32 @@ if (seriesInfo) {
             }, 1600);
           }
         });
+      });
+
+      // 正文图片灯箱：点击放大，点击背景 / Esc 关闭
+      const article = document.querySelector('.article-content');
+      let lightbox: HTMLElement | null = null;
+      function closeLightbox() {
+        lightbox?.remove();
+        lightbox = null;
+        document.body.style.overflow = '';
+      }
+      article?.querySelectorAll('img').forEach((img) => {
+        img.addEventListener('click', () => {
+          if (lightbox) return;
+          lightbox = document.createElement('div');
+          lightbox.className = 'img-lightbox';
+          const big = document.createElement('img');
+          big.src = img.currentSrc || img.src;
+          big.alt = img.alt || '';
+          lightbox.appendChild(big);
+          lightbox.addEventListener('click', closeLightbox);
+          document.body.appendChild(lightbox);
+          document.body.style.overflow = 'hidden';
+        });
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && lightbox) closeLightbox();
       });
     </script>
   </body>
@@ -676,6 +750,78 @@ if (seriesInfo) {
     font-size: 0.92rem;
     line-height: 1.4;
   }
+
+  /* 上一篇 / 下一篇 */
+  .post-neighbors {
+    margin-top: 2.4rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.9rem;
+  }
+  .neighbor {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.9rem 1.1rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    background: var(--bg-white);
+    text-decoration: none;
+    transition: var(--transition);
+    min-width: 0;
+  }
+  a.neighbor:hover {
+    border-color: var(--monet-blue);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+  }
+  .neighbor-next { text-align: right; }
+  .neighbor-placeholder { visibility: hidden; }
+  .neighbor-label {
+    font-size: 0.78rem;
+    color: var(--monet-blue-dark);
+    font-weight: 500;
+  }
+  .neighbor-title {
+    font-size: 0.9rem;
+    color: var(--text-dark);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  :global([data-theme="dark"]) .neighbor {
+    background: rgba(22, 31, 36, 0.65);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+  @media (max-width: 560px) {
+    .post-neighbors { grid-template-columns: 1fr; }
+    .neighbor-next { text-align: left; }
+  }
+
+  /* 图片灯箱 */
+  .img-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(15, 22, 27, 0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4vh 4vw;
+    cursor: zoom-out;
+    animation: lb-fade 0.18s var(--ease);
+  }
+  .img-lightbox img {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: var(--radius-md);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    cursor: default;
+  }
+  @keyframes lb-fade { from { opacity: 0; } to { opacity: 1; } }
+  .article-content img { cursor: zoom-in; }
 
   .article-actions {
     margin-top: 3rem;

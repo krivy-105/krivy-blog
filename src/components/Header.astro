@@ -3,6 +3,7 @@ import { SITE_TITLE } from '../consts';
 import HeaderLink from './HeaderLink.astro';
 import Avatar from './Avatar.astro';
 import DevToolbarHeart from './DevToolbarHeart.astro';
+import CommandPalette from './CommandPalette.astro';
 import { postQueries, reportQueries, userQueries } from '../lib/db';
 
 const user = Astro.locals.user;
@@ -65,9 +66,10 @@ const pendingCount = isAdmin
           type="search"
           name="q"
           class="nav-search-input"
-          placeholder="搜索文章…"
+          placeholder="搜索文章…（/）"
           aria-label="搜索文章"
           autocomplete="off"
+          data-cmdk-open
         />
         <svg class="nav-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>
@@ -84,10 +86,12 @@ const pendingCount = isAdmin
           placeholder="搜索文章…"
           aria-label="搜索文章"
           autocomplete="off"
+          data-cmdk-open
         />
         <svg class="nav-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>
         </svg>
+        <kbd class="nav-search-kbd" aria-hidden="true">⌘K</kbd>
       </form>
       <button
         class="theme-toggle"
@@ -129,6 +133,7 @@ const pendingCount = isAdmin
   </nav>
 </header>
 <DevToolbarHeart />
+<CommandPalette />
 
 <style>
   header {
@@ -222,7 +227,7 @@ const pendingCount = isAdmin
   .nav-search-mobile { display: none; }
   .nav-search-input {
     width: 120px;
-    padding: 6px 10px 6px 30px;
+    padding: 6px 42px 6px 30px;
     border: 1px solid var(--border-light);
     border-radius: 999px;
     background: var(--monet-blue-lighter);
@@ -230,6 +235,7 @@ const pendingCount = isAdmin
     font-size: 0.82rem;
     font-family: inherit;
     transition: var(--transition);
+    cursor: pointer;
   }
   .nav-search-input:focus {
     outline: none;
@@ -242,6 +248,18 @@ const pendingCount = isAdmin
     position: absolute;
     left: 11px;
     color: var(--text-light);
+    pointer-events: none;
+  }
+  .nav-search-kbd {
+    position: absolute;
+    right: 7px;
+    font-size: 0.62rem;
+    line-height: 1;
+    color: var(--text-light);
+    background: var(--bg-white);
+    border: 1px solid var(--border-light);
+    border-radius: 5px;
+    padding: 3px 4px;
     pointer-events: none;
   }
 

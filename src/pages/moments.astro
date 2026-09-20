@@ -1,0 +1,365 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import Avatar from '../components/Avatar.astro';
+import { SITE_TITLE } from '../consts';
+import { momentQueries } from '../lib/db';
+
+const user = Astro.locals.user;
+const PAGE_SIZE = 20;
+const page = Math.max(1, Number(Astro.url.searchParams.get('page')) || 1);
+const total = (momentQueries.count.get() as { count: number }).count;
+const moments = momentQueries.list.all(PAGE_SIZE, (page - 1) * PAGE_SIZE) as any[];
+const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+const formatDate = (ts: number) =>
+  new Date(ts).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title={`说说 - ${SITE_TITLE}`} description="短文与图片组成的日常碎片时间流。" />
+  </head>
+  <body>
+    <Header />
+    <main class="narrow m-page">
+      <header class="m-hero">
+        <h1>✨ 说说</h1>
+        <p>不必长篇大论——一张图、一句话，都是此刻的记录。</p>
+      </header>
+
+      {user ? (
+        <form id="mForm" class="m-composer card">
+          <div class="m-composer-head">
+            <Avatar src={user.avatar} username={user.username} size={36} />
+            <strong>{user.username}</strong>
+          </div>
+          <textarea
+            id="mContent"
+            rows="3"
+            maxlength="1000"
+            placeholder="此刻在想什么？（直接 Ctrl+V 也能贴图）"
+          ></textarea>
+          <div class="m-composer-foot">
+            <label class="m-img-pick">
+              🖼️ 配图
+              <input type="file" id="mImage" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
+            </label>
+            <span id="mImgName" class="m-img-name"></span>
+            <span class="m-spacer"></span>
+            <span id="mCount" class="m-count">0 / 1000</span>
+            <button type="submit" class="btn btn-primary btn-sm">发布</button>
+          </div>
+          <p id="mMsg" class="m-msg" role="status"></p>
+        </form>
+      ) : (
+        <div class="m-login-hint card">
+          <a href="/login" class="btn btn-primary btn-sm">登录后发说说</a>
+        </div>
+      )}
+
+      <section class="m-list">
+        {moments.length === 0 ? (
+          <div class="m-empty card">
+            <p>还没有动态。去拍一张窗外的云，或写句今天的心情吧 ☁️</p>
+          </div>
+        ) : (
+          moments.map((m) => (
+            <article class="m-entry card" data-id={m.id}>
+              <a href={`/users/${m.username}`} class="m-avatar">
+                <Avatar src={m.avatar} username={m.username} size={42} />
+              </a>
+              <div class="m-body">
+                <div class="m-meta">
+                  <a href={`/users/${m.username}`} class="m-name">
+                    {m.username}
+                    {m.role === 'admin' && <span class="m-badge">站长</span>}
+                  </a>
+                  <time datetime={new Date(m.created_at).toISOString()}>{formatDate(m.created_at)}</time>
+                  {(user?.id === m.user_id || user?.role === 'admin') && (
+                    <button type="button" class="m-del" data-id={m.id}>删除</button>
+                  )}
+                </div>
+                {m.content && m.content.trim() && (
+                  <p class="m-content">{m.content}</p>
+                )}
+                {m.image && (
+                  <button type="button" class="m-img-wrap" data-src={m.image} aria-label="查看大图">
+                    <img src={m.image} alt="说说配图" loading="lazy" />
+                  </button>
+                )}
+              </div>
+            </article>
+          ))
+        )}
+      </section>
+
+      {totalPages > 1 && (
+        <nav class="m-pager" aria-label="分页">
+          {page > 1 && <a class="btn btn-outline btn-sm" href={`/moments?page=${page - 1}`}>← 上一页</a>}
+          <span class="m-page-info">{page} / {totalPages}</span>
+          {page < totalPages && <a class="btn btn-outline btn-sm" href={`/moments?page=${page + 1}`}>下一页 →</a>}
+        </nav>
+      )}
+    </main>
+    <Footer />
+
+    {user && (
+      <script>
+        const form = document.getElementById('mForm') as HTMLFormElement;
+        const contentEl = document.getElementById('mContent') as HTMLTextAreaElement;
+        const imageInput = document.getElementById('mImage') as HTMLInputElement;
+        const imgName = document.getElementById('mImgName');
+        const countEl = document.getElementById('mCount');
+        const msgEl = document.getElementById('mMsg');
+
+        contentEl.addEventListener('input', () => {
+          countEl.textContent = `${contentEl.value.length} / 1000`;
+        });
+        imageInput.addEventListener('change', () => {
+          imgName.textContent = imageInput.files?.[0]?.name || '';
+        });
+
+        // 粘贴图片自动填充到配图
+        contentEl.addEventListener('paste', (e) => {
+          const items = e.clipboardData?.items;
+          if (!items) return;
+          for (const item of items) {
+            if (item.type.startsWith('image/')) {
+              const file = item.getAsFile();
+              if (file) {
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                imageInput.files = dt.files;
+                imgName.textContent = file.name || '剪贴板图片';
+                e.preventDefault();
+              }
+              break;
+            }
+          }
+        });
+
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          msgEl.textContent = '';
+          const content = contentEl.value.trim();
+          const file = imageInput.files?.[0];
+          if (!content && !file) {
+            msgEl.textContent = '说点什么或选张图吧';
+            return;
+          }
+          const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+          btn.disabled = true;
+          btn.textContent = file ? '上传中…' : '发布中…';
+          try {
+            const fd = new FormData();
+            fd.append('content', content);
+            if (file) fd.append('image', file);
+            const res = await fetch('/api/moments', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '发布失败');
+            window.location.reload();
+          } catch (err) {
+            msgEl.textContent = err instanceof Error ? err.message : '网络错误';
+            btn.disabled = false;
+            btn.textContent = '发布';
+          }
+        });
+
+        document.querySelectorAll<HTMLButtonElement>('.m-del').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            if (!window.confirm('确定删除这条说说吗？')) return;
+            const res = await fetch(`/api/moments/${btn.dataset.id}`, { method: 'DELETE' });
+            if (res.ok) btn.closest('.m-entry')?.remove();
+            else {
+              const data = await res.json().catch(() => ({}));
+              window.alert(data.error || '删除失败');
+            }
+          });
+        });
+
+        // 图片灯箱（说说页独立实现，避免跨页脚本耦合）
+        let box: HTMLElement | null = null;
+        const close = () => { box?.remove(); box = null; document.body.style.overflow = ''; };
+        document.querySelectorAll<HTMLElement>('.m-img-wrap').forEach((wrap) => {
+          wrap.addEventListener('click', () => {
+            if (box) return;
+            box = document.createElement('div');
+            box.className = 'm-lightbox';
+            const img = document.createElement('img');
+            img.src = wrap.dataset.src || '';
+            box.appendChild(img);
+            box.addEventListener('click', close);
+            document.body.appendChild(box);
+            document.body.style.overflow = 'hidden';
+          });
+        });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+      </script>
+    )}
+  </body>
+</html>
+
+<style>
+  .m-page { padding-top: 0.5rem; }
+  .m-hero { text-align: center; padding: 1.2rem 0 1.8rem; }
+  .m-hero h1 { margin-bottom: 0.5rem; }
+  .m-hero p { color: var(--text-gray); font-size: 0.95rem; margin: 0; }
+
+  .m-composer { padding: 1.1rem 1.2rem; margin-bottom: 1.4rem; }
+  .m-composer-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.7rem;
+    font-size: 0.92rem;
+  }
+  .m-composer textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.7rem 0.85rem;
+    border: 1.5px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-white);
+    color: inherit;
+    font-family: inherit;
+    font-size: 0.93rem;
+    line-height: 1.65;
+    resize: vertical;
+    outline: none;
+  }
+  .m-composer textarea:focus { border-color: var(--monet-blue); }
+  .m-composer-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin-top: 0.7rem;
+    flex-wrap: wrap;
+  }
+  .m-img-pick {
+    font-size: 0.82rem;
+    color: var(--monet-blue-dark);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-pill);
+    padding: 0.3rem 0.8rem;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .m-img-pick:hover { border-color: var(--monet-blue); background: var(--monet-blue-lighter); }
+  .m-img-name { font-size: 0.76rem; color: var(--text-light); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-spacer { flex: 1; }
+  .m-count { font-size: 0.78rem; color: var(--text-light); }
+  .m-msg { font-size: 0.85rem; color: #e74c3c; margin: 0.5rem 0 0; min-height: 1em; }
+  .m-login-hint { text-align: center; padding: 1.4rem; margin-bottom: 1.4rem; }
+
+  .m-list { display: flex; flex-direction: column; gap: 0.9rem; }
+  .m-entry {
+    display: flex;
+    gap: 0.85rem;
+    padding: 1.1rem 1.2rem;
+    animation: fadeInUp 0.4s var(--ease) both;
+  }
+  .m-avatar { flex-shrink: 0; }
+  .m-body { flex: 1; min-width: 0; }
+  .m-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.35rem;
+  }
+  .m-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--monet-blue-dark);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .m-badge {
+    font-size: 0.66rem;
+    color: var(--monet-blue-dark);
+    background: var(--monet-blue-lighter);
+    border-radius: var(--radius-pill);
+    padding: 0.05rem 0.45rem;
+  }
+  .m-meta time { font-size: 0.76rem; color: var(--text-light); }
+  .m-del {
+    margin-left: auto;
+    border: none;
+    background: none;
+    color: var(--text-light);
+    font-size: 0.76rem;
+    cursor: pointer;
+  }
+  .m-del:hover { color: #e74c3c; }
+  .m-content {
+    margin: 0 0 0.6rem;
+    font-size: 0.93rem;
+    line-height: 1.75;
+    color: var(--text-dark);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .m-img-wrap {
+    border: none;
+    padding: 0;
+    background: none;
+    cursor: zoom-in;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    line-height: 0;
+  }
+  .m-img-wrap img {
+    max-width: 100%;
+    max-height: 420px;
+    border-radius: var(--radius-md);
+    object-fit: cover;
+    transition: transform 0.25s var(--ease);
+  }
+  .m-img-wrap:hover img { transform: scale(1.02); }
+  .m-empty { text-align: center; padding: 2.5rem 1.5rem; color: var(--text-gray); }
+
+  .m-pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1.6rem;
+  }
+  .m-page-info { font-size: 0.85rem; color: var(--text-light); }
+
+  .m-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(15, 22, 27, 0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4vh 4vw;
+    cursor: zoom-out;
+    animation: lb-fade-m 0.18s var(--ease);
+  }
+  .m-lightbox img {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: var(--radius-md);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+  @keyframes lb-fade-m { from { opacity: 0; } to { opacity: 1; } }
+
+  :global([data-theme="dark"]) .m-composer textarea {
+    background: rgba(22, 31, 36, 0.65);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+</style>

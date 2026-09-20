@@ -40,6 +40,7 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
   let seriesOrderRaw: string | null = null;
   let seriesNewTitle: string | null = null;
   let seriesNewDesc: string | null = null;
+  let publishAtRaw: string | null = null;
 
   const contentType = request.headers.get('content-type') || '';
   if (contentType.includes('application/json')) {
@@ -52,6 +53,7 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     seriesOrderRaw = body.series_order ?? null;
     seriesNewTitle = body.series_new_title ?? null;
     seriesNewDesc = body.series_new_desc ?? null;
+    publishAtRaw = body.publish_at ?? null;
   } else {
     const formData = await request.formData();
     title = (formData.get('title') as string)?.trim();
@@ -62,6 +64,7 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     seriesOrderRaw = readStr(formData.get('series_order'));
     seriesNewTitle = readStr(formData.get('series_new_title'));
     seriesNewDesc = readStr(formData.get('series_new_desc'));
+    publishAtRaw = readStr(formData.get('publish_at'));
   }
 
   if (!title || !content) {
@@ -98,16 +101,25 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
   const seriesOrder = seriesOrderRaw && seriesOrderRaw.trim() ? Number(seriesOrderRaw) : null;
 
   try {
-    const result = postQueries.create.run(
-      user.id,
-      slug,
-      title,
-      description,
-      content,
-      'pending',
-      now,
-      now
-    );
+    // 定时发布：填写了未来时间则直接 scheduled，到点由调度器转 approved
+    const publishAt = parseFutureTime(publishAtRaw);
+    if (publishAtRaw && publishAtRaw.trim() && publishAt === null) {
+      return new Response(JSON.stringify({ error: '定时时间无效，必须是未来的时间' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    let result;
+    if (publishAt) {
+      result = postQueries.createScheduled.run(
+        user.id, slug, title, description, content, 'scheduled', now, now, publishAt
+      );
+    } else {
+      result = postQueries.create.run(
+        user.id, slug, title, description, content, 'pending', now, now
+      );
+    }
     const postId = Number(result.lastInsertRowid);
     if (tagList.length) {
       tagQueries.setForPost(postId, tagList);
@@ -115,7 +127,10 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     if (seriesId != null) {
       seriesQueries.setForPost(postId, seriesId, seriesOrder);
     }
-    return new Response(JSON.stringify({ success: true, id: result.lastInsertRowid, message: '文章已提交，等待审核' }), {
+    const message = publishAt
+      ? `已设定定时发布：${new Date(publishAt).toLocaleString('zh-CN')}`
+      : '文章已提交，等待审核';
+    return new Response(JSON.stringify({ success: true, id: result.lastInsertRowid, message }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -126,3 +141,11 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     });
   }
 };
+
+// 解析 datetime-local 输入；返回未来时间戳，空串返回 undefined，无效/过去时间返回 null
+function parseFutureTime(raw: string | null | undefined): number | null | undefined {
+  if (!raw || !raw.trim()) return undefined;
+  const ts = new Date(raw).getTime();
+  if (!Number.isFinite(ts)) return null;
+  return ts > Date.now() ? ts : null;
+}

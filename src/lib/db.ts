@@ -9,8 +9,12 @@ const DB_PATH = process.env.DB_PATH || join(process.cwd(), 'data', 'blog.db');
 export const DATA_DIR = dirname(DB_PATH);
 // 用户上传头像的存放目录：与数据库放在同一个持久卷，容器重启/重新部署后文件不丢失
 export const AVATAR_DIR = join(DATA_DIR, 'avatars');
+// 正文插图与说说图片
+export const UPLOAD_DIR = join(DATA_DIR, 'uploads');
 mkdirSync(DATA_DIR, { recursive: true });
 mkdirSync(AVATAR_DIR, { recursive: true });
+mkdirSync(join(UPLOAD_DIR, 'images'), { recursive: true });
+mkdirSync(join(UPLOAD_DIR, 'moments'), { recursive: true });
 // 数据库每日备份目录（同一持久卷内）
 const BACKUP_DIR = join(DATA_DIR, 'backups');
 const BACKUP_KEEP = 7;
@@ -208,6 +212,10 @@ if (!postColumns.some((c) => c.name === 'pinned_at')) {
 if (!postColumns.some((c) => c.name === 'deleted_at')) {
   db.exec('ALTER TABLE posts ADD COLUMN deleted_at INTEGER');
 }
+// 定时发布：status='scheduled' 时在此时间戳自动转 approved
+if (!postColumns.some((c) => c.name === 'publish_at')) {
+  db.exec('ALTER TABLE posts ADD COLUMN publish_at INTEGER');
+}
 
 // FTS UPDATE 触发器升级：旧版 AFTER UPDATE 在软删除/改状态/置顶等任意列
 // 更新时都重建索引，对缺失的 FTS 行执行 delete 会抛 SQLITE_CORRUPT_VTAB
@@ -347,6 +355,33 @@ db.exec(`
     FOREIGN KEY (handler_id) REFERENCES users(id) ON DELETE SET NULL
   );
   CREATE INDEX IF NOT EXISTS idx_reports_status ON comment_reports(status);
+`);
+
+// 留言板（不针对具体文章的访客留言）
+db.exec(`
+  CREATE TABLE IF NOT EXISTS guestbook_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    deleted_at INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_guestbook_created ON guestbook_entries(created_at);
+`);
+
+// 说说 / 动态（短文，可带一张图）
+db.exec(`
+  CREATE TABLE IF NOT EXISTS moments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    image TEXT,
+    created_at INTEGER NOT NULL,
+    deleted_at INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_moments_created ON moments(created_at);
 `);
 
 
@@ -494,6 +529,29 @@ export const postQueries = {
   create: db.prepare(
     'INSERT INTO posts (author_id, slug, title, description, content, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ),
+  // 定时发布：status='scheduled' + publish_at，由后台调度器到点转 approved
+  createScheduled: db.prepare(
+    'INSERT INTO posts (author_id, slug, title, description, content, status, created_at, updated_at, publish_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ),
+  // 文章页上一篇 / 下一篇（按发布时间，仅已发布）
+  prevNeighbor: db.prepare(
+    `SELECT slug, title FROM posts
+     WHERE status = 'approved' AND deleted_at IS NULL AND created_at < ?
+     ORDER BY created_at DESC LIMIT 1`
+  ),
+  nextNeighbor: db.prepare(
+    `SELECT slug, title FROM posts
+     WHERE status = 'approved' AND deleted_at IS NULL AND created_at > ?
+     ORDER BY created_at ASC LIMIT 1`
+  ),
+  // 调度器：取出到点的定时文章
+  listDueScheduled: db.prepare(
+    `SELECT id FROM posts WHERE status = 'scheduled' AND deleted_at IS NULL AND publish_at IS NOT NULL AND publish_at <= ?`
+  ),
+  // 编辑时设定定时发布
+  updateScheduled: db.prepare(
+    "UPDATE posts SET title = ?, description = ?, content = ?, status = 'scheduled', publish_at = ?, updated_at = ? WHERE id = ? AND author_id = ? AND deleted_at IS NULL"
+  ),
   updateStatus: db.prepare('UPDATE posts SET status = ?, updated_at = ? WHERE id = ?'),
   updatePinned: db.prepare('UPDATE posts SET pinned_at = ?, updated_at = ? WHERE id = ?'),
   countByStatus: db.prepare('SELECT COUNT(*) AS count FROM posts WHERE status = ? AND deleted_at IS NULL'),
@@ -549,6 +607,45 @@ export const postQueries = {
   adminSoftDelete: db.prepare(
     'UPDATE posts SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL'
   ),
+};
+
+// ---- 留言板 ----
+export const guestbookQueries = {
+  list: db.prepare(
+    `SELECT g.id, g.content, g.created_at, g.user_id, u.username, u.avatar, u.role
+     FROM guestbook_entries g
+     JOIN users u ON g.user_id = u.id
+     WHERE g.deleted_at IS NULL
+     ORDER BY g.created_at DESC
+     LIMIT 100`
+  ),
+  create: db.prepare(
+    'INSERT INTO guestbook_entries (user_id, content, created_at) VALUES (?, ?, ?)'
+  ),
+  softDelete: db.prepare(
+    'UPDATE guestbook_entries SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL'
+  ),
+  findById: db.prepare('SELECT user_id FROM guestbook_entries WHERE id = ? AND deleted_at IS NULL'),
+};
+
+// ---- 说说 / 动态 ----
+export const momentQueries = {
+  list: db.prepare(
+    `SELECT m.*, u.username, u.avatar, u.role
+     FROM moments m
+     JOIN users u ON m.user_id = u.id
+     WHERE m.deleted_at IS NULL
+     ORDER BY m.created_at DESC
+     LIMIT ? OFFSET ?`
+  ),
+  count: db.prepare('SELECT COUNT(*) AS count FROM moments WHERE deleted_at IS NULL'),
+  create: db.prepare(
+    'INSERT INTO moments (user_id, content, image, created_at) VALUES (?, ?, ?, ?)'
+  ),
+  softDelete: db.prepare(
+    'UPDATE moments SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL'
+  ),
+  findById: db.prepare('SELECT user_id FROM moments WHERE id = ? AND deleted_at IS NULL'),
 };
 
 // ---- 消息相关查询 ----
@@ -1145,6 +1242,22 @@ if (process.env.DISABLE_DB_BACKUP !== '1') {
   // 每 6 小时检查一次：新的一天 + 服务长时间不重启时也能按天滚动
   setInterval(() => void runDailyBackup(), 6 * 60 * 60 * 1000).unref();
 }
+
+// ---- 定时发布调度器：每 60s 把到点的 scheduled 文章转 approved ----
+function publishDuePosts(): void {
+  try {
+    const now = Date.now();
+    const due = postQueries.listDueScheduled.all(now) as { id: number }[];
+    for (const row of due) {
+      postQueries.updateStatus.run('approved', now, row.id);
+      console.log(`[scheduler] 定时文章已发布: #${row.id}`);
+    }
+  } catch (err) {
+    console.error('[scheduler] 定时发布检查失败:', err);
+  }
+}
+publishDuePosts();
+setInterval(publishDuePosts, 60 * 1000).unref();
 
 export type Message = {
   id: number;

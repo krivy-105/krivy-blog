@@ -107,6 +107,35 @@ const mySeries = seriesQueries.listByAuthor.all(user.id) as any[];
       }
       .msg-success { color: #27ae60; }
       .msg-error { color: #e74c3c; }
+      .schedule-group {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        flex-wrap: wrap;
+        padding: 0.7rem 0.9rem;
+        background: var(--monet-blue-lighter);
+        border: 1px dashed var(--monet-blue-light);
+        border-radius: var(--radius-md);
+      }
+      .schedule-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.88rem;
+        color: var(--monet-blue-dark);
+        cursor: pointer;
+      }
+      .schedule-input {
+        padding: 6px 10px;
+        border: 1.5px solid var(--border-light);
+        border-radius: var(--radius-md);
+        background: var(--bg-white);
+        color: inherit;
+        font-family: inherit;
+        font-size: 0.88rem;
+      }
+      .schedule-input:disabled { opacity: 0.45; }
+      .schedule-hint { color: var(--text-light); font-size: 0.76rem; }
       @media (max-width: 768px) {
         .write-container { grid-template-columns: 1fr; }
       }
@@ -157,6 +186,20 @@ const mySeries = seriesQueries.listByAuthor.all(user.id) as any[];
               <MarkdownToolbar />
               <textarea id="content" name="content" placeholder="用 Markdown 书写正文..." required></textarea>
             </div>
+            <div class="form-group schedule-group">
+              <label class="schedule-toggle">
+                <input type="checkbox" id="scheduleChk" />
+                <span>🕐 定时发布</span>
+              </label>
+              <input
+                type="datetime-local"
+                name="publish_at"
+                id="publishAt"
+                class="schedule-input"
+                disabled
+              />
+              <small class="schedule-hint">到点自动发布；留空则提交后进入审核队列。</small>
+            </div>
             <div class="submit-row">
               <button type="submit" class="btn btn-primary">提交审核</button>
               <span id="submitMsg" class="msg"></span>
@@ -193,6 +236,62 @@ const mySeries = seriesQueries.listByAuthor.all(user.id) as any[];
           newBox.setAttribute('hidden', '');
         }
       });
+
+      // 定时发布：勾选才启用时间框；禁用时不提交该字段
+      const scheduleChk = document.getElementById('scheduleChk') as HTMLInputElement;
+      const publishAt = document.getElementById('publishAt') as HTMLInputElement;
+      scheduleChk.addEventListener('change', () => {
+        publishAt.disabled = !scheduleChk.checked;
+        if (scheduleChk.checked) {
+          // 默认值：明天此刻
+          const d = new Date(Date.now() + 24 * 3600 * 1000);
+          d.setSeconds(0, 0);
+          const pad = (n: number) => String(n).padStart(2, '0');
+          publishAt.value =
+            `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+      });
+
+      // 粘贴图片直传：剪贴板里的图片自动上传并在光标处插入 Markdown
+      let uploadSeq = 0;
+      contentEl.addEventListener('paste', async (e: ClipboardEvent) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        for (const item of Array.from(items)) {
+          if (!item.type.startsWith('image/')) continue;
+          const file = item.getAsFile();
+          if (!file) continue;
+          e.preventDefault();
+          const seq = ++uploadSeq;
+          const placeholder = `\n\n![上传中…${seq}](#uploading-${seq})\n\n`;
+          insertAtCursor(placeholder);
+          try {
+            const fd = new FormData();
+            fd.append('image', file);
+            const res = await fetch('/api/upload/image', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '上传失败');
+            replaceText(`![上传中…${seq}](#uploading-${seq})`, `![图片](${data.url})`);
+          } catch (err) {
+            replaceText(placeholder.trim(), `<!-- 图片上传失败：${err instanceof Error ? err.message : '网络错误'} -->`);
+          }
+          break;
+        }
+      });
+
+      function insertAtCursor(text: string) {
+        const s = contentEl.selectionStart ?? contentEl.value.length;
+        const en = contentEl.selectionEnd ?? s;
+        contentEl.value = contentEl.value.slice(0, s) + text + contentEl.value.slice(en);
+        contentEl.selectionStart = contentEl.selectionEnd = s + text.length;
+        renderPreview();
+        saveDraft();
+      }
+      function replaceText(from: string, to: string) {
+        contentEl.value = contentEl.value.replace(from, to);
+        renderPreview();
+        saveDraft();
+      }
 
       const STORAGE_KEY = 'writeDraft';
       const AUTOSAVE_INTERVAL = 15000; // 15s

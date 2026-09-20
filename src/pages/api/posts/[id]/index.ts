@@ -47,6 +47,7 @@ export const PUT: APIRoute = async ({ request, locals, params, redirect }) => {
   let seriesOrderRaw: string | null = null;
   let seriesNewTitle: string | null = null;
   let seriesNewDesc: string | null = null;
+  let publishAtRaw: string | null = null;
 
   const contentType = request.headers.get('content-type') || '';
   if (contentType.includes('application/json')) {
@@ -59,6 +60,7 @@ export const PUT: APIRoute = async ({ request, locals, params, redirect }) => {
     seriesOrderRaw = body.series_order ?? null;
     seriesNewTitle = body.series_new_title ?? null;
     seriesNewDesc = body.series_new_desc ?? null;
+    publishAtRaw = body.publish_at ?? null;
   } else {
     const formData = await request.formData();
     title = (formData.get('title') as string)?.trim();
@@ -69,6 +71,7 @@ export const PUT: APIRoute = async ({ request, locals, params, redirect }) => {
     seriesOrderRaw = readStr(formData.get('series_order'));
     seriesNewTitle = readStr(formData.get('series_new_title'));
     seriesNewDesc = readStr(formData.get('series_new_desc'));
+    publishAtRaw = readStr(formData.get('publish_at'));
   }
 
   if (!title || !content) {
@@ -103,14 +106,34 @@ export const PUT: APIRoute = async ({ request, locals, params, redirect }) => {
   const now = Date.now();
   const tagList = parseTags(tagsRaw);
 
+  // 定时发布：填写了未来时间则 scheduled，留空则按普通流程重新进入审核
+  let publishAt: number | null | undefined;
+  if (publishAtRaw && publishAtRaw.trim()) {
+    const ts = new Date(publishAtRaw).getTime();
+    if (!Number.isFinite(ts) || ts <= now) {
+      return new Response(JSON.stringify({ error: '定时时间无效，必须是未来的时间' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    publishAt = ts;
+  } else {
+    publishAt = undefined;
+  }
+
   try {
-    const result = postQueries.update.run(title, description, content, now, id, user.id);
+    const result = publishAt
+      ? postQueries.updateScheduled.run(title, description, content, publishAt, now, id, user.id)
+      : postQueries.update.run(title, description, content, now, id, user.id);
     if (result.changes === 0) {
       return new Response(JSON.stringify({ error: '更新失败' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
     tagQueries.setForPost(id, tagList);
     seriesQueries.setForPost(id, seriesId, seriesOrder);
-    return new Response(JSON.stringify({ success: true, message: '文章已更新，请耐心等待审核' }), {
+    const message = publishAt
+      ? `已保存，将于 ${new Date(publishAt).toLocaleString('zh-CN')} 自动发布`
+      : '文章已更新，请耐心等待审核';
+    return new Response(JSON.stringify({ success: true, message }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });

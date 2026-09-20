@@ -1,0 +1,242 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import Avatar from '../components/Avatar.astro';
+import { SITE_TITLE } from '../consts';
+import { guestbookQueries } from '../lib/db';
+
+const user = Astro.locals.user;
+const entries = guestbookQueries.list.all() as any[];
+
+const formatDate = (ts: number) =>
+  new Date(ts).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title={`留言板 - ${SITE_TITLE}`} description="不针对具体文章的碎碎念与访客留言。" />
+  </head>
+  <body>
+    <Header />
+    <main class="narrow gb-page">
+      <header class="gb-hero">
+        <h1>💌 留言板</h1>
+        <p>这里不聊具体文章——问候、建议、碎碎念，都可以留下。</p>
+      </header>
+
+      {user ? (
+        <form id="gbForm" class="gb-form card">
+          <div class="gb-form-head">
+            <Avatar src={user.avatar} username={user.username} size={36} />
+            <strong>{user.username}</strong>
+          </div>
+          <textarea
+            id="gbContent"
+            class="gb-textarea"
+            rows="3"
+            maxlength="500"
+            placeholder="写点什么吧（最多 500 字）…"
+          ></textarea>
+          <div class="gb-form-foot">
+            <span id="gbCount" class="gb-count">0 / 500</span>
+            <button type="submit" class="btn btn-primary btn-sm">发布留言</button>
+          </div>
+          <p id="gbMsg" class="gb-msg" role="status"></p>
+        </form>
+      ) : (
+        <div class="gb-login-hint card">
+          <a href="/login" class="btn btn-primary btn-sm">登录后留言</a>
+        </div>
+      )}
+
+      <section class="gb-list">
+        {entries.length === 0 ? (
+          <div class="gb-empty card">
+            <p>还没有留言，来做第一个打招呼的人吧 🌿</p>
+          </div>
+        ) : (
+          entries.map((e) => (
+            <article class="gb-entry card" data-id={e.id}>
+              <a href={`/users/${e.username}`} class="gb-avatar">
+                <Avatar src={e.avatar} username={e.username} size={40} />
+              </a>
+              <div class="gb-body">
+                <div class="gb-meta">
+                  <a href={`/users/${e.username}`} class="gb-name">
+                    {e.username}
+                    {e.role === 'admin' && <span class="gb-badge">站长</span>}
+                  </a>
+                  <time datetime={new Date(e.created_at).toISOString()}>{formatDate(e.created_at)}</time>
+                  {(user?.id === e.user_id || user?.role === 'admin') && (
+                    <button type="button" class="gb-del" data-id={e.id} aria-label="删除留言">删除</button>
+                  )}
+                </div>
+                <p class="gb-content">{e.content}</p>
+              </div>
+            </article>
+          ))
+        )}
+      </section>
+    </main>
+    <Footer />
+
+    {user && (
+      <script define:vars={{ currentUserId: user.id, currentRole: user.role }}>
+        const form = document.getElementById('gbForm') as HTMLFormElement;
+        const contentEl = document.getElementById('gbContent') as HTMLTextAreaElement;
+        const countEl = document.getElementById('gbCount');
+        const msgEl = document.getElementById('gbMsg');
+
+        contentEl.addEventListener('input', () => {
+          countEl.textContent = `${contentEl.value.length} / 500`;
+        });
+
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          msgEl.textContent = '';
+          const content = contentEl.value.trim();
+          if (!content) {
+            msgEl.textContent = '留言内容不能为空';
+            return;
+          }
+          try {
+            const res = await fetch('/api/guestbook', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '发布失败');
+            window.location.reload();
+          } catch (err) {
+            msgEl.textContent = err instanceof Error ? err.message : '网络错误';
+          }
+        });
+
+        document.querySelectorAll<HTMLButtonElement>('.gb-del').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            if (!window.confirm('确定删除这条留言吗？')) return;
+            const res = await fetch(`/api/guestbook/${btn.dataset.id}`, { method: 'DELETE' });
+            if (res.ok) {
+              btn.closest('.gb-entry')?.remove();
+            } else {
+              const data = await res.json().catch(() => ({}));
+              window.alert(data.error || '删除失败');
+            }
+          });
+        });
+      </script>
+    )}
+  </body>
+</html>
+
+<style>
+  .gb-page { padding-top: 0.5rem; }
+  .gb-hero {
+    text-align: center;
+    padding: 1.2rem 0 1.8rem;
+  }
+  .gb-hero h1 { margin-bottom: 0.5rem; }
+  .gb-hero p { color: var(--text-gray); font-size: 0.95rem; margin: 0; }
+
+  .gb-form { padding: 1.1rem 1.2rem; margin-bottom: 1.4rem; }
+  .gb-form-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.7rem;
+    font-size: 0.92rem;
+  }
+  .gb-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.7rem 0.85rem;
+    border: 1.5px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-white);
+    color: inherit;
+    font-family: inherit;
+    font-size: 0.93rem;
+    line-height: 1.65;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s var(--ease);
+  }
+  .gb-textarea:focus { border-color: var(--monet-blue); }
+  .gb-form-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.7rem;
+  }
+  .gb-count { font-size: 0.78rem; color: var(--text-light); }
+  .gb-msg { font-size: 0.85rem; color: #e74c3c; margin: 0.5rem 0 0; min-height: 1em; }
+  .gb-login-hint { text-align: center; padding: 1.4rem; margin-bottom: 1.4rem; }
+
+  .gb-list { display: flex; flex-direction: column; gap: 0.85rem; }
+  .gb-entry {
+    display: flex;
+    gap: 0.85rem;
+    padding: 1rem 1.2rem;
+    animation: fadeInUp 0.4s var(--ease) both;
+  }
+  .gb-avatar { flex-shrink: 0; }
+  .gb-body { flex: 1; min-width: 0; }
+  .gb-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.3rem;
+  }
+  .gb-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--monet-blue-dark);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .gb-badge {
+    font-size: 0.66rem;
+    font-weight: 500;
+    color: var(--monet-blue-dark);
+    background: var(--monet-blue-lighter);
+    border-radius: var(--radius-pill);
+    padding: 0.05rem 0.45rem;
+  }
+  .gb-meta time { font-size: 0.76rem; color: var(--text-light); }
+  .gb-del {
+    margin-left: auto;
+    border: none;
+    background: none;
+    color: var(--text-light);
+    font-size: 0.76rem;
+    cursor: pointer;
+    padding: 0.15rem 0.3rem;
+  }
+  .gb-del:hover { color: #e74c3c; }
+  .gb-content {
+    margin: 0;
+    font-size: 0.93rem;
+    line-height: 1.75;
+    color: var(--text-dark);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .gb-empty { text-align: center; padding: 2.5rem 1.5rem; color: var(--text-gray); }
+
+  :global([data-theme="dark"]) .gb-textarea {
+    background: rgba(22, 31, 36, 0.65);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+</style>
