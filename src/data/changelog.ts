@@ -9,6 +9,16 @@ export interface ChangelogEntry {
 export const changelog: ChangelogEntry[] = [
   {
     date: '2026-09-20',
+    type: 'fix',
+    title: '命令面板进站自动弹出修复',
+    detail: [
+      '修复 ⌘K 命令面板因 CSS display:flex 覆盖 hidden 属性导致一进站就弹出',
+      '搜索框恢复原生行为，不再联动弹窗',
+      '阻止浏览器自动聚焦搜索框（tabindex + blur 兜底）',
+    ],
+  },
+  {
+    date: '2026-09-20',
     type: 'feat',
     title: '体验大升级',
     detail: [
