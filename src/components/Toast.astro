@@ -1,0 +1,179 @@
+---
+// 全局轻提示 + 确认弹窗：window.showToast(msg, type) / await window.uiConfirm(msg)
+// 替代浏览器原生 alert/confirm，统一莫奈蓝风格
+---
+
+<div class="toast-root" id="toastRoot" aria-live="polite"></div>
+
+<div class="uic-backdrop" id="uicBackdrop" hidden>
+  <div class="uic-dialog" role="alertdialog" aria-modal="true" aria-labelledby="uicMsg">
+    <p class="uic-msg" id="uicMsg"></p>
+    <div class="uic-actions">
+      <button type="button" class="uic-btn uic-cancel">取消</button>
+      <button type="button" class="uic-btn uic-ok">确定</button>
+    </div>
+  </div>
+</div>
+
+<script is:inline>
+  (function () {
+    var root = document.getElementById('toastRoot');
+    var icons = { success: '✓', error: '✕', info: '💡' };
+
+    window.showToast = function (msg, type) {
+      type = type || 'info';
+      var t = document.createElement('div');
+      t.className = 'toast-item toast-' + type;
+      var icon = document.createElement('span');
+      icon.className = 'toast-icon';
+      icon.textContent = icons[type] || icons.info;
+      var text = document.createElement('span');
+      text.textContent = msg; // textContent 防注入
+      t.appendChild(icon);
+      t.appendChild(text);
+      root.appendChild(t);
+      requestAnimationFrame(function () { t.classList.add('is-in'); });
+      setTimeout(function () {
+        t.classList.remove('is-in');
+        t.classList.add('is-out');
+        setTimeout(function () { t.remove(); }, 260);
+      }, 2600);
+    };
+
+    var backdrop = document.getElementById('uicBackdrop');
+    var msgEl = document.getElementById('uicMsg');
+    var okBtn = backdrop.querySelector('.uic-ok');
+    var cancelBtn = backdrop.querySelector('.uic-cancel');
+    var resolveFn = null;
+
+    window.uiConfirm = function (msg, opts) {
+      opts = opts || {};
+      msgEl.textContent = msg;
+      okBtn.className = 'uic-btn uic-ok' + (opts.danger === false ? ' uic-primary' : ' uic-danger');
+      backdrop.hidden = false;
+      document.body.style.overflow = 'hidden';
+      okBtn.focus();
+      return new Promise(function (resolve) { resolveFn = resolve; });
+    };
+
+    function done(val) {
+      if (resolveFn) { resolveFn(val); resolveFn = null; }
+      backdrop.hidden = true;
+      document.body.style.overflow = '';
+    }
+    okBtn.addEventListener('click', function () { done(true); });
+    cancelBtn.addEventListener('click', function () { done(false); });
+    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) done(false); });
+    document.addEventListener('keydown', function (e) {
+      if (backdrop.hidden) return;
+      if (e.key === 'Escape') done(false);
+      if (e.key === 'Enter') done(true);
+    });
+  })();
+</script>
+
+<style>
+  .toast-root {
+    position: fixed;
+    top: 74px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10002;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    pointer-events: none;
+    width: max-content;
+    max-width: calc(100vw - 2rem);
+  }
+  .toast-item {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.62rem 1.1rem;
+    border-radius: var(--radius-pill);
+    background: var(--bg-white);
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-md);
+    color: var(--text-dark);
+    font-size: 0.9rem;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.24s var(--ease), transform 0.24s var(--ease);
+    max-width: 100%;
+  }
+  .toast-item.is-in { opacity: 1; transform: translateY(0); }
+  .toast-item.is-out { opacity: 0; transform: translateY(-8px); }
+  .toast-icon {
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .toast-success .toast-icon { background: #5aa87a; }
+  .toast-error .toast-icon { background: #d97a6c; }
+  .toast-info .toast-icon { background: var(--monet-blue); }
+
+  .uic-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10001;
+    background: rgba(15, 22, 27, 0.45);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    animation: uic-fade 0.16s var(--ease);
+  }
+  .uic-backdrop[hidden] { display: none; }
+  @keyframes uic-fade { from { opacity: 0; } to { opacity: 1; } }
+  .uic-dialog {
+    background: var(--bg-white);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 20px 60px rgba(20, 40, 55, 0.25);
+    padding: 1.4rem 1.5rem 1.2rem;
+    width: 100%;
+    max-width: 360px;
+    animation: uic-pop 0.18s var(--ease);
+  }
+  @keyframes uic-pop {
+    from { transform: scale(0.95); opacity: 0.5; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .uic-msg {
+    margin: 0 0 1.2rem;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-dark);
+    word-break: break-word;
+  }
+  .uic-actions { display: flex; gap: 0.7rem; justify-content: flex-end; }
+  .uic-btn {
+    padding: 0.5rem 1.15rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-light);
+    background: var(--bg-white);
+    color: var(--text-gray);
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: inherit;
+  }
+  .uic-btn:hover { border-color: var(--monet-blue); }
+  .uic-ok { color: #fff; border-color: transparent; }
+  .uic-ok.uic-danger { background: linear-gradient(135deg, #d97a6c, #c05e52); }
+  .uic-ok.uic-primary { background: linear-gradient(135deg, var(--monet-blue), var(--monet-blue-dark)); }
+
+  :global([data-theme="dark"]) .toast-item { background: #1d2a32; border-color: rgba(255,255,255,0.1); }
+  :global([data-theme="dark"]) .uic-dialog { background: #1d2a32; border-color: rgba(255,255,255,0.1); }
+  :global([data-theme="dark"]) .uic-btn { background: rgba(255,255,255,0.06); }
+  :global([data-theme="dark"]) .uic-ok { color: #fff; }
+</style>

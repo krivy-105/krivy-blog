@@ -16,6 +16,11 @@ export default defineConfig({
 	security: {
 		checkOrigin: false,
 	},
+	// 链接预取：鼠标悬停站内链接时预加载，点击近乎秒开
+	prefetch: {
+		prefetchAll: true,
+		defaultStrategy: 'hover',
+	},
 	integrations: [mdx(), sitemap()],
 	fonts: [
 		{

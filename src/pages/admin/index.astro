@@ -299,7 +299,7 @@ const formatTime = (ts: number) =>
         btn.addEventListener('click', async () => {
           const id = btn.dataset.reviewPost;
           const action = btn.dataset.reviewAction;
-          if (action === 'reject' && !window.confirm('确认驳回这篇文章吗？驳回后不会公开发布。')) {
+          if (action === 'reject' && !(await window.uiConfirm('确认驳回这篇文章吗？驳回后不会公开发布。'))) {
             return;
           }
           const row = btn.closest('tr');
@@ -310,7 +310,7 @@ const formatTime = (ts: number) =>
             if (!res.ok) throw new Error(data.error || '操作失败');
             location.reload();
           } catch (e) {
-            window.alert(e instanceof Error ? e.message : '网络错误，请重试');
+            window.showToast(e instanceof Error ? e.message : '网络错误，请重试', 'error');
             row?.querySelectorAll('button').forEach((b) => (b.disabled = false));
           }
         });
@@ -326,7 +326,7 @@ const formatTime = (ts: number) =>
           );
           if (input === null) return;
           if (input.trim() !== username) {
-            window.alert('输入的用户名不匹配，已取消删除。');
+            window.showToast('输入的用户名不匹配，已取消删除。', 'error');
             return;
           }
           btn.disabled = true;
@@ -336,7 +336,7 @@ const formatTime = (ts: number) =>
             if (!res.ok) throw new Error(data.error || '删除失败');
             location.reload();
           } catch (e) {
-            window.alert(e instanceof Error ? e.message : '网络错误，请重试');
+            window.showToast(e instanceof Error ? e.message : '网络错误，请重试', 'error');
             btn.disabled = false;
           }
         });
@@ -355,7 +355,7 @@ const formatTime = (ts: number) =>
             if (!res.ok) throw new Error(data.error || '操作失败');
             location.reload();
           } catch (e) {
-            window.alert(e instanceof Error ? e.message : '网络错误，请重试');
+            window.showToast(e instanceof Error ? e.message : '网络错误，请重试', 'error');
             row?.querySelectorAll('button').forEach((b) => (b.disabled = false));
           }
         });

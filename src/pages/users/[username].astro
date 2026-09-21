@@ -447,7 +447,7 @@ const joinDate = profile
           if (!btn) return;
           const id = btn.dataset.id;
           if (!id) return;
-          if (!window.confirm('确认删除这篇文章？删除后不可恢复。')) return;
+          if (!(await window.uiConfirm('确认删除这篇文章？删除后不可恢复。'))) return;
           btn.setAttribute('disabled', 'true');
           try {
             const res = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
@@ -459,7 +459,7 @@ const joinDate = profile
             card?.style.setProperty('opacity', '0');
             setTimeout(() => card?.remove(), 280);
           } catch (err) {
-            window.alert(err instanceof Error ? err.message : '删除失败');
+            window.showToast(err instanceof Error ? err.message : '删除失败', 'error');
             btn.removeAttribute('disabled');
           }
         });

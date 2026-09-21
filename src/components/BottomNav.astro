@@ -1,0 +1,68 @@
+---
+// 移动端底部导航栏（<768px 显示）：首页 / 文章 / 说说 / 留言 / 我的
+import Avatar from './Avatar.astro';
+const user = Astro.locals.user;
+const path = Astro.url.pathname;
+
+const items = [
+  { href: '/', label: '首页', icon: '🏠', match: (p: string) => p === '/' },
+  { href: '/blog', label: '文章', icon: '📖', match: (p: string) => p.startsWith('/blog') || p.startsWith('/archive') || p.startsWith('/tags') },
+  { href: '/moments', label: '说说', icon: '✨', match: (p: string) => p.startsWith('/moments') },
+  { href: '/guestbook', label: '留言', icon: '💌', match: (p: string) => p.startsWith('/guestbook') },
+];
+const mine = user ? { href: `/users/${user.username}`, label: '我的' } : { href: '/login', label: '登录' };
+---
+
+<nav class="bottom-nav" aria-label="底部导航">
+  {items.map((it) => (
+    <a href={it.href} class:list={['bn-item', { 'is-active': it.match(path) }]}>
+      <span class="bn-icon">{it.icon}</span>
+      <span class="bn-label">{it.label}</span>
+    </a>
+  ))}
+  <a href={mine.href} class:list={['bn-item', { 'is-active': path.startsWith('/users') || path.startsWith('/login') }]}>
+    {user ? (
+      <span class="bn-avatar"><Avatar src={user.avatar} username={user.username} size={22} /></span>
+    ) : (
+      <span class="bn-icon">👤</span>
+    )}
+    <span class="bn-label">{mine.label}</span>
+  </a>
+</nav>
+
+<style>
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 950;
+    display: none;
+    grid-template-columns: repeat(5, 1fr);
+    background: var(--bg-white);
+    border-top: 1px solid var(--border-light);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-shadow: 0 -4px 18px rgba(20, 40, 55, 0.06);
+  }
+  .bn-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.12rem;
+    padding: 0.42rem 0 0.5rem;
+    text-decoration: none;
+    color: var(--text-light);
+    font-size: 0.64rem;
+    transition: color 0.15s var(--ease);
+  }
+  .bn-icon { font-size: 1.15rem; line-height: 1.3; }
+  .bn-item.is-active { color: var(--monet-blue-dark); font-weight: 600; }
+  .bn-avatar { display: flex; align-items: center; height: 1.5rem; }
+  :global([data-theme="dark"]) .bottom-nav {
+    background: rgba(23, 33, 39, 0.96);
+    border-top-color: rgba(255, 255, 255, 0.08);
+  }
+  @media (max-width: 767.98px) {
+    .bottom-nav { display: grid; }
+  }
+</style>

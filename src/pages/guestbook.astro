@@ -123,13 +123,13 @@ const formatDate = (ts: number) =>
 
         document.querySelectorAll<HTMLButtonElement>('.gb-del').forEach((btn) => {
           btn.addEventListener('click', async () => {
-            if (!window.confirm('确定删除这条留言吗？')) return;
+            if (!(await window.uiConfirm('确定删除这条留言吗？'))) return;
             const res = await fetch(`/api/guestbook/${btn.dataset.id}`, { method: 'DELETE' });
             if (res.ok) {
               btn.closest('.gb-entry')?.remove();
             } else {
               const data = await res.json().catch(() => ({}));
-              window.alert(data.error || '删除失败');
+              window.showToast(data.error || '删除失败', 'error');
             }
           });
         });

@@ -170,7 +170,7 @@ function timeAgo(ts: number): string {
             const input = window.prompt('驳回理由（可选，将通过站内通知发给用户，留空则不填）：');
             if (input === null) return; // 取消
             reason = input.trim().slice(0, 200);
-          } else if (!window.confirm('确认通过该头像？通过后将立即替换用户当前头像。')) {
+          } else if (!(await window.uiConfirm('确认通过该头像？通过后将立即替换用户当前头像。'))) {
             return;
           }
 
@@ -199,7 +199,7 @@ function timeAgo(ts: number): string {
               document.querySelector('main')?.appendChild(empty);
             }
           } catch (e) {
-            window.alert(e instanceof Error ? e.message : '网络错误，请重试');
+            window.showToast(e instanceof Error ? e.message : '网络错误，请重试', 'error');
             btn.disabled = false;
           }
         });

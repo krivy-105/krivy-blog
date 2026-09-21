@@ -340,11 +340,15 @@ const mySeries = seriesQueries.listByAuthor.all(user.id) as any[];
             saved.desc !== cur.desc ||
             saved.content !== cur.content;
           if (changed && (saved.title || saved.desc || saved.content)) {
-            if (window.confirm('检测到上次未提交的草稿，是否恢复？')) {
-              restoreDraft(saved);
-            } else {
-              localStorage.removeItem(STORAGE_KEY);
-            }
+            window
+              .uiConfirm('检测到上次未提交的草稿，是否恢复？')
+              .then((ok) => {
+                if (ok) {
+                  restoreDraft(saved);
+                } else {
+                  localStorage.removeItem(STORAGE_KEY);
+                }
+              });
           }
         }
       } catch {}

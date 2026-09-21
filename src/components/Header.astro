@@ -4,6 +4,9 @@ import HeaderLink from './HeaderLink.astro';
 import Avatar from './Avatar.astro';
 import DevToolbarHeart from './DevToolbarHeart.astro';
 import CommandPalette from './CommandPalette.astro';
+import Toast from './Toast.astro';
+import BackToTop from './BackToTop.astro';
+import BottomNav from './BottomNav.astro';
 import { postQueries, reportQueries, userQueries } from '../lib/db';
 
 const user = Astro.locals.user;
@@ -133,6 +136,9 @@ const pendingCount = isAdmin
 </header>
 <DevToolbarHeart />
 <CommandPalette />
+<Toast />
+<BackToTop />
+<BottomNav />
 
 <script is:inline>
   // 防止浏览器加载时自动聚焦到导航栏搜索框（第一个 input）

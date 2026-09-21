@@ -8,6 +8,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: '2026-09-21',
+    type: 'feat',
+    title: '交互体验升级',
+    detail: [
+      '统一提示系统：全站 23 处原生弹窗替换为莫奈蓝风格 Toast 与确认弹窗',
+      '链接预取：悬停即预加载，点击近乎秒开；页面切换淡入过渡',
+      '移动端底部导航栏：首页 / 文章 / 说说 / 留言 / 我的，拇指可达',
+      '回到顶部悬浮按钮：长文滚动必备',
+      '搜索结果标题关键词高亮',
+      '文章页 J / K 键快速跳转上一篇 / 下一篇',
+    ],
+  },
+  {
     date: '2026-09-20',
     type: 'fix',
     title: '命令面板进站自动弹出修复',

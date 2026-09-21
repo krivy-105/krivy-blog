@@ -207,7 +207,7 @@ const links = linkQueries.list.all() as {
         btn.addEventListener('click', async () => {
           const id = btn.dataset.id;
           if (!id) return;
-          if (!window.confirm('确认删除这条友链吗？')) return;
+          if (!(await window.uiConfirm('确认删除这条友链吗？'))) return;
           btn.disabled = true;
           try {
             const res = await fetch('/api/admin/links', {
@@ -219,7 +219,7 @@ const links = linkQueries.list.all() as {
             if (!res.ok) throw new Error(data.error || '删除失败');
             location.reload();
           } catch (e) {
-            window.alert(e instanceof Error ? e.message : '网络错误，请重试');
+            window.showToast(e instanceof Error ? e.message : '网络错误，请重试', 'error');
             btn.disabled = false;
           }
         });

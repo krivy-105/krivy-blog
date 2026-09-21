@@ -295,7 +295,7 @@ if (seriesInfo) {
             const action = btn.dataset.review;
             const banner = btn.closest('.review-banner') as HTMLElement;
             const postId = banner.dataset.postId;
-            if (action === 'reject' && !window.confirm('确认驳回这篇文章吗？驳回后不会公开发布。')) {
+            if (action === 'reject' && !(await window.uiConfirm('确认驳回这篇文章吗？驳回后不会公开发布。'))) {
               return;
             }
             const buttons = banner.querySelectorAll('button');
@@ -311,7 +311,7 @@ if (seriesInfo) {
                 window.location.href = '/admin';
               }
             } catch (e) {
-              window.alert(e instanceof Error ? e.message : '网络错误，请重试');
+              window.showToast(e instanceof Error ? e.message : '网络错误，请重试', 'error');
               buttons.forEach((b) => (b.disabled = false));
             }
           });
@@ -333,16 +333,17 @@ if (seriesInfo) {
             const tip = isOwnerAction
               ? '确认删除这篇文章？删除后将从站点消失且不可恢复。'
               : '确认以管理员身份下架这篇文章？下架后所有访客都无法查看。';
-            if (!window.confirm(tip)) return;
+            if (!(await window.uiConfirm(tip))) return;
             btn.disabled = true;
             try {
               const res = await fetch(`/api/posts/${postId}`, { method: 'DELETE' });
               const data = await res.json().catch(() => ({}));
               if (!res.ok) throw new Error(data.error || '删除失败');
-              window.alert(data.message || '操作成功');
+              window.showToast(data.message || '操作成功', 'success');
+              await new Promise((r) => setTimeout(r, 600));
               window.location.href = isOwnerAction ? ownerRedirect : '/admin';
             } catch (e) {
-              window.alert(e instanceof Error ? e.message : '网络错误，请重试');
+              window.showToast(e instanceof Error ? e.message : '网络错误，请重试', 'error');
               btn.disabled = false;
             }
           });
@@ -416,6 +417,18 @@ if (seriesInfo) {
       });
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && lightbox) closeLightbox();
+      });
+
+      // J / K 键快速跳转下一篇 / 上一篇（输入状态下不触发）
+      document.addEventListener('keydown', (e) => {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        const t = e.target as HTMLElement | null;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+        const key = e.key.toLowerCase();
+        if (key !== 'j' && key !== 'k') return;
+        const cls = key === 'j' ? '.neighbor-next' : '.neighbor-prev';
+        const link = document.querySelector<HTMLAnchorElement>(`.post-neighbors a${cls}`);
+        if (link) window.location.href = link.href;
       });
     </script>
   </body>

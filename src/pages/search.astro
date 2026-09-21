@@ -20,6 +20,19 @@ if (safeQ) {
 
 const formatDate = (ts: number) =>
   new Date(ts).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+// 标题关键词高亮：先转义再逐词包 <mark>（与 FTS snippet 的预览高亮一致）
+const terms = safeQ.split(' ').filter(Boolean).slice(0, 5);
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const highlightTitle = (text: string) => {
+  let out = escapeHtml(text);
+  for (const t of terms) {
+    const re = new RegExp(`(${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    out = out.replace(re, '<mark>$1</mark>');
+  }
+  return out;
+};
 ---
 
 <!doctype html>
@@ -72,7 +85,7 @@ const formatDate = (ts: number) =>
                   aria-label={`阅读文章：${r.title}`}
                 ></a>
                 <div class="item-main">
-                  <h2>{r.title}</h2>
+                  <h2 set:html={highlightTitle(r.title)} />
                   <p class="search-preview" set:html={r.preview || r.description || ''} />
                 </div>
                 <div class="item-meta">
@@ -124,7 +137,7 @@ const formatDate = (ts: number) =>
         line-height: 1.7;
         margin: 0.3rem 0 0;
       }
-      .search-preview :global(mark) {
+      .search-item :global(mark) {
         background: rgba(224, 169, 46, 0.25);
         color: inherit;
         padding: 0 2px;

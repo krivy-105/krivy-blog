@@ -200,7 +200,7 @@ function timeAgo(ts: number): string {
           const action = btn.dataset.action;
           if (!id || !action) return;
           const actionText = action === 'approve' ? '隐藏该评论' : '驳回该举报';
-          if (!window.confirm(`确认${actionText}吗？`)) return;
+          if (!(await window.uiConfirm(`确认${actionText}吗？`))) return;
           btn.disabled = true;
           try {
             const res = await fetch(`/api/admin/reports/${id}/${action}`, { method: 'POST' });
@@ -222,7 +222,7 @@ function timeAgo(ts: number): string {
               list?.parentNode?.appendChild(empty);
             }
           } catch (e) {
-            window.alert(e instanceof Error ? e.message : '网络错误，请重试');
+            window.showToast(e instanceof Error ? e.message : '网络错误，请重试', 'error');
             btn.disabled = false;
           }
         });

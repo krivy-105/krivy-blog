@@ -1,0 +1,61 @@
+---
+// 回到顶部悬浮按钮：滚动超过 400px 出现
+---
+
+<button type="button" class="backtop" id="backTopBtn" aria-label="回到顶部" hidden>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>
+  </svg>
+</button>
+
+<script>
+  const btn = document.getElementById('backTopBtn')!;
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      btn.hidden = window.scrollY <= 400;
+      ticking = false;
+    });
+  }, { passive: true });
+  btn.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+</script>
+
+<style>
+  .backtop {
+    position: fixed;
+    right: 1.2rem;
+    bottom: 1.4rem;
+    z-index: 900;
+    width: 2.7rem;
+    height: 2.7rem;
+    border-radius: 50%;
+    border: 1px solid var(--border-light);
+    background: var(--bg-white);
+    color: var(--monet-blue-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    transition: var(--transition);
+  }
+  .backtop:hover {
+    transform: translateY(-3px);
+    border-color: var(--monet-blue);
+    box-shadow: var(--shadow-lg);
+  }
+  :global([data-theme="dark"]) .backtop {
+    background: rgba(29, 42, 50, 0.92);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+  @media (max-width: 767.98px) {
+    .backtop { bottom: calc(4.6rem + env(safe-area-inset-bottom, 0px)); right: 1rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .backtop { transition: none; }
+  }
+</style>
