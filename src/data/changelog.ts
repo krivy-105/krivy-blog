@@ -8,6 +8,26 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: '2026-09-22',
+    type: 'fix',
+    title: '修复编辑页等脚本失效',
+    detail: [
+      '带 define:vars 的内联脚本不经过 TS 编译，但页面里残留 as 类型断言和泛型语法，浏览器解析失败导致整段脚本不执行',
+      '影响：编辑页无法保存、留言板无法提交、举报处理按钮无响应',
+      '已将 edit / guestbook / reports 三处 define:vars 脚本改为纯 JavaScript',
+    ],
+  },
+  {
+    date: '2026-09-22',
+    type: 'feat',
+    title: '数通学习资源上线',
+    detail: [
+      '友链新增「数通」分类，挂载智慧职教、华为ICT学院、思科网院三个学习入口',
+      '发布《HCNA 数通备考资料合集》文章，覆盖 VLAN / STP / 路由 / ACL / NAT / VRRP / DHCP / PPP / GVRP / 链路聚合等 12 大主题',
+      '文章内嵌 139 云盘链接，含练习题、实验指南与华为命令详解',
+    ],
+  },
+  {
     date: '2026-09-21',
     type: 'feat',
     title: '交互体验升级',
