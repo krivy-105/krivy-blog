@@ -277,14 +277,15 @@ const scheduleDefault =
       <script define:vars={{ postId: post.id, myUsername, previewUrl }}>
         import { marked } from 'marked';
 
-        const contentEl = document.getElementById('content') as HTMLTextAreaElement;
+        // 注意：define:vars 脚本不经过 TS 编译，以下全部使用纯 JavaScript（无 as 断言、无类型注解）
+        const contentEl = document.getElementById('content');
         const previewEl = document.getElementById('preview');
-        const form = document.getElementById('writeForm') as HTMLFormElement;
+        const form = document.getElementById('writeForm');
         const msgEl = document.getElementById('submitMsg');
 
-        const seriesSel = form.querySelector('#seriesId') as HTMLSelectElement | null;
+        const seriesSel = form.querySelector('#seriesId');
         const newBox = document.getElementById('newSeriesBox');
-        seriesSel?.addEventListener('change', () => {
+        seriesSel.addEventListener('change', () => {
           if (!newBox) return;
           if (seriesSel.value === '__new__') {
             newBox.removeAttribute('hidden');
@@ -294,21 +295,21 @@ const scheduleDefault =
         });
 
         // 定时发布勾选联动
-        const scheduleChk = document.getElementById('scheduleChk') as HTMLInputElement;
-        const publishAt = document.getElementById('publishAt') as HTMLInputElement;
-        scheduleChk?.addEventListener('change', () => {
+        const scheduleChk = document.getElementById('scheduleChk');
+        const publishAt = document.getElementById('publishAt');
+        scheduleChk.addEventListener('change', () => {
           publishAt.disabled = !scheduleChk.checked;
           if (scheduleChk.checked && !publishAt.value) {
             const d = new Date(Date.now() + 24 * 3600 * 1000);
             d.setSeconds(0, 0);
-            const pad = (n: number) => String(n).padStart(2, '0');
+            const pad = (n) => String(n).padStart(2, '0');
             publishAt.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
           }
         });
 
         // 复制免登录预览链接
         const copyBtn = document.getElementById('copyPreviewBtn');
-        copyBtn?.addEventListener('click', async () => {
+        copyBtn.addEventListener('click', async () => {
           try {
             await navigator.clipboard.writeText(previewUrl);
             copyBtn.textContent = '✓ 已复制到剪贴板';
@@ -320,19 +321,19 @@ const scheduleDefault =
 
         // 粘贴图片直传：在正文里 Ctrl+V 贴图自动上传插入 Markdown
         let uploadSeq = 0;
-        function insertAtCursor(text: string) {
+        function insertAtCursor(text) {
           const s = contentEl.selectionStart ?? contentEl.value.length;
           const en = contentEl.selectionEnd ?? s;
           contentEl.value = contentEl.value.slice(0, s) + text + contentEl.value.slice(en);
           contentEl.selectionStart = contentEl.selectionEnd = s + text.length;
           renderPreview();
         }
-        function replaceText(from: string, to: string) {
+        function replaceText(from, to) {
           contentEl.value = contentEl.value.replace(from, to);
           renderPreview();
         }
-        contentEl.addEventListener('paste', async (e: ClipboardEvent) => {
-          const items = e.clipboardData?.items;
+        contentEl.addEventListener('paste', async (e) => {
+          const items = e.clipboardData && e.clipboardData.items;
           if (!items) return;
           for (const item of Array.from(items)) {
             if (!item.type.startsWith('image/')) continue;
@@ -357,7 +358,7 @@ const scheduleDefault =
         });
 
         function renderPreview() {
-          previewEl.innerHTML = marked.parse(contentEl.value) as string;
+          previewEl.innerHTML = marked.parse(contentEl.value);
         }
         renderPreview();
         contentEl.addEventListener('input', renderPreview);

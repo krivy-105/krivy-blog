@@ -90,8 +90,8 @@ const formatDate = (ts: number) =>
 
     {user && (
       <script define:vars={{ currentUserId: user.id, currentRole: user.role }}>
-        const form = document.getElementById('gbForm') as HTMLFormElement;
-        const contentEl = document.getElementById('gbContent') as HTMLTextAreaElement;
+        const form = document.getElementById('gbForm');
+        const contentEl = document.getElementById('gbContent');
         const countEl = document.getElementById('gbCount');
         const msgEl = document.getElementById('gbMsg');
 
@@ -121,7 +121,7 @@ const formatDate = (ts: number) =>
           }
         });
 
-        document.querySelectorAll<HTMLButtonElement>('.gb-del').forEach((btn) => {
+        document.querySelectorAll('.gb-del').forEach((btn) => {
           btn.addEventListener('click', async () => {
             if (!(await window.uiConfirm('确定删除这条留言吗？'))) return;
             const res = await fetch(`/api/guestbook/${btn.dataset.id}`, { method: 'DELETE' });

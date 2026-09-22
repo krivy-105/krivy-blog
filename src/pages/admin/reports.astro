@@ -194,7 +194,7 @@ function timeAgo(ts: number): string {
     </style>
 
     <script define:vars={{}}>
-      document.querySelectorAll<HTMLButtonElement>('.act-btn').forEach((btn) => {
+      document.querySelectorAll('.act-btn').forEach((btn) => {
         btn.addEventListener('click', async () => {
           const id = btn.dataset.id;
           const action = btn.dataset.action;
