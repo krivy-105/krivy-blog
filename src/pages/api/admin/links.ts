@@ -14,6 +14,7 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
   let name: string | undefined;
   let url: string | undefined;
   let description = '';
+  let category = '友链';
   let sort = 0;
 
   const contentType = request.headers.get('content-type') || '';
@@ -22,15 +23,18 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     name = (body.name as string)?.trim();
     url = (body.url as string)?.trim();
     description = (body.description as string)?.trim() || '';
+    category = (body.category as string)?.trim() || '友链';
     sort = Number(body.sort) || 0;
   } else {
     const formData = await request.formData();
     name = (formData.get('name') as string)?.trim();
     url = (formData.get('url') as string)?.trim();
     description = (formData.get('description') as string)?.trim() || '';
+    category = (formData.get('category') as string)?.trim() || '友链';
     const s = formData.get('sort');
     sort = s ? Number(s) || 0 : 0;
   }
+  category = category.slice(0, 20);
 
   if (!name) return json({ error: '名称不能为空' }, 400);
   if (!url || !/^https?:\/\//i.test(url)) {
@@ -38,7 +42,7 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
   }
 
   try {
-    linkQueries.create.run(name, url, description, sort, Date.now());
+    linkQueries.create.run(name, url, description, category, sort, Date.now());
     return json({ success: true, message: '已新增友链' });
   } catch {
     return json({ error: '新增失败，请重试' }, 500);

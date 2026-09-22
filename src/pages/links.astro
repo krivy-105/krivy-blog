@@ -5,27 +5,43 @@ import Footer from '../components/Footer.astro';
 import { SITE_TITLE } from '../consts';
 import { linkQueries } from '../lib/db';
 
-const links = linkQueries.list.all() as {
+type LinkItem = {
   id: number;
   name: string;
   url: string;
   description: string | null;
+  category: string;
   sort: number;
   created_at: number;
-}[];
+};
+
+const links = linkQueries.list.all() as LinkItem[];
+
+// 按分类分组；「友链」固定在最前，「数通」次之，其余分类按名字追加
+const ORDER = ['友链', '数通'];
+const groups = new Map<string, LinkItem[]>();
+for (const l of links) {
+  const cat = l.category || '友链';
+  if (!groups.has(cat)) groups.set(cat, []);
+  groups.get(cat)!.push(l);
+}
+const groupNames = [
+  ...ORDER.filter((c) => groups.has(c)),
+  ...[...groups.keys()].filter((c) => !ORDER.includes(c)).sort(),
+];
 ---
 
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <BaseHead title={`友链 - ${SITE_TITLE}`} description="友情链接" />
+    <BaseHead title={`友链 - ${SITE_TITLE}`} description="友情链接与学习导航" />
   </head>
   <body>
     <Header />
     <main class="narrow">
       <header class="page-head">
         <h1>🔗 友情链接</h1>
-        <p>以下是我常去的朋友们，欢迎也去看看。</p>
+        <p>朋友们的站点，和我常去的学习入口。</p>
       </header>
 
       {links.length === 0 ? (
@@ -34,16 +50,27 @@ const links = linkQueries.list.all() as {
           <p>还没有友链，期待与你的站点互链。</p>
         </div>
       ) : (
-        <ul class="link-grid">
-          {links.map((l) => (
-            <li>
-              <a class="link-card" href={l.url} target="_blank" rel="noopener">
-                <span class="link-name">{l.name}</span>
-                {l.description && <span class="link-desc">{l.description}</span>}
-              </a>
-            </li>
+        <div class="link-groups">
+          {groupNames.map((cat) => (
+            <section class="link-group">
+              <h2 class="link-group-title">
+                <span class="lg-dot" aria-hidden="true"></span>
+                {cat}
+                <span class="lg-count">{groups.get(cat)!.length}</span>
+              </h2>
+              <ul class="link-grid">
+                {groups.get(cat)!.map((l) => (
+                  <li>
+                    <a class="link-card" href={l.url} target="_blank" rel="noopener">
+                      <span class="link-name">{l.name}</span>
+                      {l.description && <span class="link-desc">{l.description}</span>}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
     </main>
     <Footer />
@@ -52,6 +79,32 @@ const links = linkQueries.list.all() as {
       .page-head { margin-bottom: 1.8rem; }
       .page-head h1 { margin-bottom: 0.4rem; }
       .page-head p { color: var(--text-gray); font-size: 0.95rem; margin: 0; }
+
+      .link-group + .link-group { margin-top: 2.2rem; }
+      .link-group-title {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin: 0 0 1rem;
+        color: var(--text-dark);
+      }
+      .lg-dot {
+        width: 0.55rem;
+        height: 0.55rem;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--monet-blue), var(--monet-blue-dark));
+        box-shadow: 0 0 0 4px rgba(78, 132, 173, 0.14);
+      }
+      .lg-count {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--text-light);
+        background: var(--bg-muted, rgba(78, 132, 173, 0.1));
+        border-radius: var(--radius-pill);
+        padding: 0.1rem 0.55rem;
+      }
     </style>
   </body>
 </html>

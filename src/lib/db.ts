@@ -156,6 +156,7 @@ db.exec(`
     name TEXT NOT NULL,
     url TEXT NOT NULL,
     description TEXT,
+    category TEXT NOT NULL DEFAULT '友链',
     sort INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL
   );
@@ -215,6 +216,12 @@ if (!postColumns.some((c) => c.name === 'deleted_at')) {
 // 定时发布：status='scheduled' 时在此时间戳自动转 approved
 if (!postColumns.some((c) => c.name === 'publish_at')) {
   db.exec('ALTER TABLE posts ADD COLUMN publish_at INTEGER');
+}
+
+// links 表幂等迁移：新增 category 列（友链分组，默认「友链」）
+const linkColumns = db.prepare('PRAGMA table_info(links)').all() as { name: string }[];
+if (!linkColumns.some((c) => c.name === 'category')) {
+  db.exec(`ALTER TABLE links ADD COLUMN category TEXT NOT NULL DEFAULT '友链'`);
 }
 
 // FTS UPDATE 触发器升级：旧版 AFTER UPDATE 在软删除/改状态/置顶等任意列
@@ -1003,10 +1010,30 @@ export const viewQueries = {
 export const linkQueries = {
   list: db.prepare('SELECT * FROM links ORDER BY sort ASC, created_at DESC'),
   create: db.prepare(
-    'INSERT INTO links (name, url, description, sort, created_at) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO links (name, url, description, category, sort, created_at) VALUES (?, ?, ?, ?, ?, ?)'
   ),
   remove: db.prepare('DELETE FROM links WHERE id = ?'),
+  existsByUrl: db.prepare('SELECT 1 FROM links WHERE url = ? LIMIT 1'),
 };
+
+// 内置「数通」学习入口：按 URL 幂等播种，本地与线上启动自动补齐
+const SEED_LINK_GROUPS: { category: string; items: [string, string, string][] }[] = [
+  {
+    category: '数通',
+    items: [
+      ['智慧职教', 'https://www.icve.com.cn/userCenter', '职业教育数字化学习中心 · 个人中心'],
+      ['华为ICT学院', 'https://e.huawei.com/cn/talent/usercenter/#/home/myclass-list', '华为人才在线 · 我的课程班级'],
+      ['思科网院', 'https://www.netacad.com/', 'Cisco Networking Academy'],
+    ],
+  },
+];
+for (const group of SEED_LINK_GROUPS) {
+  for (const [name, url, description] of group.items) {
+    if (!linkQueries.existsByUrl.get(url)) {
+      linkQueries.create.run(name, url, description, group.category, 0, Date.now());
+    }
+  }
+}
 
 // ---- 站点统计相关查询 ----
 export const statQueries = {
