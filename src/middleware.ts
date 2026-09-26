@@ -26,6 +26,30 @@ export const onRequest = defineMiddleware(async (context, next) => {
   res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 
+  // 缓存策略（仅 HTML 页面）：
+  // - 匿名访客的公开页面：浏览器不缓存，Cloudflare 边缘缓存 30s（过期后 60s 内可用旧响应边刷新）
+  // - 登录用户 / 私有路径：完全不缓存，避免把含用户信息的页面共享给其他访客
+  // 非 HTML（CSS/JS/字体/图片）不动，保留静态资源的 immutable 长缓存
+  const contentType = res.headers.get('content-type') || '';
+  if (context.request.method === 'GET' && res.status === 200 && contentType.includes('text/html')) {
+    const reqPath = new URL(context.request.url).pathname;
+    const hasSession = (context.request.headers.get('cookie') || '').includes(`${COOKIE_NAME}=`)
+      || !!context.locals.user;
+    const privatePrefixes = [
+      '/api/', '/admin', '/write', '/edit', '/messages',
+      '/login', '/register', '/notifications',
+    ];
+    const isPrivatePath = privatePrefixes.some((p) => reqPath.startsWith(p));
+    if (!hasSession && !isPrivatePath) {
+      res.headers.set(
+        'Cache-Control',
+        'public, max-age=0, s-maxage=30, stale-while-revalidate=60'
+      );
+    } else {
+      res.headers.set('Cache-Control', 'private, no-cache');
+    }
+  }
+
   // 站点 PV/UV 统计（仅在 GET 请求、跳过静态资源 / API / 爬虫）
   try {
     if (context.request.method === 'GET') {
