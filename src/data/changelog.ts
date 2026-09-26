@@ -9,6 +9,16 @@ export interface ChangelogEntry {
 export const changelog: ChangelogEntry[] = [
   {
     date: '2026-09-26',
+    type: 'security',
+    title: '数据与稳定性加固',
+    detail: [
+      '管理后台支持一键下载数据库备份，方便异地保存；每日自动备份仍在卷内保留最近 7 份',
+      '新增友好的 500 错误页，服务异常时可一键刷新而非看到裸报错',
+      '新增 /healthz 健康检查端点，供监控与平台探针实时探测',
+    ],
+  },
+  {
+    date: '2026-09-26',
     type: 'perf',
     title: '访问加速',
     detail: [

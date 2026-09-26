@@ -1270,6 +1270,18 @@ if (process.env.DISABLE_DB_BACKUP !== '1') {
   setInterval(() => void runDailyBackup(), 6 * 60 * 60 * 1000).unref();
 }
 
+/**
+ * 立即生成一份当日一致性快照（online backup，WAL 下可安全在线执行），
+ * 返回备份文件绝对路径。供管理后台手动下载异地保存。
+ * 同一天多次调用覆盖同名文件，因此仍受 runDailyBackup 的 7 份轮转约束。
+ */
+export async function createBackupNow(): Promise<string> {
+  const stamp = new Date().toISOString().slice(0, 10);
+  const target = join(BACKUP_DIR, `blog-${stamp}.db`);
+  await db.backup(target);
+  return target;
+}
+
 // ---- 定时发布调度器：每 60s 把到点的 scheduled 文章转 approved ----
 function publishDuePosts(): void {
   try {

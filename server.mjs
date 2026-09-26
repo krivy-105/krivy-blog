@@ -76,6 +76,16 @@ const server = createServer((req, res) => {
     res.end();
     return;
   }
+  // 健康检查：轻量、不经过 SSR/数据库，供 UptimeRobot / Railway 探针使用
+  const pathname = new URL(req.url, 'http://localhost').pathname;
+  if (pathname === '/healthz') {
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+    });
+    res.end(JSON.stringify({ status: 'ok', uptime: Math.round(process.uptime()) }));
+    return;
+  }
   if (serveStatic(req, res)) return;
   handler(req, res);
 });
