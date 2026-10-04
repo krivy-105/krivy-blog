@@ -1,0 +1,191 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE_TITLE } from '../consts';
+import Plan from '../data/plan.md';
+
+// 仅管理员可见
+const user = Astro.locals.user;
+if (!user || user.role !== 'admin') {
+  return Astro.redirect('/');
+}
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title={`两年学习计划 - ${SITE_TITLE}`} description="个人学习计划（仅管理员可见）" />
+    <style>
+      .plan-wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 3rem;
+      }
+      .plan-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 2px solid var(--border-light);
+      }
+      .plan-header h1 {
+        font-size: 2rem;
+        margin: 0 0 0.5rem;
+        background: linear-gradient(135deg, var(--monet-blue), var(--monet-blue-dark));
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .plan-goals {
+        display: flex;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-top: 1rem;
+      }
+      .goal-chip {
+        padding: 0.35rem 1rem;
+        background: var(--monet-blue-lighter);
+        color: var(--monet-blue-dark);
+        border-radius: var(--radius-pill);
+        font-size: 0.88rem;
+        font-weight: 600;
+      }
+      .private-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        margin-bottom: 0.8rem;
+        padding: 0.25rem 0.7rem;
+        background: rgba(231, 76, 60, 0.1);
+        color: #c0392b;
+        border-radius: var(--radius-pill);
+        font-size: 0.78rem;
+        font-weight: 600;
+      }
+      /* Markdown 正文：复用 .prose 排版 */
+      .plan-body {
+        color: var(--text-dark);
+        line-height: 1.75;
+        font-size: 0.98rem;
+      }
+      .plan-body :global(h1) {
+        font-size: 1.7rem;
+        margin: 2.5rem 0 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--monet-blue-lighter);
+        color: var(--monet-blue-dark);
+      }
+      .plan-body :global(h2) {
+        font-size: 1.35rem;
+        margin: 2rem 0 0.9rem;
+        color: var(--text-dark);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .plan-body :global(h3) {
+        font-size: 1.12rem;
+        margin: 1.5rem 0 0.7rem;
+        color: var(--text-dark);
+      }
+      .plan-body :global(p) { margin: 0.7rem 0; }
+      .plan-body :global(blockquote) {
+        margin: 1rem 0;
+        padding: 0.8rem 1.2rem;
+        background: var(--monet-blue-lighter);
+        border-left: 4px solid var(--monet-blue);
+        border-radius: 0 var(--radius-md) var(--radius-md) 0;
+        color: var(--monet-blue-dark);
+      }
+      .plan-body :global(blockquote p) { margin: 0; }
+      .plan-body :global(hr) {
+        border: none;
+        height: 1px;
+        background: var(--border-light);
+        margin: 2rem 0;
+      }
+      .plan-body :global(table) {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+        font-size: 0.88rem;
+        background: var(--bg-white);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        display: block;
+        overflow-x: auto;
+      }
+      .plan-body :global(th),
+      .plan-body :global(td) {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border-light);
+        text-align: left;
+        vertical-align: top;
+        white-space: normal;
+      }
+      .plan-body :global(th) {
+        background: var(--monet-blue-lighter);
+        color: var(--monet-blue-dark);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .plan-body :global(tr:last-child td) { border-bottom: none; }
+      .plan-body :global(tr:hover) { background: rgba(78, 132, 173, 0.04); }
+      .plan-body :global(code) {
+        background: var(--monet-blue-lighter);
+        color: var(--monet-blue-dark);
+        padding: 0.1rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.85em;
+        font-family: 'JetBrains Mono', Consolas, monospace;
+      }
+      .plan-body :global(ul),
+      .plan-body :global(ol) {
+        margin: 0.7rem 0;
+        padding-left: 1.5rem;
+      }
+      .plan-body :global(li) { margin: 0.3rem 0; }
+      .plan-body :global(a) {
+        color: var(--monet-blue-dark);
+        text-decoration: none;
+        border-bottom: 1px solid var(--monet-blue-lighter);
+      }
+      .plan-body :global(a:hover) { border-bottom-color: var(--monet-blue); }
+      .plan-body :global(strong) { color: var(--text-dark); font-weight: 700; }
+
+      @media (max-width: 640px) {
+        .plan-wrap { padding: 1.2rem 0.9rem 2rem; }
+        .plan-header h1 { font-size: 1.5rem; }
+        .plan-body { font-size: 0.92rem; }
+        .plan-body :global(h1) { font-size: 1.35rem; }
+        .plan-body :global(h2) { font-size: 1.15rem; }
+        .plan-body :global(th),
+        .plan-body :global(td) { padding: 7px 9px; font-size: 0.82rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <Header />
+    <main class="plan-wrap">
+      <header class="plan-header">
+        <span class="private-badge">🔒 仅我可见</span>
+        <h1>两年学习计划</h1>
+        <p style="color: var(--text-gray); margin: 0.3rem 0 0; font-size: 0.95rem;">
+          2026.10.08 — 2028.10
+        </p>
+        <div class="plan-goals">
+          <span class="goal-chip">🎯 HCIP 数通认证</span>
+          <span class="goal-chip">🛡️ CTF 网安参赛</span>
+          <span class="goal-chip">📝 英语四级</span>
+        </div>
+      </header>
+
+      <article class="plan-body">
+        <Plan />
+      </article>
+    </main>
+    <Footer />
+  </body>
+</html>
