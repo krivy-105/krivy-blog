@@ -24,7 +24,7 @@ if (!user || user.role !== 'admin') {
       }
       .plan-header {
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
         padding-bottom: 1.5rem;
         border-bottom: 2px solid var(--border-light);
       }
@@ -63,7 +63,157 @@ if (!user || user.role !== 'admin') {
         font-size: 0.78rem;
         font-weight: 600;
       }
-      /* Markdown 正文：复用 .prose 排版 */
+
+      /* ===== 打卡工具栏 ===== */
+      .checkin-bar {
+        position: sticky;
+        top: 60px;
+        z-index: 50;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        background: var(--bg-white);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-lg);
+        padding: 0.75rem 1rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+      }
+      .checkin-bar label {
+        font-size: 0.88rem;
+        color: var(--text-gray);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .checkin-bar input[type="date"] {
+        padding: 6px 10px;
+        border: 1.5px solid var(--border-light);
+        border-radius: var(--radius-md);
+        font-size: 0.9rem;
+        font-family: inherit;
+        background: var(--bg-white);
+        color: var(--text-dark);
+      }
+      .checkin-bar input[type="date"]:focus {
+        outline: none;
+        border-color: var(--monet-blue);
+      }
+      .checkin-bar button {
+        padding: 6px 14px;
+        font-size: 0.84rem;
+        border: 1.5px solid var(--border-light);
+        background: var(--bg-white);
+        color: var(--text-dark);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: var(--transition);
+        white-space: nowrap;
+      }
+      .checkin-bar button:hover {
+        border-color: var(--monet-blue);
+        color: var(--monet-blue-dark);
+      }
+      .checkin-bar .btn-today {
+        background: var(--monet-blue);
+        color: #fff;
+        border-color: var(--monet-blue);
+      }
+      .checkin-bar .btn-today:hover {
+        background: var(--monet-blue-dark);
+        color: #fff;
+      }
+      .progress-box {
+        flex: 1;
+        min-width: 160px;
+      }
+      .progress-text {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+        color: var(--text-gray);
+        margin-bottom: 4px;
+      }
+      .progress-track {
+        height: 8px;
+        background: var(--border-light);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--monet-blue), var(--monet-blue-dark));
+        border-radius: 999px;
+        width: 0;
+        transition: width 0.3s ease;
+      }
+
+      /* ===== 勾选框与已完成样式 ===== */
+      .checkable {
+        cursor: pointer;
+        transition: background 0.2s ease;
+        position: relative;
+      }
+      .checkable:hover {
+        background: rgba(78, 132, 173, 0.06) !important;
+      }
+      .checkable.is-done {
+        background: rgba(39, 174, 96, 0.08) !important;
+      }
+      .checkable.is-done .task-text {
+        text-decoration: line-through;
+        color: var(--text-light, #999);
+        opacity: 0.7;
+      }
+      .task-checkbox {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        min-width: 16px;
+        border: 1.5px solid var(--border-light);
+        border-radius: 4px;
+        margin-right: 8px;
+        background: var(--bg-white);
+        vertical-align: middle;
+        transition: var(--transition);
+        flex-shrink: 0;
+      }
+      .checkable.is-done .task-checkbox {
+        background: #27ae60;
+        border-color: #27ae60;
+      }
+      .checkable.is-done .task-checkbox::after {
+        content: '✓';
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1;
+      }
+      /* 单元格内的内容容器 */
+      .cell-inner {
+        display: flex;
+        align-items: flex-start;
+        gap: 4px;
+      }
+      .task-text {
+        flex: 1;
+        min-width: 0;
+      }
+      /* 列表项 */
+      .plan-body :global(li) {
+        cursor: pointer;
+        display: flex;
+        align-items: flex-start;
+        gap: 4px;
+      }
+      .plan-body :global(li.is-done .task-text) {
+        text-decoration: line-through;
+        opacity: 0.6;
+      }
+
+      /* Markdown 正文 */
       .plan-body {
         color: var(--text-dark);
         line-height: 1.75;
@@ -163,6 +313,8 @@ if (!user || user.role !== 'admin') {
         .plan-body :global(h2) { font-size: 1.15rem; }
         .plan-body :global(th),
         .plan-body :global(td) { padding: 7px 9px; font-size: 0.82rem; }
+        .checkin-bar { top: 50px; padding: 0.6rem; gap: 0.5rem; }
+        .progress-box { min-width: 120px; }
       }
     </style>
   </head>
@@ -182,10 +334,217 @@ if (!user || user.role !== 'admin') {
         </div>
       </header>
 
-      <article class="plan-body">
+      <!-- 打卡工具栏 -->
+      <div class="checkin-bar">
+        <label for="plan-date">📅 打卡日期</label>
+        <input type="date" id="plan-date" />
+        <button type="button" class="btn-today" id="btn-today">今天</button>
+        <div class="progress-box">
+          <div class="progress-text">
+            <span id="progress-label">当日完成</span>
+            <span id="progress-count">0 / 0</span>
+          </div>
+          <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+        </div>
+        <button type="button" id="btn-clear-day" title="清除所选日期的全部打卡记录">🧹 清除当日</button>
+      </div>
+
+      <article class="plan-body" id="plan-body">
         <Plan />
       </article>
     </main>
     <Footer />
+
+    <script is:inline>
+      (function () {
+        'use strict';
+
+        var STORAGE_KEY = 'plan-checkins-v1';
+        var todayStr = function () {
+          var d = new Date();
+          return d.getFullYear() + '-' +
+            String(d.getMonth() + 1).padStart(2, '0') + '-' +
+            String(d.getDate()).padStart(2, '0');
+        };
+
+        // 简单字符串哈希（djb2）
+        function hashStr(str) {
+          var h = 5381;
+          for (var i = 0; i < str.length; i++) {
+            h = ((h << 5) + h) + str.charCodeAt(i);
+            h = h & 0xffffffff;
+          }
+          return (h >>> 0).toString(36);
+        }
+
+        // 生成小项稳定 ID：最近的标题(h2/h3) + 内容文本
+        function getItemId(el) {
+          var text = el.textContent.trim().replace(/\s+/g, ' ').slice(0, 120);
+          var heading = '';
+          var prev = el.previousElementSibling;
+          // 从父级向上找最近的 h2/h3
+          var node = el;
+          while (node && node !== document.body) {
+            var sib = node.previousElementSibling;
+            while (sib) {
+              if (sib.tagName === 'H2' || sib.tagName === 'H3') {
+                heading = sib.textContent.trim();
+                break;
+              }
+              sib = sib.previousElementSibling;
+            }
+            if (heading) break;
+            node = node.parentElement;
+          }
+          return hashStr(heading + '|' + text);
+        }
+
+        // 读取全部记录
+        function loadAll() {
+          try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+          } catch (e) {
+            return {};
+          }
+        }
+        function saveAll(data) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
+
+        // 给所有可勾选元素加 checkbox
+        var checkables = [];
+        function initCheckables() {
+          var body = document.getElementById('plan-body');
+          // 表格单元格：跳过第一列（日期列）
+          body.querySelectorAll('table').forEach(function (tbl) {
+            var rows = tbl.querySelectorAll('tr');
+            rows.forEach(function (row) {
+              var cells = row.querySelectorAll('td');
+              cells.forEach(function (td, idx) {
+                if (idx === 0) return; // 第一列是日期，不打勾
+                if (td.querySelector('table')) return; // 跳过嵌套
+                // 用 div 包裹内容以便加 checkbox
+                var inner = document.createElement('div');
+                inner.className = 'cell-inner';
+                // 把 td 原有内容移进去
+                while (td.firstChild) inner.appendChild(td.firstChild);
+                var cb = document.createElement('span');
+                cb.className = 'task-checkbox';
+                inner.insertBefore(cb, inner.firstChild);
+                // 给内容包一层 span
+                var textSpan = document.createElement('span');
+                textSpan.className = 'task-text';
+                while (inner.childNodes.length > 1) {
+                  textSpan.appendChild(inner.childNodes[1]);
+                }
+                inner.appendChild(textSpan);
+                td.appendChild(inner);
+                td.classList.add('checkable');
+                var id = getItemId(td);
+                td.dataset.itemId = id;
+                checkables.push(td);
+              });
+            });
+          });
+
+          // 列表项 li
+          body.querySelectorAll('li').forEach(function (li) {
+            if (li.querySelector('li')) return; // 只处理最内层 li
+            if (li.classList.contains('checkable')) return;
+            var cb = document.createElement('span');
+            cb.className = 'task-checkbox';
+            li.insertBefore(cb, li.firstChild);
+            // 剩余内容包进 task-text
+            var textSpan = document.createElement('span');
+            textSpan.className = 'task-text';
+            while (li.childNodes.length > 1) {
+              textSpan.appendChild(li.childNodes[1]);
+            }
+            li.appendChild(textSpan);
+            li.classList.add('checkable');
+            var id = getItemId(li);
+            li.dataset.itemId = id;
+            checkables.push(li);
+          });
+        }
+
+        // 应用某日期的勾选状态
+        function applyDate(date) {
+          var all = loadAll();
+          var day = all[date] || {};
+          var done = 0;
+          checkables.forEach(function (el) {
+            var id = el.dataset.itemId;
+            if (day[id]) {
+              el.classList.add('is-done');
+              done++;
+            } else {
+              el.classList.remove('is-done');
+            }
+          });
+          // 更新进度
+          var total = checkables.length;
+          document.getElementById('progress-count').textContent = done + ' / ' + total;
+          var pct = total ? Math.round((done / total) * 100) : 0;
+          document.getElementById('progress-fill').style.width = pct + '%';
+          var isToday = date === todayStr();
+          document.getElementById('progress-label').textContent = isToday ? '今日完成' : date + ' 完成';
+        }
+
+        // 切换勾选
+        function toggleItem(el, date) {
+          var id = el.dataset.itemId;
+          var all = loadAll();
+          if (!all[date]) all[date] = {};
+          if (all[date][id]) {
+            delete all[date][id];
+          } else {
+            all[date][id] = true;
+          }
+          saveAll(all);
+          applyDate(date);
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function () {
+          initCheckables();
+          var dateInput = document.getElementById('plan-date');
+          var today = todayStr();
+          dateInput.value = today;
+
+          // 点击勾选
+          checkables.forEach(function (el) {
+            el.addEventListener('click', function (e) {
+              // 避免点击链接时触发
+              if (e.target.tagName === 'A') return;
+              toggleItem(el, dateInput.value);
+            });
+          });
+
+          // 日期切换
+          dateInput.addEventListener('change', function () {
+            applyDate(dateInput.value);
+          });
+
+          // 今天按钮
+          document.getElementById('btn-today').addEventListener('click', function () {
+            dateInput.value = todayStr();
+            applyDate(dateInput.value);
+          });
+
+          // 清除当日
+          document.getElementById('btn-clear-day').addEventListener('click', function () {
+            var date = dateInput.value;
+            if (!window.confirm('确定清除 ' + date + ' 的全部打卡记录吗？')) return;
+            var all = loadAll();
+            delete all[date];
+            saveAll(all);
+            applyDate(date);
+          });
+
+          applyDate(today);
+        });
+      })();
+    </script>
   </body>
 </html>
