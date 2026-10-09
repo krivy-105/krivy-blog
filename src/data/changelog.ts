@@ -8,6 +8,42 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: '2026-10-09',
+    type: 'perf',
+    title: '抓取链路与访问性能优化',
+    detail: [
+      '新增 /sitemap-articles.xml：把数据库里的文章、标签、连载全部写进站点地图（此前 sitemap 里只有静态页，一篇文章都没有）',
+      '生成站点地图时过滤掉后台、登录、私信、通知等私有页面，不再主动邀请搜索引擎去爬',
+      '新增 robots.txt，以及 RSS 订阅源 /rss.xml（页面里声明 alternate，阅读器可自动发现）',
+      '分享卡 /og/*.png 增加进程内 LRU 缓存与 ETag：命中时不再重复跑 sharp 栅格化，内容未变更时直接返回 304',
+      '访客统计由两次独立写入合并为单个事务，并开启 WAL 下的 synchronous=NORMAL，减少每次浏览的磁盘等待',
+      '全屏渐变背景改用固定定位伪元素——原来 background-attachment: fixed 会让浏览器在滚动时重绘整屏背景',
+      '说说配图记录宽高并输出 width/height，图片还在加载时也按比例占位，避免内容被顶下去',
+      '生产环境不再用 tsx 现场转译 TypeScript：服务器侧工具模块改为构建期预编译成 ESM，启动更快、镜像更小',
+    ],
+  },
+  {
+    date: '2026-10-09',
+    type: 'fix',
+    title: '修复构建中断与若干显示问题',
+    detail: [
+      '清理 Astro 起步模板遗留的内容集合配置：文章实际存在 SQLite 里，这份配置会让 Node 24 下的构建直接中断',
+      '修复互动组件里 :global() 误用导致暗色模式下收藏按钮悬停背景丢失的问题',
+      '修复 /feed、/notifications 与后台页面重复输出 title / canonical / charset / viewport 标签',
+      '修复头像组件不支持 username / size 参数：说说、留言板与底栏的头像此前按原图大小渲染，无头像时首字母显示为 ?、alt 文本变成 undefined',
+    ],
+  },
+  {
+    date: '2026-10-09',
+    type: 'security',
+    title: '接口校验与安全响应头',
+    detail: [
+      '注册改为服务端校验用户名与邮箱格式，并限制密码长度不超过 72 字节（bcrypt 会静默截断超长密码）',
+      '登录失败统一返回同一句提示，不再泄露某个账号是否真实存在',
+      '新增 Content-Security-Policy：禁用 object/embed 载体、阻止 <base> 劫持、限制表单只能提交到本站、拒绝页面被 iframe 嵌套',
+    ],
+  },
+  {
     date: '2026-09-26',
     type: 'security',
     title: '数据与稳定性加固',

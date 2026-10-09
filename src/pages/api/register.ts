@@ -32,8 +32,36 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
     });
   }
 
+  // 服务端校验（前端 required/type=email 只是体验，随手 POST 就能绕过）。
+  // 用户名会直接进 URL（/users/xxx）与 @提及，必须限定字符集，否则会出现
+  // 空格、控制字符、甚至带路径语义的用户名。
+  if (username.length < 2 || username.length > 20) {
+    return new Response(JSON.stringify({ error: '用户名长度需在 2-20 个字符之间' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  if (!/^[\w\u4e00-\u9fa5-]+$/.test(username)) {
+    return new Response(JSON.stringify({ error: '用户名只能用中英文、数字、下划线和短横线' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  if (email.length > 254 || !/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(email)) {
+    return new Response(JSON.stringify({ error: '邮箱格式不正确' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
   if (password.length < 6) {
     return new Response(JSON.stringify({ error: '密码至少 6 位' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  // bcrypt 只取前 72 字节，超长密码会被静默截断（两个不同长密码可能等价）
+  if (Buffer.byteLength(password, 'utf8') > 72) {
+    return new Response(JSON.stringify({ error: '密码过长，请控制在 72 字节以内' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });

@@ -21,7 +21,34 @@ export default defineConfig({
 		prefetchAll: true,
 		defaultStrategy: 'hover',
 	},
-	integrations: [mdx(), sitemap()],
+	integrations: [
+		mdx(),
+		sitemap({
+			// 只收录公开内容：后台、登录、私信、通知、写文章等页面
+			// 默认会被 @astrojs/sitemap 全量写成 <url>，等于主动邀请搜索引擎去爬私有页。
+			filter: (page) => {
+				const path = new URL(page).pathname;
+				const privatePrefixes = [
+					'/admin',
+					'/api',
+					'/edit',
+					'/feed',
+					'/login',
+					'/messages',
+					'/notifications',
+					'/plan',
+					'/search',
+					'/write',
+					'/uploads',
+					'/404',
+					'/500',
+				];
+				return !privatePrefixes.some(
+					(p) => path === p || path.startsWith(`${p}/`) || path === `${p}/`
+				);
+			},
+		}),
+	],
 	fonts: [
 		{
 			provider: fontProviders.local(),

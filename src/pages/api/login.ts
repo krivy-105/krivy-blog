@@ -31,20 +31,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (!user) {
     bumpRateLimit(ipKey, 30, FAIL_WINDOW_MS);
     bumpRateLimit(failKey, 5, FAIL_WINDOW_MS);
-    return new Response(JSON.stringify({ error: '账号不存在' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    // 与「密码错误」返回同一句文案：否则任何人拿账号列表就能筛出哪些账号真实存在
+    return invalidCredentials();
   }
 
   const valid = await verifyPassword(password, user.password);
   if (!valid) {
     bumpRateLimit(ipKey, 30, FAIL_WINDOW_MS);
     bumpRateLimit(failKey, 5, FAIL_WINDOW_MS);
-    return new Response(JSON.stringify({ error: '密码错误' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return invalidCredentials();
   }
 
   // 登录成功，清除该账号的失败计数
@@ -69,5 +64,13 @@ function tooMany(): Response {
   return new Response(JSON.stringify({ error: '尝试次数过多，请 15 分钟后再试' }), {
     status: 429,
     headers: { 'Content-Type': 'application/json', 'Retry-After': '900' },
+  });
+}
+
+// 统一的失败文案：不区分「账号不存在」与「密码错误」，避免账号枚举
+function invalidCredentials(): Response {
+  return new Response(JSON.stringify({ error: '账号或密码错误' }), {
+    status: 401,
+    headers: { 'Content-Type': 'application/json' },
   });
 }

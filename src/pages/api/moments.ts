@@ -35,6 +35,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (content.length > MAX_LEN) return json({ error: `正文最长 ${MAX_LEN} 字` }, 400);
 
   let imageUrl: string | null = null;
+  let imageW: number | null = null;
+  let imageH: number | null = null;
   if (hasImage) {
     if (!ALLOWED.includes(image.type)) {
       return json({ error: '仅支持 PNG / JPG / WebP / GIF 图片' }, 400);
@@ -47,6 +49,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
         .resize({ width: 1400, withoutEnlargement: true })
         .webp({ quality: 80 })
         .toBuffer();
+      // 读输出图的尺寸（只解析文件头，不解码像素）：
+      // 存下来给页面输出 width/height，避免图片加载时把下方内容顶下去
+      const meta = await sharp(output).metadata();
+      imageW = meta.width ?? null;
+      imageH = meta.height ?? null;
       const filename = `${user.id}-${Date.now().toString(36)}-${Math.random()
         .toString(36)
         .slice(2, 8)}.webp`;
@@ -58,7 +65,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   try {
-    const result = momentQueries.create.run(user.id, content || ' ', imageUrl, Date.now());
+    const result = momentQueries.create.run(
+      user.id,
+      content || ' ',
+      imageUrl,
+      imageW,
+      imageH,
+      Date.now()
+    );
     return json({ success: true, id: Number(result.lastInsertRowid) });
   } catch {
     return json({ error: '发布失败，请重试' }, 500);

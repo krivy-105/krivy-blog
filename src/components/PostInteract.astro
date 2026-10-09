@@ -1022,7 +1022,9 @@ const formatDate = (ts: number) =>
   .act-bookmark.is-pop {
     animation: likePop 0.45s var(--ease);
   }
-  :global([data-theme="dark"]) .act-bookmark.is-bookmarked:hover {
+  /* 注意：本样式块本身是 is:global，选择器里再写 :global() 会被 lightningcss
+     当成非法伪类原样输出 -> 规则失效。这里直接写属性选择器。 */
+  [data-theme="dark"] .act-bookmark.is-bookmarked:hover {
     background: rgba(230, 162, 60, 0.14);
   }
 

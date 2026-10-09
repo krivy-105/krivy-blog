@@ -63,6 +63,14 @@ const resolvedOgImage = ogImage
 <!-- Canonical URL -->
 <link rel="canonical" href={canonicalURL} />
 
+<!-- RSS 订阅源：让阅读器 / 浏览器自动发现 -->
+<link
+	rel="alternate"
+	type="application/rss+xml"
+	title={SITE_TITLE}
+	href={new URL('/rss.xml', Astro.site)}
+/>
+
 <!-- Primary Meta Tags -->
 <title>{title}</title>
 <meta name="description" content={description} />

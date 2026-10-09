@@ -23,6 +23,14 @@ mkdirSync(BACKUP_DIR, { recursive: true });
 export const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+// WAL 下 synchronous 默认仍是 FULL：每个事务提交都要 fsync。
+// 本站每次页面浏览都会写 1-2 条统计（且写在响应发出去之前，直接算进 TTFB），
+// 而 Railway 持久卷的 fsync 延迟并不便宜。WAL + NORMAL 是 SQLite 官方推荐的
+// 组合：不会损坏数据库，最坏情况只丢「断电瞬间最后几个事务」，对 PV/UV 统计无影响。
+db.pragma('synchronous = NORMAL');
+// SQLite 默认缓存 2MB(-2000)，调大以减少随机读的页换入换出
+db.pragma('cache_size = -16000');
+
 
 // 建表
 db.exec(`
@@ -391,11 +399,33 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_moments_created ON moments(created_at);
 `);
 
+// moments 表幂等迁移：记录配图尺寸。
+// 有了宽高，页面就能输出 width/height 属性——图片还在路上时浏览器已经按正确比例
+// 占好位置，不会等图加载完再把下面的内容往下推（CLS 抖动）。
+const momentColumns = db.prepare('PRAGMA table_info(moments)').all() as { name: string }[];
+if (!momentColumns.some((c) => c.name === 'image_w')) {
+  db.exec('ALTER TABLE moments ADD COLUMN image_w INTEGER');
+}
+if (!momentColumns.some((c) => c.name === 'image_h')) {
+  db.exec('ALTER TABLE moments ADD COLUMN image_h INTEGER');
+}
+
 
 // 确保管理员账号存在，并与环境变量中的密码保持一致
 // （部署后修改 ADMIN_PASSWORD，重启服务即生效，无需手动操作数据库）
 const adminUsername = process.env.ADMIN_USERNAME || 'admin';
 const adminPassword = process.env.ADMIN_PASSWORD || 'admin123456';
+
+// 安全提醒：下面这段同步逻辑会在「环境变量密码 ≠ 库中密码」时直接覆写库里的密码。
+// 也就是说只要部署环境没配 ADMIN_PASSWORD，每次启动都会把管理员密码重置成
+// admin123456——线上等于把后台钥匙插在门上。这里只告警不改行为，
+// 避免把已经在用默认密码的人锁在门外。
+if (!process.env.ADMIN_PASSWORD && process.env.NODE_ENV === 'production') {
+  console.warn(
+    '[db][安全警告] 未设置 ADMIN_PASSWORD，管理员密码将（并持续）被同步为默认值 ' +
+      `${adminUsername}/admin123456。请立刻在部署平台设置 ADMIN_PASSWORD 并重启服务。`
+  );
+}
 
 const adminRow = db
   .prepare('SELECT * FROM users WHERE username = ?')
@@ -584,6 +614,12 @@ export const postQueries = {
               p.created_at DESC
      LIMIT 3`
   ),
+  // 站点地图专用：只取 URL 与 lastmod 需要的列，避免把正文读进内存
+  findApprovedForSitemap: db.prepare(
+    `SELECT slug, updated_at FROM posts
+     WHERE status = 'approved' AND deleted_at IS NULL
+     ORDER BY created_at DESC`
+  ),
   findApprovedForArchive: db.prepare(
     `SELECT p.id, p.slug, p.title, p.created_at, u.username AS author_name
      FROM posts p JOIN users u ON p.author_id = u.id
@@ -647,7 +683,7 @@ export const momentQueries = {
   ),
   count: db.prepare('SELECT COUNT(*) AS count FROM moments WHERE deleted_at IS NULL'),
   create: db.prepare(
-    'INSERT INTO moments (user_id, content, image, created_at) VALUES (?, ?, ?, ?)'
+    'INSERT INTO moments (user_id, content, image, image_w, image_h, created_at) VALUES (?, ?, ?, ?, ?, ?)'
   ),
   softDelete: db.prepare(
     'UPDATE moments SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL'
@@ -1062,6 +1098,20 @@ export const visitorQueries = {
     `INSERT OR IGNORE INTO daily_visitors (date, ip_hash) VALUES (?, ?)`
   ),
 };
+
+// ---- 一次页面浏览的完整统计写入 ----
+// 原来的写法是「先 recordUv 判断是否新访客，再单独 bump PV 或 UV」，
+// 两条独立语句 = 两次事务 = 两次 fsync，而且发生在中间件里、响应尚未发出，
+// 直接计进 TTFB。合并成一个事务后只剩一次提交。
+export const recordPageView = db.transaction((date: string, ipHash: string) => {
+  const isNewVisitor = visitorQueries.recordUv.run(date, ipHash).changes > 0;
+  if (isNewVisitor) {
+    statQueries.bumpUv.run(date);
+  } else {
+    statQueries.bumpPv.run(date);
+  }
+});
+
 
 // ---- Session 相关查询 ----
 export const sessionQueries = {

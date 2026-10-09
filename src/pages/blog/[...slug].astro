@@ -105,6 +105,9 @@ if (seriesInfo) {
       datePublished: new Date(post.created_at).toISOString(),
       dateModified: new Date(post.updated_at).toISOString(),
       author: { '@type': 'Person', name: author },
+      // image 必填项之一：不写的话富媒体结果拿不到封面
+      image: [new URL(`/og/${post.slug}.png`, Astro.site).toString()],
+      publisher: { '@type': 'Organization', name: 'want to see you' },
       mainEntityOfPage: new URL(Astro.url.pathname, Astro.site).toString(),
     })} />
   </head>

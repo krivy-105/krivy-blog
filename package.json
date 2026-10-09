@@ -7,9 +7,10 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
-    "start": "tsx server.mjs",
-    "preview": "tsx server.mjs",
+    "build": "astro build && node scripts/build-server-lib.mjs",
+    "build:astro": "astro build",
+    "start": "node server.mjs",
+    "preview": "node server.mjs",
     "astro": "astro"
   },
   "dependencies": {
@@ -22,7 +23,6 @@
     "marked": "^18.0.13",
     "sanitize-html": "^2.17.7",
     "sharp": "^0.35.0",
-    "tsx": "^4.23.13",
     "ws": "^8.21.3"
   },
   "allowScripts": {
@@ -32,6 +32,7 @@
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/sanitize-html": "^2.16.1",
-    "@types/ws": "^8.18.1"
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.23.13"
   }
 }

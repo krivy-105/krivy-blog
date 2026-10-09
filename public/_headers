@@ -1,4 +1,8 @@
 # 静态资源缓存策略（Cloudflare 会读取这些响应头并据此缓存）
+#
+# 注意：_headers 是 Cloudflare **Pages** 的特性。本站部署在 Railway（Cloudflare 仅做
+# 反代/CDN 时不会读这个文件），真正的响应头来源是 server.mjs 里的 serveStatic()。
+# 这里保持与 server.mjs 一致，作为将来迁到 CF Pages 时的备份配置。
 
 # Astro 构建产物带内容哈希，可永久缓存
 /_astro/*

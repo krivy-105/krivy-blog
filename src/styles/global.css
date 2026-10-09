@@ -22,6 +22,8 @@
   /* 背景 */
   --bg-white: #ffffff;
   --bg-gradient: linear-gradient(180deg, #f2f7fa 0%, #f7fafc 32%, #ffffff 72%);
+  /* 页面最底层的纯色（overscroll 回弹时露出的区域用的就是它） */
+  --bg-body: #f3f8fb;
 
   /* 边框与阴影 */
   --border-light: #e3edf2;
@@ -62,6 +64,7 @@
 
   --bg-white: #1a242b;
   --bg-gradient: linear-gradient(180deg, #131a20 0%, #161f24 32%, #1a242b 72%);
+  --bg-body: #131a20;
 
   --border-light: #2a3640;
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.4);
@@ -95,6 +98,8 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  /* 画布底色：暗色模式下 overscroll 回弹不会闪白 */
+  background: var(--bg-body);
 }
 
 body {
@@ -102,8 +107,6 @@ body {
     'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   margin: 0;
   padding: 0;
-  background: var(--bg-gradient);
-  background-attachment: fixed;
   color: var(--text-dark);
   font-size: 16px;
   line-height: 1.75;
@@ -113,6 +116,19 @@ body {
   text-rendering: optimizeLegibility;
   display: flex;
   flex-direction: column;
+}
+
+/* 全屏渐变背景。
+   原来写的是 body { background: …; background-attachment: fixed }——那会让浏览器
+   在每次滚动时重绘整屏背景，iOS Safari 上还有已知的撕裂/抖动问题。
+   换成固定定位的伪元素：视觉完全一致，但脱离滚动重绘。 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--bg-gradient);
+  pointer-events: none;
 }
 
 ::selection {

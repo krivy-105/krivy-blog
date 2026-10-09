@@ -94,11 +94,8 @@ function renderNotif(n: NotifRow) {
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
+    <!-- charset / viewport / title / canonical 统一由 BaseHead 输出，此处不再重复 -->
     <BaseHead title={title} description="你的通知中心：评论、点赞、关注。" />
-    <link rel="canonical" href={new URL('/notifications', Astro.site)} />
   </head>
   <body>
     <Header />

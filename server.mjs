@@ -2,8 +2,8 @@
 import { handler } from './dist/server/entry.mjs';
 import { WebSocketServer } from 'ws';
 import { createServer } from 'node:http';
-import { fileURLToPath } from 'node:url';
-import { sessionQueries, messageQueries, userQueries } from './src/lib/db.ts';
+// 由 `npm run build` 预编译产出（scripts/build-server-lib.mjs），生产环境无需 tsx
+import { sessionQueries, messageQueries } from './dist/server/lib/index.mjs';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { join, normalize } from 'node:path';
 

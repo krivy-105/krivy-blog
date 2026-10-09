@@ -1,7 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import crypto from 'node:crypto';
 import { getUserFromToken, COOKIE_NAME } from './lib/auth';
-import { statQueries, visitorQueries } from './lib/db';
+import { recordPageView } from './lib/db';
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const token = context.cookies.get(COOKIE_NAME)?.value;
@@ -25,6 +25,31 @@ export const onRequest = defineMiddleware(async (context, next) => {
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+
+  // 内容安全策略。
+  // 说明：script/style 仍保留 'unsafe-inline'——站点大量使用内联 <script is:inline>
+  // 与行内样式属性，Astro 没有内建的 nonce/hash 注入，强行上 nonce 会整站白屏。
+  // 即便如此，下面这些指令仍然挡掉真实攻击面：object/embed 载体、<base> 劫持、
+  // 表单被改向外域（钓鱼）、页面被 iframe 嵌套（点击劫持）、意外加载第三方脚本。
+  // img/media 放开 http(s)：Markdown 允许贴外链图片；connect 放开 ws/wss：站内私信走 WebSocket。
+  res.headers.set(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https: http:",
+      "font-src 'self' data:",
+      "connect-src 'self' ws: wss:",
+      "media-src 'self' https: http:",
+      "manifest-src 'self'",
+      "worker-src 'self' blob:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join('; ')
+  );
 
   // 缓存策略（仅 HTML 页面）：
   // - 匿名访客的公开页面：浏览器不缓存，Cloudflare 边缘缓存 30s（过期后 60s 内可用旧响应边刷新）
@@ -75,13 +100,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
               .slice(0, 16)
           : '';
         const date = new Date().toISOString().slice(0, 10);
-        // 记录访客去重；返回 changes 判断是否新访客，从而把 PV/UV 各缩减为一条 UPSERT
-        const isNewVisitor = visitorQueries.recordUv.run(date, ipHash).changes > 0;
-        if (isNewVisitor) {
-          statQueries.bumpUv.run(date);
-        } else {
-          statQueries.bumpPv.run(date);
-        }
+        // 记录访客去重 + PV/UV，合并为单个事务（详见 db.ts 的 recordPageView）
+        recordPageView(date, ipHash);
       }
     }
   } catch {}

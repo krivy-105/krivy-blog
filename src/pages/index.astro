@@ -35,6 +35,26 @@ for (const r of cmtRows) cmtMap.set(r.post_id, r.count);
 <html lang="zh-CN">
   <head>
     <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+    <!-- 站点级结构化数据：让搜索结果出现「站内搜索框」等增强展示 -->
+    <script
+      type="application/ld+json"
+      set:html={JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: SITE_TITLE,
+        description: SITE_DESCRIPTION,
+        url: new URL('/', Astro.site).toString(),
+        inLanguage: 'zh-CN',
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: {
+            '@type': 'EntryPoint',
+            urlTemplate: new URL('/search?q={search_term_string}', Astro.site).toString(),
+          },
+          'query-input': 'required name=search_term_string',
+        },
+      })}
+    />
   </head>
   <body>
     <Header />

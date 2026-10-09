@@ -26,11 +26,8 @@ const title = `动态 - ${SITE_TITLE}`;
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
+    <!-- charset / viewport / title / canonical 统一由 BaseHead 输出，此处不再重复 -->
     <BaseHead title={title} description="我关注的人最近发布的文章动态。" />
-    <link rel="canonical" href={new URL('/feed', Astro.site)} />
   </head>
   <body>
     <Header />

@@ -93,7 +93,14 @@ const formatDate = (ts: number) =>
                 )}
                 {m.image && (
                   <button type="button" class="m-img-wrap" data-src={m.image} aria-label="查看大图">
-                    <img src={m.image} alt="说说配图" loading="lazy" />
+                    <img
+                      src={m.image}
+                      alt="说说配图"
+                      loading="lazy"
+                      decoding="async"
+                      width={m.image_w || undefined}
+                      height={m.image_h || undefined}
+                    />
                   </button>
                 )}
               </div>
@@ -322,6 +329,9 @@ const formatDate = (ts: number) =>
   .m-img-wrap img {
     max-width: 100%;
     max-height: 420px;
+    /* 配合 width/height 属性：按属性里的比例等比缩放，图片未到达前也占住位置 */
+    width: auto;
+    height: auto;
     border-radius: var(--radius-md);
     object-fit: cover;
     transition: transform 0.25s var(--ease);
