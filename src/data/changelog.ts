@@ -10,14 +10,23 @@ export const changelog: ChangelogEntry[] = [
   {
     date: '2026-10-09',
     type: 'style',
+    title: '更新日志改为紧凑时间轴',
+    detail: [
+      '原来 18 条全展开、两栏瀑布挤在 400px 侧栏里，长句折行折到看不出结构；现在默认只列最近 8 条，每条折叠成一行标题',
+      '点标题或用类型按钮（功能 / 修复 / 视觉 / 优化 / 安全）就能展开细节，日志再长也不占版面',
+      '长句去掉冗余的括号补充，只说做了什么',
+    ],
+  },
+  {
+    date: '2026-10-09',
+    type: 'style',
     title: '莫奈蓝视觉升级：玻璃拟态与光晕层次',
     detail: [
-      '补齐缺失的 --radius-pill 变量，修复全站胶囊按钮/标签圆角偶发失效',
+      '补齐缺失的 --radius-pill 变量，修复胶囊按钮与标签圆角偶发失效',
       '全局背景加入多层柔光光晕，暗色模式同步适配',
       '卡片、按钮、页脚升级为玻璃拟态材质，悬停阴影改为柔和光晕',
-      '首页 Hero 标题渐变着色，徽章与文章卡片顶部高光更有层次',
-      '顶栏毛玻璃饱和度提升，品牌心形标识悬停微动效',
-      '统一 :focus-visible 焦点环，键盘导航更清晰',
+      '首页 Hero 渐变标题与徽章重做，文章卡片增加顶部高光',
+      '顶栏毛玻璃增强，统一 :focus-visible 键盘焦点环',
     ],
   },
   {
@@ -25,14 +34,13 @@ export const changelog: ChangelogEntry[] = [
     type: 'perf',
     title: '抓取链路与访问性能优化',
     detail: [
-      '新增 /sitemap-articles.xml：把数据库里的文章、标签、连载全部写进站点地图（此前 sitemap 里只有静态页，一篇文章都没有）',
-      '生成站点地图时过滤掉后台、登录、私信、通知等私有页面，不再主动邀请搜索引擎去爬',
-      '新增 robots.txt，以及 RSS 订阅源 /rss.xml（页面里声明 alternate，阅读器可自动发现）',
-      '分享卡 /og/*.png 增加进程内 LRU 缓存与 ETag：命中时不再重复跑 sharp 栅格化，内容未变更时直接返回 304',
-      '访客统计由两次独立写入合并为单个事务，并开启 WAL 下的 synchronous=NORMAL，减少每次浏览的磁盘等待',
-      '全屏渐变背景改用固定定位伪元素——原来 background-attachment: fixed 会让浏览器在滚动时重绘整屏背景',
-      '说说配图记录宽高并输出 width/height，图片还在加载时也按比例占位，避免内容被顶下去',
-      '生产环境不再用 tsx 现场转译 TypeScript：服务器侧工具模块改为构建期预编译成 ESM，启动更快、镜像更小',
+      '新增 /sitemap-articles.xml，把库里的文章、标签、连载写进站点地图，并过滤掉后台等私有页面',
+      '新增 robots.txt 与 RSS 订阅源 /rss.xml，页面声明 alternate 供阅读器自动发现',
+      '分享卡 /og/*.png 增加 LRU 缓存与 ETag：命中不再重复栅格化，未变更直接返回 304',
+      '访客统计合并为单事务，开启 WAL 下 synchronous=NORMAL，减少每次浏览的磁盘等待',
+      '全屏渐变背景改用固定定位伪元素，消除滚动时的整屏重绘',
+      '说说配图记录宽高并输出 width/height，图片加载时按比例占位、不顶内容',
+      '生产环境改用构建期预编译，服务器模块不再需要 tsx 现场转译',
     ],
   },
   {
@@ -40,10 +48,10 @@ export const changelog: ChangelogEntry[] = [
     type: 'fix',
     title: '修复构建中断与若干显示问题',
     detail: [
-      '清理 Astro 起步模板遗留的内容集合配置：文章实际存在 SQLite 里，这份配置会让 Node 24 下的构建直接中断',
-      '修复互动组件里 :global() 误用导致暗色模式下收藏按钮悬停背景丢失的问题',
-      '修复 /feed、/notifications 与后台页面重复输出 title / canonical / charset / viewport 标签',
-      '修复头像组件不支持 username / size 参数：说说、留言板与底栏的头像此前按原图大小渲染，无头像时首字母显示为 ?、alt 文本变成 undefined',
+      '清理 Astro 起步模板遗留的内容集合配置——它会让 Node 24 下的构建直接中断',
+      '修复互动组件 :global() 误用导致暗色模式收藏按钮悬停背景丢失',
+      '修复 /feed、/notifications 与后台页面重复输出 title / canonical / charset / viewport',
+      '修复头像组件不支持 username / size：头像按原图渲染、首字母显示 ?、alt 变成 undefined',
     ],
   },
   {
@@ -51,9 +59,9 @@ export const changelog: ChangelogEntry[] = [
     type: 'security',
     title: '接口校验与安全响应头',
     detail: [
-      '注册改为服务端校验用户名与邮箱格式，并限制密码长度不超过 72 字节（bcrypt 会静默截断超长密码）',
-      '登录失败统一返回同一句提示，不再泄露某个账号是否真实存在',
-      '新增 Content-Security-Policy：禁用 object/embed 载体、阻止 <base> 劫持、限制表单只能提交到本站、拒绝页面被 iframe 嵌套',
+      '注册改为服务端校验用户名与邮箱格式，密码上限 72 字节（bcrypt 会静默截断超长密码）',
+      '登录失败统一返回同一句提示，不再泄露账号是否存在',
+      '新增 CSP：禁用 object/embed、阻止 base 劫持、限制表单外发、拒绝被 iframe 嵌套',
     ],
   },
   {

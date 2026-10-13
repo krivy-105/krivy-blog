@@ -12,6 +12,19 @@ const typeLabels: Record<ChangelogEntry['type'], string> = {
   perf: '⚡ 优化',
   security: '🛡 安全',
 };
+
+// 筛选按钮用的短标签（不带 emoji，省空间）
+const typeShort: Record<ChangelogEntry['type'], string> = {
+  feat: '功能',
+  fix: '修复',
+  style: '视觉',
+  perf: '优化',
+  security: '安全',
+};
+
+const typeOrder: ChangelogEntry['type'][] = ['feat', 'fix', 'style', 'perf', 'security'];
+// 折叠态一次只列这么多，其余点按钮展开，避免日志墙
+const COLLAPSED_LIMIT = 8;
 ---
 
 <!doctype html>
@@ -57,28 +70,101 @@ const typeLabels: Record<ChangelogEntry['type'], string> = {
         </div>
 
         <aside class="changelog-aside" aria-label="站点更新日志">
-          <h2 class="cl-title">🗓️ 更新日志</h2>
-          <div class="changelog-cols">
-            {changelog.map((e) => (
-              <article class="cl-card" data-type={e.type}>
-                <div class="cl-head">
-                  <time datetime={e.date}>{e.date}</time>
-                  <span class="cl-tag">{typeLabels[e.type]}</span>
-                </div>
-                <h3>{e.title}</h3>
-                {e.detail && e.detail.length > 0 && (
-                  <ul>
-                    {e.detail.map((d) => <li>{d}</li>)}
-                  </ul>
-                )}
-              </article>
+          <div class="cl-bar">
+            <h2 class="cl-title">🗓️ 更新日志</h2>
+            <span class="cl-count">{changelog.length} 条</span>
+          </div>
+
+          <div class="cl-filters" role="group" aria-label="按类型筛选更新日志">
+            <button type="button" class="cl-filter is-active" data-filter="all">全部</button>
+            {typeOrder.map((t) => (
+              <button type="button" class="cl-filter" data-filter={t}>{typeShort[t]}</button>
             ))}
           </div>
-          <p class="cl-more">…持续更新中</p>
+
+          <ol class="cl-list" id="clList">
+            {changelog.map((e, i) => (
+              <li class="cl-item" data-type={e.type}>
+                <details class="cl-card" open={i === 0}>
+                  <summary class="cl-summary">
+                    <span class="cl-meta">
+                      <span class="cl-tag">{typeLabels[e.type]}</span>
+                      <time class="cl-date" datetime={e.date} title={e.date}>{e.date.slice(5)}</time>
+                    </span>
+                    {e.detail && e.detail.length > 0 && (
+                      <svg class="cl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                    )}
+                    <span class="cl-name">{e.title}</span>
+                  </summary>
+                  {e.detail && e.detail.length > 0 && (
+                    <ul class="cl-detail">
+                      {e.detail.map((d) => <li>{d}</li>)}
+                    </ul>
+                  )}
+                </details>
+              </li>
+            ))}
+          </ol>
+
+          <button type="button" class="cl-more" id="clMore" hidden></button>
+          <p class="cl-foot">…持续更新中</p>
         </aside>
       </div>
     </main>
     <Footer />
+    <script>
+      // 更新日志：类型筛选 + 折叠长列表（无 JS 时全量可读，脚本只做增强）
+      var listEl = document.getElementById('clList');
+      var items = Array.prototype.slice.call(document.querySelectorAll('.cl-item'));
+      var moreBtn = document.getElementById('clMore');
+      var filterBtns = Array.prototype.slice.call(document.querySelectorAll('.cl-filter'));
+      var LIMIT = 8;
+      var activeType = 'all';
+      var expanded = false;
+
+      function apply() {
+        var matched = items.filter(function (el) {
+          return activeType === 'all' || el.dataset.type === activeType;
+        });
+        var limit = activeType === 'all' && !expanded ? Math.min(LIMIT, matched.length) : matched.length;
+
+        items.forEach(function (el) { el.hidden = true; });
+        matched.slice(0, limit).forEach(function (el) { el.hidden = false; });
+
+        var rest = matched.length - limit;
+        if (moreBtn) {
+          moreBtn.hidden = rest <= 0;
+          moreBtn.textContent = rest > 0 ? '展开剩余 ' + rest + ' 条 →' : '';
+        }
+        if (listEl) listEl.classList.toggle('is-empty', matched.length === 0);
+      }
+
+      filterBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          activeType = btn.dataset.filter || 'all';
+          expanded = false;
+          filterBtns.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+          // 切换筛选后自动展开第一条匹配项，省一次点击
+          var first = items.filter(function (el) {
+            return activeType === 'all' || el.dataset.type === activeType;
+          })[0];
+          var box = first && first.querySelector('details');
+          if (box) box.setAttribute('open', '');
+          apply();
+        });
+      });
+
+      if (moreBtn) {
+        moreBtn.addEventListener('click', function () {
+          expanded = true;
+          apply();
+        });
+      }
+
+      apply();
+    </script>
   </body>
 </html>
 
@@ -131,51 +217,148 @@ const typeLabels: Record<ChangelogEntry['type'], string> = {
     padding-bottom: 1.5rem;
   }
 
-  /* ---- 更新日志（瀑布流） ---- */
+  /* ---- 更新日志（紧凑时间轴） ---- */
   .changelog-aside {
     animation: fadeIn 0.5s var(--ease) 0.15s both;
   }
+
+  /* 标题行 + 条数 */
+  .cl-bar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-bottom: 0.8rem;
+  }
   .cl-title {
     font-size: 1.12rem;
-    margin: 0 0 1rem;
+    margin: 0;
     color: var(--monet-blue-dark);
   }
-  .changelog-cols {
-    columns: 2;
-    column-gap: 1rem;
-  }
-  .cl-card {
-    break-inside: avoid;
-    margin: 0 0 1rem;
-    background: var(--bg-white);
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
-    padding: 0.9rem 1rem 1rem;
-    transition: var(--transition);
-  }
-  .cl-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-  }
-  .cl-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    margin-bottom: 0.45rem;
-  }
-  .cl-head time {
-    font-size: 0.74rem;
+  .cl-count {
+    font-size: 0.76rem;
     color: var(--text-light);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* 类型筛选 */
+  .cl-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 0.9rem;
+  }
+  .cl-filter {
+    font-family: inherit;
+    font-size: 0.76rem;
+    line-height: 1;
+    padding: 0.4rem 0.66rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-light);
+    background: var(--bg-white);
+    color: var(--text-gray);
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .cl-filter:hover {
+    border-color: var(--monet-blue);
+    color: var(--monet-blue-dark);
+    transform: translateY(-1px);
+  }
+  .cl-filter.is-active {
+    background: var(--monet-blue);
+    border-color: var(--monet-blue);
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(95, 136, 157, 0.24);
+  }
+
+  /* 列表 */
+  .cl-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .cl-list.is-empty::after {
+    content: '这个分类下暂时没有记录';
+    display: block;
+    text-align: center;
+    color: var(--text-light);
+    font-size: 0.84rem;
+    padding: 1.6rem 0;
+  }
+  .cl-item {
+    margin-bottom: 0.5rem;
+  }
+  .cl-item[hidden] {
+    display: none !important;
+  }
+
+  .cl-card {
+    background: var(--bg-white);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+    overflow: hidden;
+  }
+  .cl-card:hover {
+    border-color: color-mix(in srgb, var(--monet-blue) 32%, var(--border-light));
+  }
+  .cl-card[open] {
+    border-color: color-mix(in srgb, var(--monet-blue) 40%, var(--border-light));
+    box-shadow: var(--glow-soft);
+  }
+
+  /* summary：第一行「标签 + 日期 + 箭头」，第二行标题 */
+  .cl-summary {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 0.3rem 0.5rem;
+    padding: 0.62rem 0.8rem;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+  }
+  .cl-summary::-webkit-details-marker { display: none; }
+  .cl-summary:hover .cl-name { color: var(--monet-blue-dark); }
+
+  .cl-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
   }
   .cl-tag {
-    font-size: 0.72rem;
-    padding: 0.14rem 0.55rem;
+    font-size: 0.7rem;
+    line-height: 1.7;
+    padding: 0 0.5rem;
     border-radius: var(--radius-pill);
     white-space: nowrap;
   }
+  .cl-date {
+    font-size: 0.72rem;
+    color: var(--text-light);
+    font-variant-numeric: tabular-nums;
+  }
+  .cl-arrow {
+    color: var(--text-light);
+    transition: transform 0.25s var(--ease);
+    flex: 0 0 auto;
+  }
+  .cl-card[open] .cl-arrow { transform: rotate(180deg); }
+
+  .cl-name {
+    grid-column: 1 / -1;
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.45;
+    color: var(--text-dark);
+    transition: color 0.2s var(--ease);
+  }
+
+  /* 类型配色 */
   .cl-card[data-type='feat'] .cl-tag {
     color: var(--monet-blue-dark);
     background: var(--monet-blue-lighter);
@@ -196,45 +379,72 @@ const typeLabels: Record<ChangelogEntry['type'], string> = {
     color: #3d8a4e;
     background: rgba(110, 190, 130, 0.16);
   }
-  .cl-card h3 {
-    font-size: 0.98rem;
-    margin: 0 0 0.4rem;
-    line-height: 1.4;
-  }
-  .cl-card ul {
+
+  /* 展开后的明细：小一号、更紧凑，避免日志墙 */
+  .cl-detail {
     list-style: none;
     margin: 0;
-    padding: 0;
+    padding: 0 0.85rem 0.75rem;
   }
-  .cl-card li {
+  .cl-detail li {
     position: relative;
-    padding-left: 0.9rem;
-    font-size: 0.82rem;
-    line-height: 1.55;
+    padding-left: 0.85rem;
+    font-size: 0.8rem;
+    line-height: 1.6;
     color: var(--text-gray);
-    margin-bottom: 0.2rem;
+    margin-bottom: 0.22rem;
   }
-  .cl-card li::before {
+  .cl-detail li:last-child { margin-bottom: 0; }
+  .cl-detail li::before {
     content: '';
     position: absolute;
-    left: 0.1rem;
-    top: 0.52em;
-    width: 5px;
-    height: 5px;
+    left: 0.08rem;
+    top: 0.6em;
+    width: 4px;
+    height: 4px;
     border-radius: 50%;
     background: var(--monet-blue);
-    opacity: 0.55;
+    opacity: 0.5;
   }
+
+  /* 展开剩余 N 条 */
   .cl-more {
+    display: block;
+    width: 100%;
+    margin-top: 0.3rem;
+    padding: 0.6rem;
+    font-family: inherit;
+    font-size: 0.82rem;
+    color: var(--monet-blue-dark);
+    background: var(--monet-blue-lighter);
+    border: 1px dashed color-mix(in srgb, var(--monet-blue) 38%, transparent);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .cl-more[hidden] { display: none; }
+  .cl-more:hover {
+    background: var(--monet-blue-light);
+    border-style: solid;
+    transform: translateY(-1px);
+  }
+  .cl-foot {
     text-align: center;
     color: var(--text-light);
-    font-size: 0.82rem;
-    margin: 0.2rem 0 0;
+    font-size: 0.78rem;
+    margin: 0.8rem 0 0;
   }
 
   :global([data-theme="dark"]) .cl-card {
     background: rgba(22, 31, 36, 0.65);
     border-color: rgba(255, 255, 255, 0.08);
+  }
+  :global([data-theme="dark"]) .cl-filter {
+    background: rgba(22, 31, 36, 0.65);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  :global([data-theme="dark"]) .cl-more {
+    background: rgba(143, 180, 197, 0.1);
   }
 
   @media (max-width: 1080px) {
@@ -242,10 +452,20 @@ const typeLabels: Record<ChangelogEntry['type'], string> = {
       grid-template-columns: 1fr;
       gap: 1.6rem;
     }
-    .changelog-cols { columns: 2; }
+    /* 单栏布局下日志变宽，两列排会更省纵向空间 */
+    .cl-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      align-items: start;
+    }
+    .cl-item { margin-bottom: 0; }
   }
   @media (max-width: 560px) {
     .about-page { padding: 0 1rem; }
-    .changelog-cols { columns: 1; }
+    .cl-list { display: block; }
+    .cl-item { margin-bottom: 0.5rem; }
+    .cl-summary { padding: 0.6rem 0.7rem; }
+    .cl-name { font-size: 0.88rem; }
   }
 </style>
