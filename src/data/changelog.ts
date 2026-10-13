@@ -9,6 +9,19 @@ export interface ChangelogEntry {
 export const changelog: ChangelogEntry[] = [
   {
     date: '2026-10-09',
+    type: 'style',
+    title: '莫奈蓝视觉升级：玻璃拟态与光晕层次',
+    detail: [
+      '补齐缺失的 --radius-pill 变量，修复全站胶囊按钮/标签圆角偶发失效',
+      '全局背景加入多层柔光光晕，暗色模式同步适配',
+      '卡片、按钮、页脚升级为玻璃拟态材质，悬停阴影改为柔和光晕',
+      '首页 Hero 标题渐变着色，徽章与文章卡片顶部高光更有层次',
+      '顶栏毛玻璃饱和度提升，品牌心形标识悬停微动效',
+      '统一 :focus-visible 焦点环，键盘导航更清晰',
+    ],
+  },
+  {
+    date: '2026-10-09',
     type: 'perf',
     title: '抓取链路与访问性能优化',
     detail: [

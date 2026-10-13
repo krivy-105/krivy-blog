@@ -153,18 +153,20 @@ const pendingCount = isAdmin
 <style>
   header {
     padding: 0 1.5rem;
-    background: rgba(255, 255, 255, 0.82);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border-bottom: 1px solid rgba(227, 237, 242, 0.7);
+    background: color-mix(in srgb, var(--bg-white) 78%, transparent);
+    backdrop-filter: blur(16px) saturate(1.15);
+    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+    border-bottom: 1px solid color-mix(in srgb, var(--border-light) 80%, transparent);
     position: sticky;
     top: 0;
     z-index: 100;
-    transition: background 0.3s var(--ease), border-color 0.3s var(--ease);
+    transition: background 0.3s var(--ease), border-color 0.3s var(--ease), box-shadow 0.3s var(--ease);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset;
   }
   :global([data-theme="dark"]) header {
-    background: rgba(26, 36, 43, 0.82);
-    border-bottom-color: rgba(42, 54, 64, 0.7);
+    background: color-mix(in srgb, var(--bg-white) 78%, transparent);
+    border-bottom-color: color-mix(in srgb, var(--border-light) 80%, transparent);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
   }
   nav {
     display: flex;
@@ -188,12 +190,17 @@ const pendingCount = isAdmin
     justify-content: center;
     width: 34px;
     height: 34px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #7aa3b6, #5f889d);
+    border-radius: 11px;
+    background: linear-gradient(145deg, #8fb4c5 0%, #6b94a8 48%, #547e92 100%);
     color: #fff;
     font-weight: 700;
     font-size: 1.05rem;
-    box-shadow: 0 3px 10px rgba(95, 136, 157, 0.3);
+    box-shadow: 0 4px 14px rgba(95, 136, 157, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+  }
+  .brand:hover .brand-mark {
+    transform: translateY(-1px) scale(1.03);
+    box-shadow: 0 8px 18px rgba(95, 136, 157, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.28);
   }
   .brand-name {
     font-size: 1.08rem;

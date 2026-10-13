@@ -36,6 +36,13 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 22px;
+  --radius-pill: 999px;
+
+  /* 玻璃拟态与光晕 */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(227, 237, 242, 0.85);
+  --glow-soft: 0 0 0 1px rgba(107, 148, 168, 0.08), 0 18px 48px rgba(63, 100, 120, 0.10);
+  --ring: 0 0 0 3px rgba(107, 148, 168, 0.22);
 
   /* 布局宽度 */
   --width-wide: 1080px;
@@ -70,6 +77,11 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+
+  --glass-bg: rgba(26, 36, 43, 0.72);
+  --glass-border: rgba(42, 54, 64, 0.85);
+  --glow-soft: 0 0 0 1px rgba(143, 180, 197, 0.08), 0 18px 48px rgba(0, 0, 0, 0.35);
+  --ring: 0 0 0 3px rgba(143, 180, 197, 0.28);
 }
 [data-theme="dark"] ::selection {
   background: rgba(143, 180, 197, 0.28);
@@ -127,8 +139,19 @@ body::before {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: var(--bg-gradient);
+  background:
+    radial-gradient(980px 420px at 12% -8%, rgba(126, 166, 184, 0.18), transparent 62%),
+    radial-gradient(760px 360px at 88% 8%, rgba(143, 180, 197, 0.12), transparent 58%),
+    radial-gradient(640px 280px at 50% 100%, rgba(107, 148, 168, 0.08), transparent 70%),
+    var(--bg-gradient);
   pointer-events: none;
+}
+[data-theme="dark"] body::before {
+  background:
+    radial-gradient(980px 420px at 12% -8%, rgba(143, 180, 197, 0.10), transparent 62%),
+    radial-gradient(760px 360px at 88% 8%, rgba(95, 136, 157, 0.10), transparent 58%),
+    radial-gradient(640px 280px at 50% 100%, rgba(63, 100, 120, 0.12), transparent 70%),
+    var(--bg-gradient);
 }
 
 ::selection {
@@ -177,6 +200,11 @@ a {
   transition: color 0.2s var(--ease);
 }
 a:hover { color: var(--monet-blue-deep); }
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
 
 p { margin: 0 0 1.1em; }
 
@@ -288,26 +316,29 @@ th {
 .btn:active { transform: translateY(0) scale(0.98); }
 
 .btn-primary {
-  background: linear-gradient(135deg, #7aa3b6 0%, #5f889d 100%);
+  background: linear-gradient(135deg, #86b0c2 0%, #5f889d 58%, #4f7b90 100%);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(95, 136, 157, 0.28);
+  box-shadow: 0 4px 14px rgba(95, 136, 157, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 .btn-primary:hover {
-  background: linear-gradient(135deg, #6e98ac 0%, #547e92 100%);
+  background: linear-gradient(135deg, #79a5b8 0%, #547e92 58%, #456f84 100%);
   transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(95, 136, 157, 0.36);
+  box-shadow: 0 10px 26px rgba(95, 136, 157, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   color: #fff;
 }
 
 .btn-outline {
-  background: rgba(255, 255, 255, 0.7);
-  border-color: var(--monet-blue);
+  background: var(--glass-bg);
+  border-color: color-mix(in srgb, var(--monet-blue) 55%, transparent);
   color: var(--monet-blue-dark);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 .btn-outline:hover {
   background: var(--monet-blue);
   color: #fff;
   transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(95, 136, 157, 0.22);
 }
 
 .btn-ghost {
@@ -327,17 +358,19 @@ th {
 /* ---------------- 卡片 ---------------- */
 
 .card {
-  background: var(--bg-white);
-  border: 1px solid var(--border-light);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   padding: 1.6rem;
   transition: var(--transition);
   box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 .card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
-  border-color: #d4e4ec;
+  transform: translateY(-4px);
+  box-shadow: var(--glow-soft);
+  border-color: color-mix(in srgb, var(--monet-blue) 35%, var(--border-light));
 }
 
 /* ---------------- 置顶标记 ---------------- */
@@ -773,3 +806,11 @@ th {
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--monet-blue); background-clip: padding-box; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #3a4a55;
+  background-clip: padding-box;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--monet-blue);
+  background-clip: padding-box;
+}

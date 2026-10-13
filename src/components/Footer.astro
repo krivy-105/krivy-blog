@@ -28,13 +28,19 @@ const today = new Date();
   footer {
     margin-top: auto;
     padding: 2.8rem 1.5rem 2.2rem;
-    border-top: 1px solid var(--border-light);
+    border-top: 1px solid color-mix(in srgb, var(--border-light) 85%, transparent);
     text-align: center;
-    background: rgba(243, 248, 251, 0.6);
+    background:
+      radial-gradient(720px 180px at 50% 0%, rgba(126, 166, 184, 0.10), transparent 70%),
+      color-mix(in srgb, var(--bg-body) 72%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     transition: background 0.3s var(--ease);
   }
   :global([data-theme="dark"]) footer {
-    background: rgba(22, 31, 36, 0.6);
+    background:
+      radial-gradient(720px 180px at 50% 0%, rgba(143, 180, 197, 0.08), transparent 70%),
+      color-mix(in srgb, var(--bg-body) 72%, transparent);
   }
   .footer-inner {
     max-width: var(--width-wide);
@@ -83,11 +89,14 @@ const today = new Date();
     text-decoration: none;
     font-size: 0.85rem;
     font-weight: 500;
+    border: 1px solid transparent;
     transition: all 0.25s var(--ease);
   }
   .footer-link:hover {
-    background: var(--monet-blue-lighter);
+    background: var(--glass-bg);
+    border-color: color-mix(in srgb, var(--monet-blue) 22%, transparent);
     transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
   }
   .copyright {
     color: var(--text-light);
