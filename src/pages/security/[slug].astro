@@ -1,0 +1,246 @@
+---
+import BaseHead from '../../components/BaseHead.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import { SITE_TITLE } from '../../consts';
+import { findSecurityDoc, securityNeighbors, securityDocs } from '../../lib/security-docs';
+
+const slug = decodeURIComponent(Astro.params.slug as string);
+const doc = findSecurityDoc(slug);
+
+// 文档不存在：内部渲染 404 页（URL 不变、状态码 404）
+if (!doc) {
+  return Astro.rewrite('/404');
+}
+
+const { prev, next } = securityNeighbors(slug);
+const docUrl = new URL(`/security/${encodeURIComponent(doc.slug)}`, Astro.site).toString();
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead
+      title={`${doc.title} - 网安笔记 - ${SITE_TITLE}`}
+      description={doc.summary || `网安笔记：${doc.title}`}
+    />
+    <script
+      type="application/ld+json"
+      set:html={JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'TechArticle',
+        headline: doc.title,
+        description: doc.summary,
+        url: docUrl,
+        inLanguage: 'zh-CN',
+        ...(doc.date ? { datePublished: doc.date, dateModified: doc.date } : {}),
+        keywords: [doc.category, ...doc.tags].join(', '),
+      })}
+    />
+  </head>
+  <body>
+    <Header />
+
+    <main class="narrow doc-page">
+      <nav class="crumb" aria-label="面包屑">
+        <a href="/security">网安笔记</a>
+        <span class="crumb-sep">/</span>
+        <span class="crumb-cur">{doc.category}</span>
+      </nav>
+
+      <header class="doc-head">
+        <div class="head-meta">
+          <span class="cat-badge">{doc.category}</span>
+          {doc.date && (
+            <time datetime={doc.date}>
+              {new Date(doc.date).toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </time>
+          )}
+          <span class="head-dot">·</span>
+          <span>约 {doc.minutes} 分钟</span>
+        </div>
+        <h1>{doc.title}</h1>
+        {doc.summary && <p class="doc-lead">{doc.summary}</p>}
+        {doc.tags.length > 0 && (
+          <ul class="tag-list">
+            {doc.tags.map((t) => <li><span class="tag-chip inline">#{t}</span></li>)}
+          </ul>
+        )}
+      </header>
+
+      <article class="prose" set:html={doc.html} />
+
+      <nav class="doc-nav" aria-label="文档导航">
+        {prev ? (
+          <a class="nav-item prev" href={`/security/${encodeURIComponent(prev.slug)}`}>
+            <span class="nav-label">← 上一篇</span>
+            <span class="nav-title">{prev.title}</span>
+          </a>
+        ) : (
+          <span class="nav-item empty"></span>
+        )}
+        {next ? (
+          <a class="nav-item next" href={`/security/${encodeURIComponent(next.slug)}`}>
+            <span class="nav-label">下一篇 →</span>
+            <span class="nav-title">{next.title}</span>
+          </a>
+        ) : (
+          <span class="nav-item empty"></span>
+        )}
+      </nav>
+
+      <div class="back-wrap">
+        <a href="/security" class="btn btn-outline">← 返回网安笔记（共 {securityDocs.length} 篇）</a>
+      </div>
+    </main>
+
+    <Footer />
+
+    <style>
+      .doc-page { padding-top: 2rem; }
+
+      .crumb {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-size: 0.82rem;
+        color: var(--text-light);
+        margin-bottom: 1.4rem;
+      }
+      .crumb a { color: var(--monet-blue-dark); font-weight: 500; }
+      .crumb a:hover { text-decoration: underline; }
+      .crumb-sep { opacity: 0.5; }
+      .crumb-cur { color: var(--text-gray); }
+
+      .doc-head {
+        padding-bottom: 1.6rem;
+        margin-bottom: 1.8rem;
+        border-bottom: 1px solid var(--border-light);
+        animation: fadeIn 0.45s var(--ease);
+      }
+      .head-meta {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        font-size: 0.8rem;
+        color: var(--text-light);
+        margin-bottom: 0.8rem;
+      }
+      .cat-badge {
+        font-size: 0.74rem;
+        font-weight: 600;
+        padding: 0.18rem 0.65rem;
+        border-radius: var(--radius-pill);
+        color: #2e8b8b;
+        background: rgba(80, 190, 190, 0.14);
+      }
+      .head-dot { opacity: 0.6; }
+      .doc-head h1 {
+        font-size: clamp(1.7rem, 4vw, 2.25rem);
+        line-height: 1.35;
+        margin: 0 0 0.7rem;
+        letter-spacing: 0.01em;
+      }
+      .doc-lead {
+        color: var(--text-gray);
+        font-size: 1rem;
+        line-height: 1.85;
+        margin: 0 0 1rem;
+      }
+      .tag-list {
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        padding: 0;
+        margin: 0;
+      }
+      .tag-chip.inline {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 9px;
+        font-size: 0.72rem;
+        border-radius: var(--radius-pill);
+        background: var(--monet-blue-lighter);
+        color: var(--monet-blue-dark);
+      }
+
+      /* 正文：复用全站 .prose 排版，只补几处网安文档常见元素的样式 */
+      .prose { animation: fadeIn 0.5s var(--ease) 0.06s both; }
+      .prose :global(h2) {
+        margin-top: 2.2rem;
+        padding-bottom: 0.35rem;
+        border-bottom: 1px solid var(--border-light);
+      }
+      .prose :global(h3) { margin-top: 1.6rem; }
+      .prose :global(code):not(pre code) {
+        background: var(--monet-blue-light);
+      }
+      .prose :global(details) {
+        background: var(--monet-blue-lighter);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-md);
+        padding: 0.7rem 1rem;
+        margin: 1.2rem 0;
+      }
+      .prose :global(summary) { cursor: pointer; font-weight: 600; }
+      .prose :global(input[type='checkbox']) { margin-right: 0.45rem; }
+
+      /* 上下篇 */
+      .doc-nav {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.9rem;
+        margin-top: 3rem;
+        padding-top: 1.8rem;
+        border-top: 1px solid var(--border-light);
+      }
+      .nav-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        padding: 0.9rem 1.1rem;
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-md);
+        background: var(--glass-bg);
+        transition: var(--transition);
+        min-width: 0;
+      }
+      .nav-item.empty { border: none; background: none; }
+      a.nav-item:hover {
+        transform: translateY(-2px);
+        border-color: color-mix(in srgb, var(--monet-blue) 38%, var(--border-light));
+        box-shadow: var(--shadow-sm);
+      }
+      .nav-item.next { text-align: right; }
+      .nav-label {
+        font-size: 0.74rem;
+        color: var(--text-light);
+      }
+      .nav-title {
+        font-size: 0.92rem;
+        font-weight: 600;
+        color: var(--text-dark);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+      a.nav-item:hover .nav-title { color: var(--monet-blue-dark); }
+
+      .back-wrap { text-align: center; margin-top: 2.2rem; }
+
+      @media (max-width: 560px) {
+        .doc-nav { grid-template-columns: 1fr; }
+        .nav-item.next { text-align: left; }
+        .nav-item.empty { display: none; }
+      }
+    </style>
+  </body>
+</html>

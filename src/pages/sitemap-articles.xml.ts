@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { postQueries, tagQueries, seriesQueries } from '../lib/db';
+import { securityDocs } from '../lib/security-docs';
 
 // GET /sitemap-articles.xml —— 数据库里的动态内容（文章 / 标签 / 连载）
 //
@@ -46,6 +47,20 @@ export const GET: APIRoute = ({ site }) => {
       `<url><loc>${escapeXml(`${base}/series/${s.slug}/`)}</loc>` +
         `<lastmod>${new Date(s.updated_at).toISOString()}</lastmod></url>`
     );
+  }
+
+  // 网安笔记：栏目页 + 每篇文档（文件驱动，不经过数据库）
+  if (securityDocs.length > 0) {
+    urls.push(
+      `<url><loc>${escapeXml(`${base}/security`)}</loc><changefreq>weekly</changefreq></url>`
+    );
+    for (const d of securityDocs) {
+      urls.push(
+        `<url><loc>${escapeXml(`${base}/security/${encodeURIComponent(d.slug)}`)}</loc>` +
+          (d.date ? `<lastmod>${new Date(d.date).toISOString()}</lastmod>` : '') +
+          `<changefreq>monthly</changefreq></url>`
+      );
+    }
   }
 
   const xml =

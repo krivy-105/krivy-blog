@@ -8,6 +8,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    date: '2026-10-14',
+    type: 'feat',
+    title: '新增「网安笔记」独立栏目',
+    detail: [
+      '单开 /security 专区：收录网安方向的学习笔记、实验记录与工具备忘，与数据库驱动的文章区分开',
+      '文档以 Markdown 文件形式放在 src/data/security/ 下，提交后自动上线——不进数据库、不走审核流',
+      '支持按方向筛选与关键词搜索，纯前端过滤，输入即出结果',
+      '每篇文档有独立详情页、上下篇导航、阅读时长估算与结构化数据',
+      '文件名以 _ 或 . 开头的不会出现在列表里，可用来放模板与草稿',
+      '文档一并写入站点地图，顶栏与页脚增加入口',
+    ],
+  },
+  {
     date: '2026-10-09',
     type: 'style',
     title: '更新日志改为紧凑时间轴',
