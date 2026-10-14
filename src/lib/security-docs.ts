@@ -18,6 +18,7 @@ export interface SecurityDoc {
   summary: string;
   category: string;
   tags: string[];
+  order?: number;
   file: string;
   body: string;
   html: string;
@@ -100,6 +101,18 @@ function deriveSummary(body: string): string {
   return '';
 }
 
+/** 摘掉正文开头的第一个 H1。
+ *  详情页头部已经渲染了标题，正文里再留一个 H1 会让一页出现两个 <h1>。
+ *  返回摘掉的内容，用于给没写 title 的文档兜底。 */
+function stripLeadingH1(body: string): { body: string; heading: string } {
+  const m = /^\s*#\s+(.+?)\s*\r?\n/.exec(body);
+  if (!m) return { body, heading: '' };
+  return {
+    body: body.slice(m[0].length).replace(/^\s*\r?\n/, ''),
+    heading: stripInlineMd(m[1]),
+  };
+}
+
 function buildDoc(path: string, raw: string): SecurityDoc | null {
   const file = path.split('/').pop() || path;
   const stem = file.replace(/\.md$/i, '');
@@ -107,19 +120,24 @@ function buildDoc(path: string, raw: string): SecurityDoc | null {
   // 下划线开头的文件是模板/草稿，不进列表
   if (stem.startsWith('_') || stem.startsWith('.')) return null;
 
-  const { data, body } = parseFrontmatter(raw);
+  const { data, body: fullBody } = parseFrontmatter(raw);
+  const { body, heading } = stripLeadingH1(fullBody);
 
   const html = renderMarkdown(body);
   const text = body.replace(/```[\s\S]*?```/g, '').replace(/[#>*`|\-]/g, '');
   const words = text.replace(/\s/g, '').length;
 
+  const orderRaw = asString(data.order, '');
+  const order = orderRaw === '' ? undefined : Number(orderRaw);
+
   return {
     slug: asString(data.slug, stem),
-    title: asString(data.title, stem),
+    title: asString(data.title, '') || heading || stem,
     date: asString(data.date, ''),
     summary: asString(data.summary, '') || deriveSummary(body),
     category: asString(data.category, '未分类'),
     tags: asArray(data.tags),
+    order: order !== undefined && Number.isFinite(order) ? order : undefined,
     file,
     body,
     html,
@@ -132,6 +150,12 @@ const docs: SecurityDoc[] = Object.entries(modules)
   .map(([path, raw]) => buildDoc(path, raw))
   .filter((d): d is SecurityDoc => d !== null)
   .sort((a, b) => {
+    // 有 order 的按 order 升序（课程笔记要 P1→P10，不能按字母排）
+    if (a.order !== undefined && b.order !== undefined && a.order !== b.order) {
+      return a.order - b.order;
+    }
+    if (a.order !== undefined && b.order === undefined) return -1;
+    if (a.order === undefined && b.order !== undefined) return 1;
     if (a.date && b.date && a.date !== b.date) return a.date < b.date ? 1 : -1;
     if (a.date && !b.date) return -1;
     if (!a.date && b.date) return 1;
