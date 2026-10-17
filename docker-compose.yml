@@ -1,0 +1,42 @@
+# 任意一台 Linux 服务器上的一键部署
+#
+#   1. 把 .env.example 复制成 .env 并填好 ADMIN_PASSWORD
+#   2. docker compose up -d --build
+#
+# 前面再挂一个 Caddy/Nginx 负责 443，见 docs/deploy.md。
+
+services:
+  blog:
+    build: .
+    image: krivy-blog:latest
+    container_name: krivy-blog
+    restart: unless-stopped
+    # 只监听本机回环，由反向代理对外提供服务；直接暴露 4321 会绕过 HTTPS
+    ports:
+      - "127.0.0.1:4321:4321"
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Shanghai
+      DB_PATH: /data/blog.db
+      ADMIN_USERNAME: "${ADMIN_USERNAME:-admin}"
+      # 不设这个变量会回落到 admin123456，并且每次重启都覆盖库里的密码
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?请先创建 .env 并设置 ADMIN_PASSWORD}"
+      SESSION_COOKIE: "${SESSION_COOKIE:-blog_session}"
+    volumes:
+      # 数据库、上传图、自动备份都在 /data 下，这一行就是全部需要持久化的东西
+      - ./data:/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4321/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

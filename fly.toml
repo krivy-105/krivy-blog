@@ -1,0 +1,49 @@
+# Fly.io 部署配置
+#
+# 用法：
+#   fly launch --no-deploy          # 已有本文件时会读取它，不会覆盖
+#   fly volumes create blog_data --size 1 --region nrt
+#   fly secrets set ADMIN_PASSWORD='你的密码' ADMIN_USERNAME=admin
+#   fly deploy
+#
+# 区域可选（离国内近的三个）：
+#   nrt = 东京   sin = 新加坡   hkg = 香港
+# 换区域时把 primary_region 和 volumes create --region 一起改掉。
+
+app = "krivy-blog"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  TZ = "Asia/Shanghai"
+  # 持久卷挂载点，数据库 / 上传图 / 自动备份都在这个目录下
+  DB_PATH = "/data/blog.db"
+
+# 持久卷：不配这个，SQLite 会落在容器临时层，重启即丢
+[[mounts]]
+  source = "blog_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 4321
+  force_https = true
+  # 私信走 WebSocket 长连接，自动停机一旦触发连接就断了，所以关掉
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/healthz"
+
+[[vm]]
+  # 512MB 足够（better-sqlite3 + sharp 都在这个量级内）
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
