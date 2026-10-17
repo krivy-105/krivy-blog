@@ -216,11 +216,16 @@ docker compose start
 
 ## 常见坑
 
-| 现象 | 原因 |
+| 现象 | 原因与处理 |
 |---|---|
 | 重启后文章全没了 | 卷没挂到 `/data`，SQLite 落在容器临时层 |
 | 管理员密码变回 admin123456 | 没设 `ADMIN_PASSWORD`，启动时会按默认值同步覆盖 |
+| **改了 .env 里的密码，登录还是老的** | **`docker compose restart` 不会重读 .env**——容器环境变量在创建时就固定了。必须 `docker compose up -d --force-recreate` 重建容器 |
+| **复制了新的 blog.db，进容器一查还是旧数据/空库** | 旧库残留的 `blog.db-wal` 在打开时被回放，覆盖了刚复制进去的数据。恢复前必须 `rm -f data/blog.db-wal data/blog.db-shm` |
+| **Caddy 起不来，日志报 `access.log: permission denied`** | 光给目录 chown 不够，Caddy 启动时要 open 文件本身：先 `touch /var/log/caddy/access.log && chown caddy:caddy` |
+| **证书一直签不下来，日志报 `Cannot negotiate ALPN`** | DNS 还开着 Cloudflare 橙色云朵，HTTP-01 校验被 CF 接走了。改成灰云（DNS only） |
 | 文章日期差一天 | 没设 `TZ=Asia/Shanghai`，容器默认 UTC |
 | 私信发不出去 | 反向代理没转发 `Upgrade` / `Connection` 头 |
 | 上传图片失败 | 反向代理 `client_max_body_size` 太小 |
 | 部署后 502 | 构建阶段的 `better-sqlite3` 没编译成功，看构建日志里的 python3/make/g++ |
+| 服务器只接受密码登录，密钥登录被拒 | 部分服务商镜像写死 `PubkeyAuthentication no`，改 `/etc/ssh/sshd_config` 为 `yes` 后 `systemctl reload ssh`（先 `sshd -t` 校验，别把自己锁外面） |
