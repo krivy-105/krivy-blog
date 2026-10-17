@@ -459,6 +459,27 @@ if (!cleanupDone) {
   }
 }
 
+// 2026-10-17：学习计划与网安栏目全部下线后，清掉最后一个残留标签「测试」。
+// 复用同一套执行方式：按名字删标签 + 清文章关联，meta 表打标记只跑一次。
+const FINAL_CLEANUP_FLAG = 'cleanup_test_tag_v1';
+if (!db.prepare('SELECT value FROM meta WHERE key = ?').get(FINAL_CLEANUP_FLAG)) {
+  const row = db.prepare('SELECT id FROM tags WHERE name = ?').get('测试') as
+    | { id: number }
+    | undefined;
+  if (row) {
+    const dropFinal = db.transaction(() => {
+      db.prepare('DELETE FROM post_tags WHERE tag_id = ?').run(row.id);
+      db.prepare('DELETE FROM tags WHERE id = ?').run(row.id);
+    });
+    dropFinal();
+    console.log('[db] 已清理残留标签「测试」');
+  }
+  db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run(
+    FINAL_CLEANUP_FLAG,
+    String(Date.now())
+  );
+}
+
 
 // 确保管理员账号存在，并与环境变量中的密码保持一致
 // （部署后修改 ADMIN_PASSWORD，重启服务即生效，无需手动操作数据库）
