@@ -1,0 +1,82 @@
+name: Deploy
+
+# 推送到 main 就自动部署到 VPS，效果等同 Railway 的自动构建。
+# 全流程只用 OpenSSH，没有引入任何第三方 action（少一层供应链风险）。
+#
+# 需要在仓库 Settings → Secrets and variables → Actions 里配三个 secret：
+#   SSH_HOST          服务器 IP
+#   SSH_USER          登录用户（root）
+#   SSH_PRIVATE_KEY   部署私钥全文（含 -----BEGIN/END----- 两行）
+
+on:
+  push:
+    branches: [main]
+  # 也允许在 Actions 页面手动点一下重跑
+  workflow_dispatch:
+
+# 连续推送时只保留最后一次部署，避免两个构建互相抢 Docker
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: 准备 SSH 凭据
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # 首次连接记录主机指纹，避免 ssh 卡在 yes/no 提示上
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: 在服务器上拉代码并重建容器
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -o UserKnownHostsFile=$HOME/.ssh/known_hosts \
+              -o BatchMode=yes \
+              "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+
+          cd /opt/krivy-blog
+
+          echo "== 当前版本 =="
+          git log --oneline -1
+
+          echo "== 拉取最新代码 =="
+          # 该仓库是 --depth 1 浅克隆，fetch 指定分支后用 FETCH_HEAD，
+          # 不依赖 remote-tracking ref 是否被更新。
+          git fetch --depth 1 origin main
+          git reset --hard FETCH_HEAD
+          echo "== 更新后版本 =="
+          git log --oneline -1
+
+          echo "== 重建镜像并滚动替换容器 =="
+          # compose 先构建再替换：构建失败时旧容器继续在线，不会把站弄挂。
+          # data/ 目录是 bind mount，重建容器不会动数据库与上传图。
+          docker compose up -d --build
+
+          echo "== 等待应用就绪 =="
+          READY=0
+          for i in $(seq 1 40); do
+            if curl -fsS -m 3 http://127.0.0.1:4321/healthz >/dev/null 2>&1; then
+              READY=1
+              break
+            fi
+            sleep 3
+          done
+
+          if [ "$READY" -ne 1 ]; then
+            echo "❌ 应用未就绪，最近日志："
+            docker compose logs --tail=60
+            exit 1
+          fi
+
+          echo "✅ 健康检查通过："
+          curl -fsS http://127.0.0.1:4321/healthz
+          echo
+          docker compose ps
+          REMOTE
