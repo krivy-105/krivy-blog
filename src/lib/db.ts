@@ -410,6 +410,55 @@ if (!momentColumns.some((c) => c.name === 'image_h')) {
   db.exec('ALTER TABLE moments ADD COLUMN image_h INTEGER');
 }
 
+// ---- 一次性数据清理（2026-10-14）：下线学习计划后，删除与之相关的学习类标签 ----
+//
+// 为什么写在这里而不是手动改库：线上库在持久卷里，改代码不会碰到数据。
+// 用 meta 表记录标记，保证只在首次启动执行一次——否则以后重新启用同名标签，
+// 下次重启又会被删掉。
+db.exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)');
+
+const CLEANUP_FLAG = 'cleanup_study_tags_v1';
+const cleanupDone = db.prepare('SELECT value FROM meta WHERE key = ?').get(CLEANUP_FLAG);
+if (!cleanupDone) {
+  // 只删「学习计划相关」的标签；网络工程、测试这类通用标签保留
+  const studyTags = [
+    'HCNA',
+    '华为认证',
+    '练习题',
+    '数通',
+    '华为',
+    'eNSP',
+    '实验拓扑',
+    '模拟器',
+    '学习资料',
+    '教程',
+  ];
+  const findTag = db.prepare('SELECT id FROM tags WHERE name = ?');
+  const unlink = db.prepare('DELETE FROM post_tags WHERE tag_id = ?');
+  const dropTag = db.prepare('DELETE FROM tags WHERE id = ?');
+
+  const cleanup = db.transaction((names: string[]) => {
+    let removed = 0;
+    for (const name of names) {
+      const row = findTag.get(name) as { id: number } | undefined;
+      if (!row) continue;
+      unlink.run(row.id);
+      dropTag.run(row.id);
+      removed++;
+    }
+    return removed;
+  });
+
+  const removed = cleanup(studyTags);
+  db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run(
+    CLEANUP_FLAG,
+    String(Date.now())
+  );
+  if (removed > 0) {
+    console.log(`[db] 已清理学习类标签 ${removed} 个（一次性迁移 ${CLEANUP_FLAG}）`);
+  }
+}
+
 
 // 确保管理员账号存在，并与环境变量中的密码保持一致
 // （部署后修改 ADMIN_PASSWORD，重启服务即生效，无需手动操作数据库）

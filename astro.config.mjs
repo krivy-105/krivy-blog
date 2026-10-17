@@ -36,7 +36,6 @@ export default defineConfig({
 					'/login',
 					'/messages',
 					'/notifications',
-					'/plan',
 					'/search',
 					'/write',
 					'/uploads',
