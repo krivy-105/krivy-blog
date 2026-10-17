@@ -26,7 +26,9 @@ const totalPosts = seriesList.reduce((acc, s) => acc + Number(s.post_count || 0)
       .series-card {
         display: flex;
         flex-direction: column;
-        background: var(--bg-white);
+        background: var(--glass-bg);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         border: 1px solid var(--border-light);
         border-radius: var(--radius-lg);
         padding: 1.4rem 1.5rem;

@@ -38,7 +38,9 @@ const isAuthor = currentUser?.id === series?.author_id;
       .back-link:hover { color: var(--monet-blue-dark); transform: translateX(-3px); }
 
       .series-header {
-        background: var(--bg-white);
+        background: var(--glass-bg);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         border: 1px solid var(--border-light);
         border-radius: var(--radius-xl);
         padding: 2rem 2.2rem;
@@ -115,7 +117,9 @@ const isAuthor = currentUser?.id === series?.author_id;
         gap: 0.8rem;
       }
       .toc-item {
-        background: var(--bg-white);
+        background: var(--glass-bg);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         border: 1px solid var(--border-light);
         border-radius: var(--radius-lg);
         padding: 1.1rem 1.3rem;

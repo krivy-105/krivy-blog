@@ -238,7 +238,9 @@ function renderNotif(n: NotifRow) {
         padding: 0.95rem 1.1rem;
         border: 1px solid var(--border-light);
         border-radius: var(--radius-lg, 14px);
-        background: var(--bg-white);
+        background: var(--glass-bg);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         text-decoration: none;
         color: inherit;
         transition: var(--transition);

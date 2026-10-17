@@ -536,7 +536,9 @@ if (seriesInfo) {
   }
 
   .series-nav {
-    background: var(--bg-white);
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--monet-blue-lighter);
     border-radius: var(--radius-lg);
     overflow: hidden;
@@ -781,7 +783,9 @@ if (seriesInfo) {
     padding: 0.9rem 1.1rem;
     border: 1px solid var(--border-light);
     border-radius: var(--radius-lg);
-    background: var(--bg-white);
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     text-decoration: none;
     transition: var(--transition);
     min-width: 0;

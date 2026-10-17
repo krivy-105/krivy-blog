@@ -256,7 +256,9 @@ const COLLAPSED_LIMIT = 8;
     padding: 0.4rem 0.66rem;
     border-radius: var(--radius-pill);
     border: 1px solid var(--border-light);
-    background: var(--bg-white);
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     color: var(--text-gray);
     cursor: pointer;
     transition: var(--transition);
@@ -295,7 +297,9 @@ const COLLAPSED_LIMIT = 8;
   }
 
   .cl-card {
-    background: var(--bg-white);
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-sm);

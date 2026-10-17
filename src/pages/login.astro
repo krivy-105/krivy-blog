@@ -145,7 +145,9 @@ if (user) {
     padding: 3rem 1.2rem;
   }
   .auth-card {
-    background: var(--bg-white);
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-xl);
     padding: 2.6rem 2.4rem 2.3rem;
@@ -203,7 +205,9 @@ if (user) {
     transition: var(--transition);
   }
   .auth-tab.active {
-    background: var(--bg-white);
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     color: var(--monet-blue-dark);
     box-shadow: 0 2px 8px rgba(63, 100, 120, 0.12);
   }

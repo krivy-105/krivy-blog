@@ -161,7 +161,9 @@ const formatDate = (ts: number) =>
     padding: 0.7rem 0.85rem;
     border: 1.5px solid var(--border-light);
     border-radius: var(--radius-md);
-    background: var(--bg-white);
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     color: inherit;
     font-family: inherit;
     font-size: 0.93rem;

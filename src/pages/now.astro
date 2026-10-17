@@ -110,7 +110,9 @@ const sections = [
     animation: fadeIn 0.5s var(--ease) 0.1s both;
   }
   .now-card {
-    background: var(--bg-white);
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
