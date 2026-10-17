@@ -18,8 +18,9 @@ const posts = tagQueries.postsByTag.all(tag) as any[];
     <Header />
     <main class="narrow">
       <header class="page-head">
+        <a class="back-link" href="/tags">← 全部标签</a>
         <span class="eyebrow">TAG</span>
-        <h1>#{tag}</h1>
+        <h1><span class="hash">#</span>{tag}</h1>
         <p>{posts.length > 0 ? `共 ${posts.length} 篇文章` : '该标签下暂无文章'}</p>
       </header>
 
@@ -58,6 +59,20 @@ const posts = tagQueries.postsByTag.all(tag) as any[];
 
     <style>
       .page-head { margin-bottom: 2.4rem; }
+      /* 加一条返回入口：从文章点进标签后，原来只能靠浏览器后退 */
+      .page-head .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.82rem;
+        color: var(--text-light);
+        margin-bottom: 1.1rem;
+        transition: var(--transition);
+      }
+      .page-head .back-link:hover {
+        color: var(--monet-blue-dark);
+        transform: translateX(-2px);
+      }
       .page-head .eyebrow {
         display: inline-block;
         font-size: 0.76rem;
@@ -67,6 +82,12 @@ const posts = tagQueries.postsByTag.all(tag) as any[];
         margin-bottom: 0.5rem;
       }
       .page-head h1 { margin-bottom: 0.4rem; color: var(--monet-blue-deep); }
+      /* # 号退一档，让标签名本身站住视觉重心 */
+      .page-head h1 .hash {
+        color: var(--monet-blue);
+        font-weight: 500;
+        margin-right: 1px;
+      }
       .page-head p { color: var(--text-gray); font-size: 0.95rem; margin: 0; }
 
       .post-list {
@@ -84,17 +105,20 @@ const posts = tagQueries.postsByTag.all(tag) as any[];
         justify-content: space-between;
         align-items: flex-start;
         gap: 1.5rem;
-        padding: 1.4rem 1.6rem;
-        background: var(--bg-white);
-        border: 1px solid var(--border-light);
+        padding: 1.35rem 1.55rem;
+        /* 与首页卡片、文章列表统一成玻璃材质，不再是纯白块 */
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
         border-radius: var(--radius-lg);
         box-shadow: var(--shadow-sm);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         transition: var(--transition);
       }
       .post-item:hover {
-        transform: translateX(5px);
-        box-shadow: var(--shadow-md);
-        border-color: #d2e3eb;
+        transform: translateY(-3px);
+        box-shadow: var(--glow-soft);
+        border-color: color-mix(in srgb, var(--monet-blue) 36%, var(--border-light));
       }
       .post-item-link {
         position: absolute;

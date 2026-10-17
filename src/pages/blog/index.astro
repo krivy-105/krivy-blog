@@ -169,18 +169,21 @@ for (const r of viewRows) viewMap.set(r.post_id, r.count);
     justify-content: space-between;
     align-items: flex-start;
     gap: 1.5rem;
-    padding: 1.4rem 1.6rem;
-    background: var(--bg-white);
-    border: 1px solid var(--border-light);
+    padding: 1.35rem 1.55rem;
+    /* 与首页卡片、标签页列表保持同一套材质与阴影 */
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     color: inherit;
     transition: var(--transition);
   }
   .post-item:hover {
-    transform: translateX(5px);
-    box-shadow: var(--shadow-md);
-    border-color: #d2e3eb;
+    transform: translateY(-3px);
+    box-shadow: var(--glow-soft);
+    border-color: color-mix(in srgb, var(--monet-blue) 36%, var(--border-light));
   }
   .post-item-link {
     position: absolute;

@@ -188,11 +188,23 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.35;
   font-weight: 650;
   letter-spacing: 0.01em;
+  /* 支持的浏览器会把标题断行排得更均衡，中文长标题不会出现孤字成行 */
+  text-wrap: balance;
 }
 
 h1 { font-size: clamp(1.8rem, 4vw, 2.3rem); }
 h2 { font-size: clamp(1.45rem, 3vw, 1.7rem); }
 h3 { font-size: 1.3rem; }
+
+/* 顶栏是 sticky 的（高 66px），目录/锚点跳过来时标题不能被它盖住半个字 */
+:where(h1, h2, h3, h4) {
+  scroll-margin-top: 86px;
+}
+
+/* 正文段落同理：避免最后一行只剩一两个字 */
+p {
+  text-wrap: pretty;
+}
 
 a {
   color: var(--monet-blue-dark);
@@ -391,27 +403,55 @@ th {
   border-left: 3px solid var(--monet-blue);
 }
 
-/* ---------------- 标签 chip ---------------- */
+/* ---------------- 标签 chip（全站唯一一套） ---------------- */
 
+/* 之前首页、标签页各自重定义了一份 .tag-chip.inline，
+   导致同一个标签在不同页面字号、边框、内边距都不一样。
+   现在所有尺寸变体都在这里定义，页面里只准用类名、不准再改样式。 */
 .tag-chip {
   position: relative;
   z-index: 1;
   display: inline-flex;
   align-items: center;
-  font-size: 0.74rem;
-  font-weight: 500;
-  padding: 2px 10px;
+  gap: 0.28em;
+  font-size: 0.75rem;
+  font-weight: 550;
+  line-height: 1.65;
+  padding: 0.1rem 0.62rem;
   background: var(--monet-blue-lighter);
   color: var(--monet-blue-dark);
-  border: 1px solid var(--border-light);
-  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--monet-blue) 18%, var(--border-light));
+  border-radius: var(--radius-pill);
+  text-decoration: none;
+  white-space: nowrap;
   transition: var(--transition);
 }
 .tag-chip:hover {
   background: var(--monet-blue-light);
   color: var(--monet-blue-deep);
-  border-color: var(--monet-blue);
+  border-color: color-mix(in srgb, var(--monet-blue) 55%, transparent);
+  transform: translateY(-1px);
 }
+
+/* 紧凑变体：卡片与列表的元信息行（首页卡片、标签列表、说说） */
+.tag-chip.inline {
+  font-size: 0.72rem;
+  padding: 0.06rem 0.5rem;
+  background: color-mix(in srgb, var(--monet-blue-lighter) 82%, transparent);
+  border-color: transparent;
+}
+.tag-chip.inline:hover {
+  background: var(--monet-blue-light);
+  border-color: color-mix(in srgb, var(--monet-blue) 40%, transparent);
+}
+
+/* 大号变体：标签详情页标题旁 */
+.tag-chip.lg {
+  font-size: 0.85rem;
+  padding: 0.22rem 0.9rem;
+  font-weight: 600;
+}
+
 .tag-list {
   display: flex;
   flex-wrap: wrap;
@@ -419,6 +459,18 @@ th {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* 暗色模式：浅底在深色背景上几乎不可见，改成半透明描边风格 */
+[data-theme="dark"] .tag-chip {
+  background: rgba(143, 180, 197, 0.14);
+  border-color: rgba(143, 180, 197, 0.22);
+  color: var(--monet-blue);
+}
+[data-theme="dark"] .tag-chip:hover {
+  background: rgba(143, 180, 197, 0.22);
+  border-color: rgba(143, 180, 197, 0.45);
+  color: var(--monet-blue-deep);
 }
 
 /* ---------------- 浏览量 ---------------- */
@@ -733,7 +785,12 @@ th {
   font-size: 1.02rem;
   line-height: 1.9;
   color: #334756;
+  text-wrap: pretty;
 }
+/* 首尾元素不留外边距：否则标题下面、分隔线上方会出现双倍空隙 */
+.prose > :first-child { margin-top: 0; }
+.prose > :last-child { margin-bottom: 0; }
+
 .prose h1, .prose h2 {
   margin-top: 2em;
   margin-bottom: 0.7em;
@@ -745,11 +802,37 @@ th {
 .prose ul, .prose ol { margin: 0 0 1.25em; padding-left: 1.6em; }
 .prose li { margin-bottom: 0.4em; }
 .prose li::marker { color: var(--monet-blue); }
-.prose img { margin: 1.6rem 0; }
+.prose img {
+  margin: 1.6rem 0;
+  /* 细边框：白底截图不再和页面背景糊成一片 */
+  border: 1px solid var(--border-light);
+}
 .prose a { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(107,148,168,0.45); }
 .prose a:hover { text-decoration-color: currentColor; }
 .prose blockquote { font-size: 0.98em; }
 .prose hr { margin: 2.5rem 0; }
+
+/* 行内代码：原来底色偏淡，和白底对比不足 */
+.prose :not(pre) > code {
+  background: var(--monet-blue-light);
+  color: var(--monet-blue-deep);
+  border: 1px solid color-mix(in srgb, var(--monet-blue) 16%, transparent);
+  font-weight: 500;
+}
+
+/* 表格：斑马纹 + 表头加重，十几行的表格才扫得动 */
+.prose thead th {
+  border-bottom: 2px solid color-mix(in srgb, var(--monet-blue) 32%, var(--border-light));
+}
+.prose tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--monet-blue-lighter) 55%, transparent);
+}
+
+/* 任务列表的勾选框与文字对齐 */
+.prose input[type='checkbox'] {
+  margin-right: 0.45em;
+  vertical-align: middle;
+}
 
 /* ---------------- 空状态 ---------------- */
 

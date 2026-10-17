@@ -583,25 +583,8 @@ for (const r of cmtRows) cmtMap.set(r.post_id, r.count);
   .empty-state.card.small {
     padding: 2rem 1.5rem;
   }
-  .tag-list {
-    list-style: none;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-    padding: 0;
-    margin: 0;
-  }
-  .tag-chip.inline {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 9px;
-    font-size: 0.72rem;
-    font-weight: 500;
-    border-radius: var(--radius-pill);
-    background: var(--monet-blue-lighter);
-    color: var(--monet-blue-dark);
-    text-decoration: none;
-  }
+  /* 标签样式与 .tag-list 统一走全局（src/styles/global.css），
+     页面里不再重定义，否则同一个标签在不同页面会不一样大。 */
 
   @media (min-width: 720px) {
     .post-grid { grid-template-columns: 1fr 1fr; }
