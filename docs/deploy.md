@@ -58,7 +58,7 @@ fly logs
 
 ### B-0 一键初始化（推荐，Oracle Cloud / 任意 Ubuntu）
 
-`deploy/oracle-init.sh` 会把下面这些事一次做完：
+`deploy/server-init.sh` 会把下面这些事一次做完：
 
 - 装 Docker + compose 插件
 - **放行 80/443**（OCI 的 Ubuntu 镜像默认 iptables 末尾是 REJECT ALL，只放行 22——云控制台放行了也没用，这一层必须本机也放行）
@@ -68,9 +68,9 @@ fly logs
 - 装每日备份到 `/etc/cron.d/krivy-backup`（04:17，保留 7 份）
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/krivy-105/krivy-blog/main/deploy/oracle-init.sh
-chmod +x oracle-init.sh
-DOMAIN=krivy.cyou EMAIL=you@example.com sudo -E ./oracle-init.sh
+curl -fsSLO https://raw.githubusercontent.com/krivy-105/krivy-blog/main/deploy/server-init.sh
+chmod +x server-init.sh
+DOMAIN=krivy.cyou EMAIL=you@example.com sudo -E ./server-init.sh
 ```
 
 脚本可重复执行：已装的不会重装，已有的 `.env` 不会被覆盖。

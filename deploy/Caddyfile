@@ -1,6 +1,6 @@
 # Caddy 反向代理配置（自动申请 Let's Encrypt 证书）
 #
-# 由 deploy/oracle-init.sh 渲染：把 __DOMAIN__ / __EMAIL__ 替换成实际值后
+# 由 deploy/server-init.sh 渲染：把 __DOMAIN__ / __EMAIL__ 替换成实际值后
 # 写入 /etc/caddy/Caddyfile。
 #
 # 注意：首次申请证书时必须让域名直接解析到这台服务器（DNS 里的小云朵关掉），

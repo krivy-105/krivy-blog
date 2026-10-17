@@ -3,9 +3,9 @@
 # Oracle Cloud（或任意 Ubuntu/Debian 服务器）一键初始化
 #
 # 用法：
-#   curl -fsSLO https://raw.githubusercontent.com/krivy-105/krivy-blog/main/deploy/oracle-init.sh
-#   chmod +x oracle-init.sh
-#   DOMAIN=krivy.cyou EMAIL=you@example.com sudo -E ./oracle-init.sh
+#   curl -fsSLO https://raw.githubusercontent.com/krivy-105/krivy-blog/main/deploy/server-init.sh
+#   chmod +x server-init.sh
+#   DOMAIN=krivy.cyou EMAIL=you@example.com sudo -E ./server-init.sh
 #
 # 可选环境变量：
 #   APP_DIR=/opt/krivy-blog     代码与数据目录
@@ -29,8 +29,8 @@ warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*"; }
 die()  { printf '\033[1;31m[err ]\033[0m %s\n' "$*" >&2; exit 1; }
 
 # ---------- 前置检查 ----------
-[ "$(id -u)" -eq 0 ] || die "请用 root 运行：sudo -E ./oracle-init.sh"
-[ -n "$DOMAIN" ] || die "必须指定域名，例如：DOMAIN=krivy.cyou sudo -E ./oracle-init.sh"
+[ "$(id -u)" -eq 0 ] || die "请用 root 运行：sudo -E ./server-init.sh"
+[ -n "$DOMAIN" ] || die "必须指定域名，例如：DOMAIN=krivy.cyou sudo -E ./server-init.sh"
 [ -n "$EMAIL" ] || EMAIL="admin@$DOMAIN"
 
 command -v apt-get >/dev/null || die "此脚本针对 Debian/Ubuntu（apt）。其他发行版请手动装 Docker + Caddy。"
@@ -140,7 +140,7 @@ if [ -f .env ]; then
 else
   ADMIN_PASS="${ADMIN_PASSWORD:-$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | cut -c1-20)}"
   cat > .env <<EOF
-# 由 deploy/oracle-init.sh 生成于 $(date '+%F %T')
+# 由 deploy/server-init.sh 生成于 $(date '+%F %T')
 ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
 ADMIN_PASSWORD=${ADMIN_PASS}
 SESSION_COOKIE=blog_session
@@ -226,7 +226,7 @@ fi
 log "安装每日备份（04:17 执行，保留 7 份）"
 install -m 755 "$APP_DIR/deploy/backup.sh" /usr/local/bin/krivy-backup
 cat > /etc/cron.d/krivy-backup <<EOF
-# 由 deploy/oracle-init.sh 安装
+# 由 deploy/server-init.sh 安装
 17 4 * * * root APP_DIR=$APP_DIR /usr/local/bin/krivy-backup >> /var/log/krivy-backup.log 2>&1
 EOF
 
