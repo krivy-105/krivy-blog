@@ -153,15 +153,29 @@ fly sftp shell
 **VPS + docker compose**
 
 ```bash
+# ⚠️ 必须先停容器：运行中的 SQLite 被 cp 覆盖会拿到损坏的库
+docker compose stop
 mkdir -p data
 cp /path/to/blog-2026-10-17.db data/blog.db
-docker compose restart
+docker compose start
 ```
 
 传完确认一下：
 
 ```bash
 docker compose exec blog ls -lh /data    # 应能看到 blog.db、uploads/、avatars/
+```
+
+**从每日快照包恢复**（`deploy/backup.sh` 产出的 `snapshot-YYYY-MM-DD.tar.gz`）
+
+```bash
+docker compose stop
+tar -xzf snapshot-2026-10-17.tar.gz -C /tmp/restore
+cp /tmp/restore/db/blog.db data/blog.db
+# 上传图与头像按需覆盖
+cp -a /tmp/restore/uploads/.  data/uploads/  2>/dev/null || true
+cp -a /tmp/restore/avatars/.  data/avatars/  2>/dev/null || true
+docker compose start
 ```
 
 ---

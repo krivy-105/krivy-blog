@@ -20,10 +20,13 @@ __DOMAIN__ {
 	# 反代到容器。Caddy v2 会自动透传 WebSocket 的 Upgrade 头，
 	# 私信长连接不需要额外配置。
 	reverse_proxy 127.0.0.1:4321 {
-		# 让上游拿到真实客户端 IP（访客统计按 IP 去重要用）
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-For {remote_host}
+		# server.mjs 会读这两个头重建「浏览器看到的」域名与协议，
+		# 少了它们 canonical / cookie / www 跳转都会拿到容器内部地址。
+		# X-Forwarded-For 供访客统计使用（中间件取第一个值做 IP 哈希去重）。
+		header_up X-Forwarded-Host {host}
 		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Real-IP {remote_host}
 	}
 
 	# 安全响应头（应用自身也会输出 CSP，这里补几条与传输层相关的）

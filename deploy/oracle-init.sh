@@ -42,6 +42,26 @@ log "更新软件源并安装基础依赖"
 apt-get update -qq
 apt-get install -y -qq curl git ca-certificates gnupg tar openssl ufw >/dev/null
 
+# ---------- 1.5 交换分区 ----------
+# AMD micro 实例只有 1GB 内存，而构建阶段要跑 Astro 打包 + g++ 编译
+# better-sqlite3，峰值经常超过 1GB。没有 swap 的话 npm run build 会被
+# OOM killer 直接杀掉（表现为构建莫名退出，很难看出原因）。
+if [ -f /swapfile ]; then
+  log "swap 已存在，跳过"
+elif [ "$(swapon --show=NAME --noheadings 2>/dev/null | wc -l)" -gt 0 ]; then
+  log "已有交换分区，跳过"
+else
+  log "创建 2G 交换分区（防止构建期 OOM）"
+  if ! fallocate -l 2G /swapfile 2>/dev/null; then
+    dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none
+  fi
+  chmod 600 /swapfile
+  mkswap /swapfile >/dev/null
+  swapon /swapfile
+  grep -q '^/swapfile' /etc/fstab 2>/dev/null || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  log "交换分区已启用：$(free -h | awk '/Swap/{print $2}')"
+fi
+
 # ---------- 2. Docker ----------
 if command -v docker >/dev/null 2>&1; then
   log "Docker 已安装：$(docker --version)"
@@ -103,8 +123,10 @@ fi
 # ---------- 4. 拉代码 ----------
 if [ -d "$APP_DIR/.git" ]; then
   log "更新已有仓库：$APP_DIR"
+  # 用 FETCH_HEAD 而不是 origin/main：浅克隆 + fetch 指定分支时，
+  # remote-tracking ref 是否更新取决于 refspec 配置，FETCH_HEAD 一定是对的。
   git -C "$APP_DIR" fetch --depth 1 origin main
-  git -C "$APP_DIR" reset --hard origin/main
+  git -C "$APP_DIR" reset --hard FETCH_HEAD
 else
   log "克隆仓库到 $APP_DIR"
   mkdir -p "$(dirname "$APP_DIR")"
@@ -128,6 +150,12 @@ EOF
   printf '\n\033[1;32m  管理员账号: %s\033[0m\n' "${ADMIN_USERNAME:-admin}"
   printf '\033[1;32m  管理员密码: %s\033[0m\n' "$ADMIN_PASS"
   printf '\033[1;33m  （请立刻保存到密码管理器，此密码只显示这一次）\033[0m\n\n'
+fi
+
+# compose 里 ADMIN_PASSWORD 用的是必填语法 ${ADMIN_PASSWORD:?...}，
+# 缺了会报一句很难懂的 "required variable is missing"。这里提前拦下来。
+if ! grep -Eq '^ADMIN_PASSWORD=.+' .env; then
+  die "$APP_DIR/.env 里没有有效的 ADMIN_PASSWORD，请编辑该文件补上后重新运行本脚本"
 fi
 
 # ---------- 6. 构建并启动 ----------
@@ -170,9 +198,28 @@ else
   mkdir -p /var/log/caddy
   chown -R caddy:caddy /var/log/caddy 2>/dev/null || true
 
-  systemctl enable caddy >/dev/null 2>&1 || true
-  systemctl restart caddy
-  log "Caddy 已重启（证书申请约需 10–60 秒）"
+  # 先校验再重启：Caddyfile 语法错的话 systemctl restart 会失败，
+  # 而 set -e 会让整个脚本在装配份那步之前就退出。
+  if caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1; then
+    systemctl enable caddy >/dev/null 2>&1 || true
+    systemctl restart caddy
+    log "Caddy 已重启，正在等待证书（约 10–60 秒）"
+
+    # 证书是首个请求时才申请的，这里探一下能否走通 HTTPS
+    CERT_OK=0
+    for _ in $(seq 1 20); do
+      if curl -fsS -m 5 "https://$DOMAIN/healthz" >/dev/null 2>&1; then CERT_OK=1; break; fi
+      sleep 3
+    done
+    if [ "$CERT_OK" -eq 1 ]; then
+      log "HTTPS 已可用：https://$DOMAIN"
+    else
+      warn "HTTPS 还没通。常见原因：域名未解析到本机、DNS 仍开着云朵（要灰云）、云端安全列表没放行 443"
+      warn "排查：systemctl status caddy --no-pager；journalctl -u caddy -n 50"
+    fi
+  else
+    warn "Caddyfile 校验失败，已跳过 Caddy 重启。手动看错误：caddy validate --config /etc/caddy/Caddyfile"
+  fi
 fi
 
 # ---------- 8. 每日离机备份 ----------
@@ -209,15 +256,18 @@ cat <<EOF
    拿到证书后再打开小云朵也不影响。
 
 3) 【数据】把旧平台的 blog.db 灌进来
-   mkdir -p $APP_DIR/data
-   cp /path/to/blog-YYYY-MM-DD.db $APP_DIR/data/blog.db
-   cd $APP_DIR && $DC restart
+   ⚠️ 必须先停容器再覆盖，运行中的 SQLite 被 cp 覆盖会拿到损坏的库
+   cd $APP_DIR
+   $DC stop
+   mkdir -p data
+   cp /path/to/blog-YYYY-MM-DD.db data/blog.db
+   $DC start
 
 验证清单（任何一条不对就别切流量）：
    curl -I https://$DOMAIN/            返回 200
-   curl -s https://$DOMAIN/healthz     返回 ok
+   curl -s https://$DOMAIN/healthz     返回 {"status":"ok","uptime":...}
    登录后台「下载备份」能拿到新库
-   上传一张说说配图 → 重启容器 → 图还在（证明卷挂对了）
+   上传一张说说配图 → $DC restart → 图还在（证明卷挂对了）
    发一条私信能实时收到（证明 WebSocket 通了）
 
 EOF
