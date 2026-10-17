@@ -41,3 +41,7 @@ cloudflared
 # 字体：只用 woff2，woff 是早期遗留的无用副本
 /src/assets/fonts/*.woff
 
+
+# 本地凭据备忘（含明文密码，绝不入库）
+.local-credentials.md
+
