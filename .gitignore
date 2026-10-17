@@ -28,3 +28,12 @@ pnpm-debug.log*
 
 # trae editor
 .trae/
+
+# 本地运行时产物（不属于源码，别进仓库）
+# cloudflared 是 Windows 上跑临时隧道用的，几十 MB，进仓库会撑爆历史
+cloudflared.exe
+cloudflared
+
+# 个人材料：项目报告只用于对外提交，不随仓库走
+/网站项目报告.docx
+/网站项目报告.md
