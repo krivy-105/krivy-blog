@@ -30,7 +30,7 @@ const COLLAPSED_LIMIT = 8;
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <BaseHead title={`关于本站 - ${SITE_TITLE}`} description="这个站点的技术实现：Astro SSR、SQLite、FTS5 与部署方案" />
+    <BaseHead title={`关于本站 - ${SITE_TITLE}`} description="这个站点怎么跑起来的：Astro SSR、SQLite + FTS5、自建 WebSocket 与自有服务器上的自动部署" />
   </head>
   <body>
     <Header />
@@ -38,35 +38,48 @@ const COLLAPSED_LIMIT = 8;
       <header class="about-hero">
         <div class="avatar">🛠️</div>
         <h1>关于本站</h1>
-        <p class="about-sub">简单交代下，这个站是怎么跑起来的。</p>
+        <p class="about-sub">从数据库到反向代理都是自己配的，简单交代下它是怎么跑起来的。</p>
       </header>
 
       <div class="about-grid">
         <div class="about-content prose">
+          <p class="about-lead">
+            这个站没有用现成的博客系统：文章、评论、标签全部存在数据库里，页面一律服务端渲染，
+            跑在一台自己维护的服务器上。下面几段说说它是怎么拼起来的——以及为什么这么拼。
+          </p>
+
           <h3>架构</h3>
           <p>
-            Astro 7 SSR + <code>@astrojs/node</code>（Node 22），入口是自己写的一层
-            <code>server.mjs</code>，顺带用 <code>ws</code> 挂了 WebSocket——私信因此是实时推送，而非轮询。
+            Astro 7 SSR + <code>@astrojs/node</code>（Node 22）。入口是自己写的一层
+            <code>server.mjs</code>：既托管 HTTP 与静态资源，也用 <code>ws</code> 挂了一条 WebSocket——
+            所以私信是实时推送的，不是轮询。
           </p>
+
           <h3>数据</h3>
           <p>
-            全部状态收敛进一个 SQLite 文件（<code>better-sqlite3</code>，同步 API + 事务）；
-            全文检索直接用 FTS5，触发器维护索引，文章增删改无需手动同步。
-            数据库与上传文件落在挂载的持久卷上，重新部署也不丢数据。
+            全部状态收敛进一个 SQLite 文件（<code>better-sqlite3</code>，同步 API + 事务），
+            没有 Redis、没有独立数据库服务。全文检索直接用 FTS5，索引交给触发器维护，
+            文章增删改不需要手动同步。库和上传的图片都放在 <code>/data</code> 目录下，
+            重建容器、更新代码都不影响它；服务每天自动做一次一致性快照，保留最近 7 份。
           </p>
+
           <h3>安全与处理</h3>
           <p>
             bcrypt 存密码，session cookie 走 <code>httpOnly</code> + <code>sameSite=lax</code>；
-            头像经 sharp 自动旋转、居中裁剪为 256×256 的 WebP，上传后先进人工审核队列；
-            正文用 marked 渲染，写作页带工具栏、实时预览和本地草稿自动保存。
+            全站响应头带 CSP 与 HSTS，登录接口按 IP 限流且失败文案统一（不泄露账号是否存在）。
+            头像经 sharp 自动旋转、居中裁剪成 256×256 的 WebP，上传后先进人工审核队列；
+            正文用 marked 渲染、再经 sanitize-html 白名单净化，杜绝脚本注入。
           </p>
+
           <h3>部署</h3>
           <p>
-            代码托管在 GitHub，推送到 <code>main</code> 后由 Railway 自动构建运行，前置 Cloudflare 边缘缓存——
-            静态资源缓存一年，匿名页面在边缘节点缓存 30 秒，登录态与私有路径自动绕过；
-            站点另带 sitemap、明暗模式与移动端自适应。
+            代码托管在 GitHub，推送到 <code>main</code> 后由 GitHub Actions 自动 SSH 进服务器，
+            拉代码、重建镜像、替换容器，再轮询健康检查——全程约两分钟，人不用登录服务器。
+            前面挂 Caddy 负责反向代理、gzip/zstd 压缩与 Let's Encrypt 证书的自动申请和续期；
+            机器就是一台普通的 2 核 2G VPS，没有用任何托管平台。
           </p>
-          <blockquote>一个仓库、一个进程、一个 .db 文件——够用，且好维护。</blockquote>
+
+          <blockquote>一个仓库、一台机器、一个 .db 文件——够用，且好维护。</blockquote>
         </div>
 
         <aside class="changelog-aside" aria-label="站点更新日志">
@@ -200,6 +213,16 @@ const COLLAPSED_LIMIT = 8;
   }
   .about-content {
     animation: fadeIn 0.5s var(--ease) 0.1s both;
+  }
+  /* 开场白：比正文稍大、左侧一道主色竖线，和下面的小节区分开 */
+  .about-content .about-lead {
+    font-size: 1.05rem;
+    line-height: 1.95;
+    color: var(--text-gray);
+    padding-left: 0.95rem;
+    border-left: 3px solid color-mix(in srgb, var(--monet-blue) 45%, transparent);
+    margin: 0 0 1.9rem;
+    padding-bottom: 0.1rem;
   }
   .about-content blockquote {
     text-align: center;
