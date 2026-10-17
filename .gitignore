@@ -37,3 +37,7 @@ cloudflared
 # 个人材料：项目报告只用于对外提交，不随仓库走
 /网站项目报告.docx
 /网站项目报告.md
+
+# 字体：只用 woff2，woff 是早期遗留的无用副本
+/src/assets/fonts/*.woff
+
