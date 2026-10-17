@@ -56,6 +56,33 @@ fly logs
 
 香港/日本/新加坡的轻量服务器，国内 RTT 常在 30–60ms，比绕 Cloudflare 稳。
 
+### B-0 一键初始化（推荐，Oracle Cloud / 任意 Ubuntu）
+
+`deploy/oracle-init.sh` 会把下面这些事一次做完：
+
+- 装 Docker + compose 插件
+- **放行 80/443**（OCI 的 Ubuntu 镜像默认 iptables 末尾是 REJECT ALL，只放行 22——云控制台放行了也没用，这一层必须本机也放行）
+- 拉代码、生成 `.env`（随机强密码，只打印一次）
+- 构建并启动容器，轮询 `/healthz` 等就绪
+- 装 Caddy 并写好反代（自动申请 HTTPS 证书）
+- 装每日备份到 `/etc/cron.d/krivy-backup`（04:17，保留 7 份）
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/krivy-105/krivy-blog/main/deploy/oracle-init.sh
+chmod +x oracle-init.sh
+DOMAIN=krivy.cyou EMAIL=you@example.com sudo -E ./oracle-init.sh
+```
+
+脚本可重复执行：已装的不会重装，已有的 `.env` 不会被覆盖。
+
+> ⚠️ 首次申请证书时，DNS 里的小云朵必须关掉（DNS only / 灰云），
+> 否则 Let's Encrypt 的 HTTP-01 校验会被 Cloudflare 拦掉。拿到证书后再开不影响。
+>
+> ⚠️ Oracle 还有一道**云端安全列表**：控制台 → 实例 → 主 VCN → 安全列表 →
+> 添加入站规则，源 `0.0.0.0/0`、TCP、端口 80 与 443。本机 iptables 与云安全列表是两层，都要开。
+
+### B-1 手动步骤（想自己控制每一步时）
+
 ```bash
 # 1. 装 Docker
 curl -fsSL https://get.docker.com | sh

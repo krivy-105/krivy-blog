@@ -1,0 +1,43 @@
+# Caddy 反向代理配置（自动申请 Let's Encrypt 证书）
+#
+# 由 deploy/oracle-init.sh 渲染：把 __DOMAIN__ / __EMAIL__ 替换成实际值后
+# 写入 /etc/caddy/Caddyfile。
+#
+# 注意：首次申请证书时必须让域名直接解析到这台服务器（DNS 里的小云朵关掉），
+# 否则 HTTP-01 校验会被 Cloudflare 拦掉。拿到证书后再开小云朵也不影响。
+
+{
+	# 证书到期提醒邮箱
+	email __EMAIL__
+	# 关掉管理端口对外暴露，只监听本机
+	admin localhost:2019
+}
+
+__DOMAIN__ {
+	# 文本压缩：HTML/CSS/JS/XML 都能省一半以上
+	encode zstd gzip
+
+	# 反代到容器。Caddy v2 会自动透传 WebSocket 的 Upgrade 头，
+	# 私信长连接不需要额外配置。
+	reverse_proxy 127.0.0.1:4321 {
+		# 让上游拿到真实客户端 IP（访客统计按 IP 去重要用）
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	# 安全响应头（应用自身也会输出 CSP，这里补几条与传输层相关的）
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 10mb
+			roll_keep 5
+		}
+	}
+}
