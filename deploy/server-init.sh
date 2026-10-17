@@ -197,6 +197,13 @@ else
 
   mkdir -p /var/log/caddy
   chown -R caddy:caddy /var/log/caddy 2>/dev/null || true
+  # 光有目录权限不够：Caddy 启动时要 open 日志文件本身，
+  # 文件不存在而 systemd 又限制了写入路径时会直接
+  # "open /var/log/caddy/access.log: permission denied" 然后进程退出。
+  # 先以 root 建好空文件再交给 caddy，避开这个坑。
+  touch /var/log/caddy/access.log
+  chown caddy:caddy /var/log/caddy/access.log
+  chmod 640 /var/log/caddy/access.log
 
   # 先校验再重启：Caddyfile 语法错的话 systemctl restart 会失败，
   # 而 set -e 会让整个脚本在装配份那步之前就退出。
@@ -205,17 +212,26 @@ else
     systemctl restart caddy
     log "Caddy 已重启，正在等待证书（约 10–60 秒）"
 
-    # 证书是首个请求时才申请的，这里探一下能否走通 HTTPS
+    # 证书是首个请求时才申请的。
+    # ⚠️ 必须用 --resolve 把域名强制指到本机：直接 curl 公网域名的话，
+    # 如果这个域名此刻还指着旧服务器（Cloudflare / 旧主机），
+    # 请求会被旧站应答，于是"检查通过"，可本机其实没拿到证书。
     CERT_OK=0
     for _ in $(seq 1 20); do
-      if curl -fsS -m 5 "https://$DOMAIN/healthz" >/dev/null 2>&1; then CERT_OK=1; break; fi
+      if curl -fsS -m 5 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/healthz" >/dev/null 2>&1; then
+        CERT_OK=1
+        break
+      fi
       sleep 3
     done
     if [ "$CERT_OK" -eq 1 ]; then
-      log "HTTPS 已可用：https://$DOMAIN"
+      log "HTTPS 已可用（证书已签发）：https://$DOMAIN"
     else
-      warn "HTTPS 还没通。常见原因：域名未解析到本机、DNS 仍开着云朵（要灰云）、云端安全列表没放行 443"
-      warn "排查：systemctl status caddy --no-pager；journalctl -u caddy -n 50"
+      warn "本机 HTTPS 还没通。最常见的原因按顺序排查："
+      warn "  1) 域名还没解析到本机 IP —— dig +short $DOMAIN 看是不是本机"
+      warn "  2) DNS 里的小云朵没关（必须是灰云 DNS only），否则 HTTP-01 校验打到 Cloudflare"
+      warn "  3) 云平台安全列表/防火墙没放行 80 与 443"
+      warn "  排查命令：journalctl -u caddy -n 50 --no-pager | grep -i acme"
     fi
   else
     warn "Caddyfile 校验失败，已跳过 Caddy 重启。手动看错误：caddy validate --config /etc/caddy/Caddyfile"
@@ -256,12 +272,20 @@ cat <<EOF
    拿到证书后再打开小云朵也不影响。
 
 3) 【数据】把旧平台的 blog.db 灌进来
-   ⚠️ 必须先停容器再覆盖，运行中的 SQLite 被 cp 覆盖会拿到损坏的库
+   ⚠️ 顺序不能改。两个坑：
+      ① 运行中的 SQLite 被 cp 覆盖会拿到损坏的库 → 必须先停容器
+      ② 旧库留下的 blog.db-wal / blog.db-shm 必须先删掉！
+         SQLite 打开时会回放 WAL，残留的 WAL 会盖掉你刚灌进去的真实数据，
+         表现就是「明明复制了 568K 的新库，进容器一查还是空库」。
    cd $APP_DIR
    $DC stop
+   rm -f data/blog.db-wal data/blog.db-shm
    mkdir -p data
    cp /path/to/blog-YYYY-MM-DD.db data/blog.db
    $DC start
+
+   灌完核对（数字应和你旧站一致）：
+   $DC exec blog node -e "const D=require('better-sqlite3');const db=new D('/data/blog.db',{readonly:true});const q=s=>db.prepare(s).get().c;console.log('用户='+q('select count(*) c from users')+' 文章='+q('select count(*) c from posts'))"
 
 验证清单（任何一条不对就别切流量）：
    curl -I https://$DOMAIN/            返回 200

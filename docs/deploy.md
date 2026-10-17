@@ -153,8 +153,13 @@ fly sftp shell
 **VPS + docker compose**
 
 ```bash
-# ⚠️ 必须先停容器：运行中的 SQLite 被 cp 覆盖会拿到损坏的库
+# ⚠️ 两个坑，顺序不能改：
+#   ① 运行中的 SQLite 被 cp 覆盖会拿到损坏的库 → 必须先停容器
+#   ② 必须删掉旧的 blog.db-wal / blog.db-shm
+#      否则 SQLite 打开时会回放残留 WAL，把你刚灌进去的真实数据盖掉，
+#      现象是"明明复制了 568K 新库，容器里查还是空库"。
 docker compose stop
+rm -f data/blog.db-wal data/blog.db-shm
 mkdir -p data
 cp /path/to/blog-2026-10-17.db data/blog.db
 docker compose start
@@ -164,12 +169,16 @@ docker compose start
 
 ```bash
 docker compose exec blog ls -lh /data    # 应能看到 blog.db、uploads/、avatars/
+
+# 数字要和旧站一致，否则说明没灌进去
+docker compose exec blog node -e "const D=require('better-sqlite3');const db=new D('/data/blog.db',{readonly:true});const q=s=>db.prepare(s).get().c;console.log('用户='+q('select count(*) c from users')+' 文章='+q('select count(*) c from posts'))"
 ```
 
 **从每日快照包恢复**（`deploy/backup.sh` 产出的 `snapshot-YYYY-MM-DD.tar.gz`）
 
 ```bash
 docker compose stop
+rm -f data/blog.db-wal data/blog.db-shm
 tar -xzf snapshot-2026-10-17.tar.gz -C /tmp/restore
 cp /tmp/restore/db/blog.db data/blog.db
 # 上传图与头像按需覆盖

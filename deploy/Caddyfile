@@ -19,13 +19,12 @@ __DOMAIN__ {
 
 	# 反代到容器。Caddy v2 会自动透传 WebSocket 的 Upgrade 头，
 	# 私信长连接不需要额外配置。
+	#
+	# X-Forwarded-For / Host / Proto 都是 Caddy 的默认行为，不用显式写
+	# （写了反而会触发 "Unnecessary header_up" 警告）。
+	# 只有 X-Real-IP 需要补，因为 Caddy 默认不设置它，
+	# 而 server.mjs 会读它/读 XFF 的第一个值来还原真实客户端 IP。
 	reverse_proxy 127.0.0.1:4321 {
-		# server.mjs 会读这两个头重建「浏览器看到的」域名与协议，
-		# 少了它们 canonical / cookie / www 跳转都会拿到容器内部地址。
-		# X-Forwarded-For 供访客统计使用（中间件取第一个值做 IP 哈希去重）。
-		header_up X-Forwarded-Host {host}
-		header_up X-Forwarded-Proto {scheme}
-		header_up X-Forwarded-For {remote_host}
 		header_up X-Real-IP {remote_host}
 	}
 
