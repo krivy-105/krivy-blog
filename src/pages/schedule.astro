@@ -1,0 +1,422 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE_TITLE } from '../consts';
+import { scheduleQueries, type ScheduleCourse } from '../lib/db';
+
+// ---- 读取数据 ----
+const courses = scheduleQueries.all.all() as ScheduleCourse[];
+const metaRows = scheduleQueries.allMeta.all() as { key: string; value: string }[];
+const meta: Record<string, string> = {};
+for (const r of metaRows) meta[r.key] = r.value;
+
+const term = meta.term || '';
+const startDate = meta.start_date || ''; // 第 1 周周一，YYYY-MM-DD
+const totalWeeks = Number(meta.total_weeks || 20);
+const syncedAt = Number(meta.synced_at || 0);
+
+// ---- 当前周次 & 周切换 ----
+const DAY = 86400000;
+const startMs = startDate ? new Date(`${startDate}T00:00:00`).getTime() : 0;
+const now = Date.now();
+const todayStart = new Date();
+todayStart.setHours(0, 0, 0, 0);
+
+// 真实当前周：从学期第一天算起
+const realWeek = startMs ? Math.floor((todayStart.getTime() - startMs) / (7 * DAY)) + 1 : 1;
+
+const weekParam = Number(Astro.url.searchParams.get('week') || '');
+const week = Number.isFinite(weekParam) && weekParam >= 1 && weekParam <= totalWeeks
+  ? weekParam
+  : Math.min(Math.max(realWeek, 1), totalWeeks);
+
+// 本周起始日期
+const weekStartMs = startMs ? startMs + (week - 1) * 7 * DAY : 0;
+const weekDays = Array.from({ length: 7 }, (_, i) => {
+  const ms = weekStartMs ? weekStartMs + i * DAY : 0;
+  const d = ms ? new Date(ms) : null;
+  return {
+    idx: i + 1,
+    label: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][i],
+    date: d ? `${d.getMonth() + 1}/${d.getDate()}` : '',
+    isToday: d ? d.toDateString() === todayStart.toDateString() : false,
+  };
+});
+
+// ---- 过滤出本周生效的课 ----
+const isActive = (c: ScheduleCourse) => {
+  if (week < c.week_start || week > c.week_end) return false;
+  if (c.parity === 'odd') return week % 2 === 1;
+  if (c.parity === 'even') return week % 2 === 0;
+  return true;
+};
+const weekCourses = courses.filter(isActive);
+
+// 纵向节次范围：按实际用到的节次收窄，避免大半个空表格
+const maxSection = weekCourses.length
+  ? Math.max(...weekCourses.map((c) => c.end_section))
+  : 10;
+const minSection = 1;
+const sections = Array.from({ length: maxSection - minSection + 1 }, (_, i) => i + minSection);
+
+// ---- 课程配色：按课程名散列，同一门课永远同一个颜色 ----
+const PALETTE = [
+  '#6b94a8', '#7b9e6b', '#a88a6b', '#8a7ba8', '#6b8aa8',
+  '#a86b7b', '#6ba89a', '#a89a6b', '#7b6ba8', '#6ba87b',
+];
+const colorOf = (name: string) => {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 997;
+  return PALETTE[h % PALETTE.length];
+};
+
+const fmtDate = (ms: number) => {
+  if (!ms) return '';
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const weekEndLabel = weekStartMs ? fmtDate(weekStartMs + 6 * DAY) : '';
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title={`课表 - ${SITE_TITLE}`} description="实时同步的课程表：按周查看、自动定位当前周。" />
+  </head>
+  <body>
+    <Header />
+    <main class="schedule-page">
+      <header class="sched-head">
+        <div class="head-main">
+          <span class="eyebrow">SCHEDULE</span>
+          <h1>课表</h1>
+          <p class="head-sub">
+            {term ? `${term} · ` : ''}第 <strong>{week}</strong> 周
+            {weekStartMs ? `（${fmtDate(weekStartMs)} ~ ${weekEndLabel}）` : ''}
+            {week !== realWeek && weekStartMs ? ` · 当前真实第 ${realWeek} 周` : ''}
+          </p>
+        </div>
+
+        <div class="head-actions">
+          {week > 1 ? (
+            <a class="wk-btn" href={`/schedule?week=${week - 1}`}>← 上一周</a>
+          ) : (
+            <span class="wk-btn is-disabled">← 上一周</span>
+          )}
+          {week !== realWeek ? (
+            <a class="wk-btn is-now" href="/schedule">回到本周</a>
+          ) : (
+            <span class="wk-btn is-now is-disabled">本周</span>
+          )}
+          {week < totalWeeks ? (
+            <a class="wk-btn" href={`/schedule?week=${week + 1}`}>下一周 →</a>
+          ) : (
+            <span class="wk-btn is-disabled">下一周 →</span>
+          )}
+        </div>
+      </header>
+
+      {courses.length === 0 ? (
+        <section class="empty card">
+          <div class="empty-icon">📅</div>
+          <h2>还没有课表数据</h2>
+          <p>课表由校内网的抓取脚本推送上来。先在本机跑一次同步：</p>
+          <pre><code>node scripts/fetch-schedule.mjs</code></pre>
+          <p class="empty-note">
+            脚本会读取教务系统、解析成课程列表，再用带密钥的接口推送到本站。
+            具体配置见 <code>scripts/fetch-schedule.mjs</code> 顶部说明。
+          </p>
+        </section>
+      ) : (
+        <>
+          {/* ---------- 桌面端：周网格 ---------- */}
+          <section class="grid-wrap card" aria-label="周课表">
+            <div class="grid" style={`--cols:${weekDays.length};--secs:${sections.length}`}>
+              <div class="cell corner">节次</div>
+              {weekDays.map((d) => (
+                <div class={`cell day-head${d.isToday ? ' is-today' : ''}`}>
+                  <span class="day-label">{d.label}</span>
+                  <span class="day-date">{d.date}</span>
+                </div>
+              ))}
+
+              {sections.map((sec) => (
+                <>
+                  <div class="cell sec-head">{sec}</div>
+                  {weekDays.map((d) => <div class="cell slot" />)}
+                </>
+              ))}
+
+              {/* 课程块：用 grid-area 精确占位，跨越的节次自动撑开 */}
+              {weekCourses.map((c) => (
+                <a
+                  class="course"
+                  href={`/schedule?week=${week}`}
+                  style={`
+                    grid-column:${c.weekday + 1};
+                    grid-row:${c.start_section - minSection + 2} / ${c.end_section - minSection + 3};
+                    --c:${colorOf(c.course)};
+                  `}
+                  title={`${c.course}${c.teacher ? ` · ${c.teacher}` : ''}${c.location ? ` · ${c.location}` : ''}`}
+                >
+                  <span class="c-name">{c.course}</span>
+                  {c.location && <span class="c-loc">{c.location}</span>}
+                  {c.teacher && <span class="c-teacher">{c.teacher}</span>}
+                  {c.parity !== 'all' && <span class="c-parity">{c.parity === 'odd' ? '单' : '双'}周</span>}
+                </a>
+              ))}
+            </div>
+          </section>
+
+          {/* ---------- 移动端：按天列表 ---------- */}
+          <section class="day-list" aria-label="按天查看">
+            {weekDays.map((d) => {
+              const list = weekCourses.filter((c) => c.weekday === d.idx);
+              return (
+                <div class={`day-block${d.isToday ? ' is-today' : ''}`}>
+                  <div class="day-title">
+                    <span>{d.label}</span>
+                    <span class="day-title-date">{d.date}</span>
+                    {list.length === 0 && <span class="day-rest">休息</span>}
+                  </div>
+                  {list.map((c) => (
+                    <div class="day-course" style={`--c:${colorOf(c.course)}`}>
+                      <div class="dc-time">第 {c.start_section}-{c.end_section} 节</div>
+                      <div class="dc-main">
+                        <div class="dc-name">{c.course}</div>
+                        <div class="dc-meta">
+                          {c.location && <span>{c.location}</span>}
+                          {c.teacher && <span>{c.teacher}</span>}
+                          {c.parity !== 'all' && <span>{c.parity === 'odd' ? '单' : '双'}周</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </section>
+
+          <p class="sync-note">
+            共 {courses.length} 门课 · 本周 {weekCourses.length} 节
+            {syncedAt ? ` · 数据更新于 ${new Date(syncedAt).toLocaleString('zh-CN', { hour12: false })}` : ''}
+          </p>
+        </>
+      )}
+    </main>
+    <Footer />
+
+    <style>
+      .schedule-page {
+        max-width: var(--width-wide);
+        margin: 0 auto;
+        padding: 2.2rem 1.5rem 3.5rem;
+      }
+
+      /* ---------- 页头 ---------- */
+      .sched-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.6rem;
+      }
+      .eyebrow {
+        display: inline-block;
+        font-size: 0.76rem;
+        letter-spacing: 0.34em;
+        color: var(--monet-blue-dark);
+        font-weight: 650;
+        margin-bottom: 0.4rem;
+      }
+      .sched-head h1 { margin: 0 0 0.35rem; }
+      .head-sub {
+        margin: 0;
+        color: var(--text-gray);
+        font-size: 0.95rem;
+      }
+      .head-sub strong { color: var(--monet-blue-dark); font-size: 1.05em; }
+
+      .head-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+      .wk-btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.42rem 0.85rem;
+        font-size: 0.85rem;
+        border-radius: var(--radius-pill);
+        border: 1px solid var(--border-light);
+        background: var(--glass-bg);
+        color: var(--monet-blue-dark);
+        text-decoration: none;
+        transition: var(--transition);
+      }
+      .wk-btn:hover {
+        border-color: var(--monet-blue);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-sm);
+      }
+      .wk-btn.is-now {
+        background: var(--monet-blue);
+        border-color: var(--monet-blue);
+        color: #fff;
+      }
+      .wk-btn.is-disabled {
+        opacity: 0.42;
+        pointer-events: none;
+      }
+
+      /* ---------- 周网格 ---------- */
+      .grid-wrap { padding: 0.75rem; overflow-x: auto; }
+      .grid {
+        display: grid;
+        grid-template-columns: 46px repeat(var(--cols), minmax(88px, 1fr));
+        grid-template-rows: auto repeat(var(--secs), minmax(46px, auto));
+        gap: 4px;
+        min-width: 640px;
+      }
+      .cell {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        color: var(--text-light);
+        border-radius: var(--radius-sm);
+      }
+      .corner { background: transparent; font-size: 0.72rem; }
+      .day-head {
+        flex-direction: column;
+        gap: 1px;
+        padding: 0.35rem 0;
+        background: var(--monet-blue-lighter);
+        color: var(--monet-blue-dark);
+        font-weight: 600;
+      }
+      .day-head.is-today {
+        background: linear-gradient(135deg, var(--monet-blue), var(--monet-blue-dark));
+        color: #fff;
+      }
+      .day-date { font-size: 0.7rem; font-weight: 500; opacity: 0.85; }
+      .sec-head {
+        font-size: 0.72rem;
+        font-variant-numeric: tabular-nums;
+        background: var(--monet-blue-lighter);
+      }
+      .slot {
+        background: color-mix(in srgb, var(--monet-blue-lighter) 40%, transparent);
+      }
+
+      /* ---------- 课程块 ---------- */
+      .course {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 0.4rem 0.5rem;
+        border-radius: var(--radius-sm);
+        background: color-mix(in srgb, var(--c) 16%, transparent);
+        border: 1px solid color-mix(in srgb, var(--c) 38%, transparent);
+        border-left: 3px solid var(--c);
+        color: var(--text-dark);
+        text-decoration: none;
+        overflow: hidden;
+        transition: var(--transition);
+      }
+      .course:hover {
+        background: color-mix(in srgb, var(--c) 26%, transparent);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-sm);
+      }
+      .c-name {
+        font-size: 0.82rem;
+        font-weight: 600;
+        line-height: 1.35;
+        word-break: break-word;
+      }
+      .c-loc, .c-teacher {
+        font-size: 0.7rem;
+        color: var(--text-gray);
+        line-height: 1.3;
+      }
+      .c-parity {
+        font-size: 0.66rem;
+        color: var(--c);
+        font-weight: 600;
+      }
+
+      /* ---------- 移动端按天列表 ---------- */
+      .day-list { display: none; }
+      @media (max-width: 720px) {
+        .grid-wrap { display: none; }
+        .day-list { display: flex; flex-direction: column; gap: 0.7rem; }
+        .day-block {
+          padding: 0.85rem 1rem;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--glass-border);
+          background: var(--glass-bg);
+        }
+        .day-block.is-today {
+          border-color: color-mix(in srgb, var(--monet-blue) 45%, transparent);
+          box-shadow: var(--glow-soft);
+        }
+        .day-title {
+          display: flex;
+          align-items: baseline;
+          gap: 0.5rem;
+          font-weight: 650;
+          color: var(--text-dark);
+          margin-bottom: 0.5rem;
+        }
+        .day-block.is-today .day-title { color: var(--monet-blue-dark); }
+        .day-title-date { font-size: 0.78rem; color: var(--text-light); font-weight: 500; }
+        .day-rest { margin-left: auto; font-size: 0.76rem; color: var(--text-light); font-weight: 400; }
+        .day-course {
+          display: flex;
+          gap: 0.7rem;
+          padding: 0.5rem 0;
+          border-top: 1px dashed var(--border-light);
+        }
+        .day-course:first-of-type { border-top: none; }
+        .dc-time {
+          flex: 0 0 auto;
+          font-size: 0.74rem;
+          color: var(--c);
+          font-weight: 600;
+          padding-top: 2px;
+          white-space: nowrap;
+        }
+        .dc-name { font-size: 0.92rem; font-weight: 600; }
+        .dc-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+          font-size: 0.76rem;
+          color: var(--text-gray);
+          margin-top: 2px;
+        }
+      }
+
+      /* ---------- 空状态 ---------- */
+      .empty { text-align: center; padding: 3rem 1.5rem; }
+      .empty-icon { font-size: 2.6rem; margin-bottom: 0.6rem; }
+      .empty h2 { margin: 0 0 0.6rem; }
+      .empty p { color: var(--text-gray); font-size: 0.92rem; margin: 0 0 0.8rem; }
+      .empty pre {
+        display: inline-block;
+        text-align: left;
+        margin: 0.4rem 0 1rem;
+      }
+      .empty pre code { font-size: 0.85rem; }
+      .empty-note { font-size: 0.84rem !important; color: var(--text-light) !important; }
+
+      .sync-note {
+        margin: 1.2rem 0 0;
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--text-light);
+      }
+    </style>
+  </body>
+</html>

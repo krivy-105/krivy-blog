@@ -1426,3 +1426,97 @@ export type Message = {
   is_read: number;
   created_at: number;
 };
+
+// ============================================================
+// 课表
+// ------------------------------------------------------------
+// 数据不是服务器实时抓教务系统：教务系统大多只允许校内网访问，
+// 而本站跑在公网 VPS 上。所以由「校内网的电脑」跑抓取脚本，
+// 通过带密钥的 API 把结果推上来，本站只负责存储与展示。
+// 好处：抓取层怎么改都不影响站点，也不需要服务器能连进校园网。
+// ============================================================
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS schedule_courses (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    term          TEXT    NOT NULL DEFAULT '',
+    course        TEXT    NOT NULL,
+    teacher       TEXT,
+    location      TEXT,
+    weekday       INTEGER NOT NULL,
+    start_section INTEGER NOT NULL,
+    end_section   INTEGER NOT NULL,
+    week_start    INTEGER NOT NULL DEFAULT 1,
+    week_end      INTEGER NOT NULL DEFAULT 20,
+    parity        TEXT    NOT NULL DEFAULT 'all',
+    note          TEXT,
+    updated_at    INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_schedule_slot ON schedule_courses(weekday, start_section);
+
+  CREATE TABLE IF NOT EXISTS schedule_meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+  );
+`);
+
+export type ScheduleCourse = {
+  id: number;
+  term: string;
+  course: string;
+  teacher: string | null;
+  location: string | null;
+  weekday: number;
+  start_section: number;
+  end_section: number;
+  week_start: number;
+  week_end: number;
+  parity: string;
+  note: string | null;
+  updated_at: number;
+};
+
+export const scheduleQueries = {
+  all: db.prepare(
+    'SELECT * FROM schedule_courses ORDER BY weekday, start_section, course'
+  ),
+
+  clear: db.prepare('DELETE FROM schedule_courses'),
+
+  insert: db.prepare(
+    `INSERT INTO schedule_courses
+       (term, course, teacher, location, weekday, start_section, end_section,
+        week_start, week_end, parity, note, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ),
+
+  /** 整表替换：抓取脚本每次推全量，避免残留已被删掉的课程 */
+  replaceAll: db.transaction((rows: Partial<ScheduleCourse>[]) => {
+    const now = Date.now();
+    scheduleQueries.clear.run();
+    for (const r of rows) {
+      if (!r.course || !r.weekday || !r.start_section) continue;
+      scheduleQueries.insert.run(
+        String(r.term ?? ''),
+        String(r.course),
+        r.teacher ?? null,
+        r.location ?? null,
+        Number(r.weekday),
+        Number(r.start_section),
+        Number(r.end_section ?? r.start_section),
+        Number(r.week_start ?? 1),
+        Number(r.week_end ?? 20),
+        String(r.parity ?? 'all'),
+        r.note ?? null,
+        now
+      );
+    }
+    return rows.length;
+  }),
+
+  getMeta: db.prepare('SELECT value FROM schedule_meta WHERE key = ?'),
+  setMeta: db.prepare('INSERT OR REPLACE INTO schedule_meta (key, value) VALUES (?, ?)'),
+  allMeta: db.prepare('SELECT key, value FROM schedule_meta'),
+  count: db.prepare('SELECT COUNT(*) AS count FROM schedule_courses'),
+};
+
