@@ -22,6 +22,10 @@ services:
       # 不设这个变量会回落到 admin123456，并且每次重启都覆盖库里的密码
       ADMIN_PASSWORD: "${ADMIN_PASSWORD:?请先创建 .env 并设置 ADMIN_PASSWORD}"
       SESSION_COOKIE: "${SESSION_COOKIE:-blog_session}"
+      # 课表推送接口的密钥：抓取脚本用 x-schedule-token 头带上它。
+      # 注意 compose 只会传这里列出来的变量 —— 只写进 .env 而不在这列表里，
+      # 容器里 process.env 是拿不到的（这个坑实测踩过）。
+      SCHEDULE_TOKEN: "${SCHEDULE_TOKEN:-}"
     volumes:
       # 数据库、上传图、自动备份都在 /data 下，这一行就是全部需要持久化的东西
       - ./data:/data
