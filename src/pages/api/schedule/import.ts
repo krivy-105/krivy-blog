@@ -75,6 +75,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
   scheduleQueries.setMeta.run('source', String(body.source ?? 'script'));
   scheduleQueries.setMeta.run('synced_at', String(Date.now()));
 
+  // 作息时间：[[开始,结束], …] 按节次顺序，第 n 项对应第 n 节。
+  // 教室端不提供钟点，这份表由页面上展示、按学校实际情况配置。
+  if (Array.isArray(body.section_times) && body.section_times.length > 0) {
+    const cleaned = body.section_times
+      .map((t: any) => {
+        if (Array.isArray(t) && t.length === 2) return [String(t[0]), String(t[1])];
+        if (typeof t === 'string' && t.includes('-')) {
+          const [a, b] = t.split('-');
+          return [a.trim(), b.trim()];
+        }
+        return null;
+      })
+      .filter(Boolean);
+    if (cleaned.length > 0) {
+      scheduleQueries.setMeta.run('section_times', JSON.stringify(cleaned));
+    }
+  }
+
   return json({
     ok: true,
     saved,

@@ -16,6 +16,26 @@ const startDate = meta.start_date || ''; // 第 1 周周一，YYYY-MM-DD
 const totalWeeks = Number(meta.total_weeks || 20);
 const syncedAt = Number(meta.synced_at || 0);
 
+// ---- 作息时间（教务系统只给节次编号，不给钟点）----
+// 由推送接口的 section_times 提供：第 n 项对应第 n 节。
+let sectionTimes: string[][] = [];
+try {
+  const parsed = JSON.parse(meta.section_times || '[]');
+  if (Array.isArray(parsed)) sectionTimes = parsed;
+} catch {}
+/** 取某节的时间段，没有就是空串 */
+const timeOf = (sec: number): string => {
+  const t = sectionTimes[sec - 1];
+  return Array.isArray(t) && t[0] && t[1] ? `${t[0]}-${t[1]}` : '';
+};
+/** 跨节课程取首节开始 ~ 末节结束 */
+const timeRangeOf = (startSec: number, endSec: number): string => {
+  const a = sectionTimes[startSec - 1];
+  const b = sectionTimes[endSec - 1];
+  if (!a || !b) return '';
+  return `${a[0]}-${b[1]}`;
+};
+
 // ---- 当前周次 & 周切换 ----
 const DAY = 86400000;
 const startMs = startDate ? new Date(`${startDate}T00:00:00`).getTime() : 0;
@@ -160,7 +180,10 @@ const weekEndLabel = weekStartMs ? fmtDate(weekStartMs + 6 * DAY) : '';
 
               {sections.map((sec) => (
                 <>
-                  <div class="cell sec-head">{sec}</div>
+                  <div class="cell sec-head">
+                    <span class="sec-no">{sec}</span>
+                    {timeOf(sec) && <span class="sec-time">{timeOf(sec)}</span>}
+                  </div>
                   {weekDays.map((d) => <div class="cell slot" />)}
                 </>
               ))}
@@ -199,7 +222,12 @@ const weekEndLabel = weekStartMs ? fmtDate(weekStartMs + 6 * DAY) : '';
                   </div>
                   {list.map((c) => (
                     <div class="day-course" style={`--c:${colorOf(c.course)}`}>
-                      <div class="dc-time">第 {c.start_section}-{c.end_section} 节</div>
+                      <div class="dc-time">
+                      第 {c.start_section}-{c.end_section} 节
+                      {timeRangeOf(c.start_section, c.end_section) && (
+                        <span class="dc-clock">{timeRangeOf(c.start_section, c.end_section)}</span>
+                      )}
+                    </div>
                       <div class="dc-main">
                         <div class="dc-name">{c.course}</div>
                         <div class="dc-meta">
@@ -288,7 +316,7 @@ const weekEndLabel = weekStartMs ? fmtDate(weekStartMs + 6 * DAY) : '';
       .grid-wrap { padding: 0.75rem; overflow-x: auto; }
       .grid {
         display: grid;
-        grid-template-columns: 46px repeat(var(--cols), minmax(88px, 1fr));
+        grid-template-columns: 62px repeat(var(--cols), minmax(88px, 1fr));
         grid-template-rows: auto repeat(var(--secs), minmax(46px, auto));
         gap: 4px;
         min-width: 640px;
@@ -316,9 +344,24 @@ const weekEndLabel = weekStartMs ? fmtDate(weekStartMs + 6 * DAY) : '';
       }
       .day-date { font-size: 0.7rem; font-weight: 500; opacity: 0.85; }
       .sec-head {
-        font-size: 0.72rem;
-        font-variant-numeric: tabular-nums;
+        flex-direction: column;
+        gap: 0;
+        line-height: 1.25;
+        padding: 2px 0;
         background: var(--monet-blue-lighter);
+      }
+      .sec-no {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--monet-blue-dark);
+        font-variant-numeric: tabular-nums;
+      }
+      /* 具体钟点：小一号、更淡，不抢节次编号的注意力 */
+      .sec-time {
+        font-size: 0.58rem;
+        color: var(--text-light);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.02em;
       }
       .slot {
         background: color-mix(in srgb, var(--monet-blue-lighter) 40%, transparent);
@@ -403,6 +446,14 @@ const weekEndLabel = weekStartMs ? fmtDate(weekStartMs + 6 * DAY) : '';
           font-weight: 600;
           padding-top: 2px;
           white-space: nowrap;
+        }
+        /* 手机端把钟点放在节次下面一行，不用横向挤 */
+        .dc-clock {
+          display: block;
+          font-size: 0.66rem;
+          font-weight: 500;
+          color: var(--text-light);
+          margin-top: 1px;
         }
         .dc-name { font-size: 0.92rem; font-weight: 600; }
         .dc-meta {

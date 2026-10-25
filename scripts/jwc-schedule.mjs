@@ -187,6 +187,19 @@ if (process.argv.includes('--push')) {
     start_date: process.env.JW_START_DATE || '',
     total_weeks: Number(process.env.JW_TOTAL_WEEKS || 20),
     source: 'jwc-gdpt',
+    // 教务系统只给节次编号（第1节…第12节），不给钟点。
+    // 作息时间由这里提供：JW_SECTION_TIMES="08:00-08:45,08:55-09:40,…"
+    // 下面这份是常见的高校作息，第一次推上去后按学校实际作息核对修改即可。
+    section_times: (
+      process.env.JW_SECTION_TIMES ||
+      '08:00-08:45,08:55-09:40,10:00-10:45,10:55-11:40,' +
+      '14:00-14:45,14:55-15:40,16:00-16:45,16:55-17:40,' +
+      '19:00-19:45,19:55-20:40,20:50-21:35,21:45-22:30'
+    )
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => s.split('-').map((x) => x.trim())),
     courses,
   };
   const res = await fetch(`${SITE_URL}/api/schedule/import`, {
