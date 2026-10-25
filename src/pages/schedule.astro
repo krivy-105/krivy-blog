@@ -17,24 +17,14 @@ const totalWeeks = Number(meta.total_weeks || 20);
 const syncedAt = Number(meta.synced_at || 0);
 
 // ---- 作息时间（教务系统只给节次编号，不给钟点）----
-// 由推送接口的 section_times 提供：第 n 项对应第 n 节。
+// 由推送接口的 section_times 提供；按【大节】存（6 项，每项对应 2 个小节）：
+//   01-02节 08:30-10:10 / 03-04节 10:20-12:00 / 05-06节 14:00-15:40
+//   07-08节 15:50-17:30 / 09-10节 18:30-20:05 / 11-12节 20:15-21:50
 let sectionTimes: string[][] = [];
 try {
   const parsed = JSON.parse(meta.section_times || '[]');
   if (Array.isArray(parsed)) sectionTimes = parsed;
 } catch {}
-/** 取某节的时间段，没有就是空串 */
-const timeOf = (sec: number): string => {
-  const t = sectionTimes[sec - 1];
-  return Array.isArray(t) && t[0] && t[1] ? `${t[0]}-${t[1]}` : '';
-};
-/** 跨节课程取首节开始 ~ 末节结束 */
-const timeRangeOf = (startSec: number, endSec: number): string => {
-  const a = sectionTimes[startSec - 1];
-  const b = sectionTimes[endSec - 1];
-  if (!a || !b) return '';
-  return `${a[0]}-${b[1]}`;
-};
 
 // ---- 当前周次 & 周切换 ----
 const DAY = 86400000;
@@ -90,12 +80,24 @@ const isActive = (c: ScheduleCourse) => {
 };
 const weekCourses = courses.filter(isActive);
 
-// 纵向节次范围：按实际用到的节次收窄，避免大半个空表格
-const maxSection = weekCourses.length
-  ? Math.max(...weekCourses.map((c) => c.end_section))
-  : 10;
-const minSection = 1;
-const sections = Array.from({ length: maxSection - minSection + 1 }, (_, i) => i + minSection);
+// ---- 按「大节」排列 ----
+// 学校课表是 6 个大节，每个大节 = 2 小节（01-02、03-04…），一次 100 分钟。
+// 作息时间也是按大节给的，所以网格按大节渲染，而不是按 12 个小节。
+//   01-02节 08:30-10:10   03-04节 10:20-12:00   05-06节 14:00-15:40
+//   07-08节 15:50-17:30   09-10节 18:30-20:05   11-12节 20:15-21:50
+const blockOf = (sec: number) => Math.max(1, Math.ceil(sec / 2));
+const maxBlock = weekCourses.length
+  ? Math.max(...weekCourses.map((c) => blockOf(c.end_section)))
+  : 6;
+const blocks = Array.from({ length: maxBlock }, (_, i) => i + 1);
+
+/** 某一大节的时间段；section_times 按大节存（6 项） */
+const timeOfBlock = (b: number): string => {
+  const t = sectionTimes[b - 1];
+  return Array.isArray(t) && t[0] && t[1] ? `${t[0]}-${t[1]}` : '';
+};
+/** 课程的时间：取它所在大节的时段 */
+const timeOfCourse = (c: ScheduleCourse): string => timeOfBlock(blockOf(c.start_section));
 
 // ---- 课程配色：按课程名散列，同一门课永远同一个颜色 ----
 const PALETTE = [
@@ -169,8 +171,8 @@ const weekEndLabel = weekStartMs ? fmtDate(weekStartMs + 6 * DAY) : '';
         <>
           {/* ---------- 桌面端：周网格 ---------- */}
           <section class="grid-wrap card" aria-label="周课表">
-            <div class="grid" style={`--cols:${weekDays.length};--secs:${sections.length}`}>
-              <div class="cell corner">节次</div>
+            <div class="grid" style={`--cols:${weekDays.length};--secs:${blocks.length}`}>
+              <div class="cell corner">大节</div>
               {weekDays.map((d) => (
                 <div class={`cell day-head${d.isToday ? ' is-today' : ''}`}>
                   <span class="day-label">{d.label}</span>
@@ -178,32 +180,34 @@ const weekEndLabel = weekStartMs ? fmtDate(weekStartMs + 6 * DAY) : '';
                 </div>
               ))}
 
-              {sections.map((sec) => (
+              {blocks.map((b) => (
                 <>
                   <div class="cell sec-head">
-                    <span class="sec-no">{sec}</span>
-                    {timeOf(sec) && <span class="sec-time">{timeOf(sec)}</span>}
+                    <span class="sec-no">
+                      {String(b * 2 - 1).padStart(2, '0')}-{String(b * 2).padStart(2, '0')}
+                    </span>
+                    {timeOfBlock(b) && <span class="sec-time">{timeOfBlock(b)}</span>}
                   </div>
                   {weekDays.map((d) => <div class="cell slot" />)}
                 </>
               ))}
 
-              {/* 课程块：用 grid-area 精确占位，跨越的节次自动撑开 */}
+              {/* 课程块：用 grid-area 精确占位，跨大节的课自动撑开 */}
               {weekCourses.map((c) => (
                 <a
                   class="course"
                   href={`/schedule?week=${week}`}
                   style={`
                     grid-column:${c.weekday + 1};
-                    grid-row:${c.start_section - minSection + 2} / ${c.end_section - minSection + 3};
+                    grid-row:${blockOf(c.start_section) + 1} / ${blockOf(c.end_section) + 2};
                     --c:${colorOf(c.course)};
                   `}
-                  title={`${c.course}${c.teacher ? ` · ${c.teacher}` : ''}${c.location ? ` · ${c.location}` : ''}`}
+                  title={`${c.course}${c.teacher ? ` · ${c.teacher}` : ''}${c.location ? ` · ${c.location}` : ''}${timeOfCourse(c) ? ` · ${timeOfCourse(c)}` : ''}`}
                 >
                   <span class="c-name">{c.course}</span>
                   {c.location && <span class="c-loc">{c.location}</span>}
                   {c.teacher && <span class="c-teacher">{c.teacher}</span>}
-                  {c.parity !== 'all' && <span class="c-parity">{c.parity === 'odd' ? '单' : '双'}周</span>}
+                  {timeOfCourse(c) && <span class="c-time">{timeOfCourse(c)}</span>}
                 </a>
               ))}
             </div>
@@ -223,17 +227,15 @@ const weekEndLabel = weekStartMs ? fmtDate(weekStartMs + 6 * DAY) : '';
                   {list.map((c) => (
                     <div class="day-course" style={`--c:${colorOf(c.course)}`}>
                       <div class="dc-time">
-                      第 {c.start_section}-{c.end_section} 节
-                      {timeRangeOf(c.start_section, c.end_section) && (
-                        <span class="dc-clock">{timeRangeOf(c.start_section, c.end_section)}</span>
-                      )}
-                    </div>
+                        第 {String(c.start_section).padStart(2, '0')}-{String(c.end_section).padStart(2, '0')} 节
+                        {timeOfCourse(c) && <span class="dc-clock">{timeOfCourse(c)}</span>}
+                      </div>
                       <div class="dc-main">
                         <div class="dc-name">{c.course}</div>
                         <div class="dc-meta">
                           {c.location && <span>{c.location}</span>}
                           {c.teacher && <span>{c.teacher}</span>}
-                          {c.parity !== 'all' && <span>{c.parity === 'odd' ? '单' : '双'}周</span>}
+                          {c.weeks && <span>{c.weeks.replace(/,/g, '、')} 周</span>}
                         </div>
                       </div>
                     </div>
@@ -404,6 +406,12 @@ const weekEndLabel = weekStartMs ? fmtDate(weekStartMs + 6 * DAY) : '';
         font-size: 0.66rem;
         color: var(--c);
         font-weight: 600;
+      }
+      /* 课程块里的钟点：最淡的一层信息 */
+      .c-time {
+        font-size: 0.68rem;
+        color: var(--text-light);
+        font-variant-numeric: tabular-nums;
       }
 
       /* ---------- 移动端按天列表 ---------- */
