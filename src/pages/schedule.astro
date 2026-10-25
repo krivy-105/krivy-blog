@@ -45,7 +45,24 @@ const weekDays = Array.from({ length: 7 }, (_, i) => {
 });
 
 // ---- 过滤出本周生效的课 ----
+// 教务系统给的是「1,3-4,6-17」这种周次列表，优先用它；
+// 没有 weeks 时（手动录入的数据）才回退到起止周 + 单双周。
+function weekInSpec(spec: string, w: number): boolean {
+  for (const part of spec.split(',')) {
+    const p = part.trim();
+    if (!p) continue;
+    const m = p.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (m) {
+      if (w >= Number(m[1]) && w <= Number(m[2])) return true;
+    } else if (/^\d+$/.test(p) && Number(p) === w) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const isActive = (c: ScheduleCourse) => {
+  if (c.weeks && c.weeks.trim()) return weekInSpec(c.weeks, week);
   if (week < c.week_start || week > c.week_end) return false;
   if (c.parity === 'odd') return week % 2 === 1;
   if (c.parity === 'even') return week % 2 === 0;

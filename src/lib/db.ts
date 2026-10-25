@@ -1449,6 +1449,7 @@ db.exec(`
     week_start    INTEGER NOT NULL DEFAULT 1,
     week_end      INTEGER NOT NULL DEFAULT 20,
     parity        TEXT    NOT NULL DEFAULT 'all',
+    weeks         TEXT,
     note          TEXT,
     updated_at    INTEGER NOT NULL
   );
@@ -1459,6 +1460,15 @@ db.exec(`
     value TEXT
   );
 `);
+
+// 迁移：教务系统给的是「1,3-4,6-17」这种周次列表，起止周表达不了，
+// 单独存一列原始规则；有值时以它为准，为空时回退到 week_start/end + parity。
+{
+  const cols = db.prepare('PRAGMA table_info(schedule_courses)').all() as { name: string }[];
+  if (!cols.some((c) => c.name === 'weeks')) {
+    db.exec('ALTER TABLE schedule_courses ADD COLUMN weeks TEXT');
+  }
+}
 
 export type ScheduleCourse = {
   id: number;
@@ -1472,6 +1482,7 @@ export type ScheduleCourse = {
   week_start: number;
   week_end: number;
   parity: string;
+  weeks: string | null;
   note: string | null;
   updated_at: number;
 };
@@ -1486,8 +1497,8 @@ export const scheduleQueries = {
   insert: db.prepare(
     `INSERT INTO schedule_courses
        (term, course, teacher, location, weekday, start_section, end_section,
-        week_start, week_end, parity, note, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        week_start, week_end, parity, weeks, note, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ),
 
   /** 整表替换：抓取脚本每次推全量，避免残留已被删掉的课程 */
@@ -1507,6 +1518,7 @@ export const scheduleQueries = {
         Number(r.week_start ?? 1),
         Number(r.week_end ?? 20),
         String(r.parity ?? 'all'),
+        r.weeks ?? null,
         r.note ?? null,
         now
       );
