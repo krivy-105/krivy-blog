@@ -172,23 +172,31 @@ const weekEndLabel = weekStartMs ? fmtDate(weekStartMs + 6 * DAY) : '';
           {/* ---------- 桌面端：周网格 ---------- */}
           <section class="grid-wrap card" aria-label="周课表">
             <div class="grid" style={`--cols:${weekDays.length};--secs:${blocks.length}`}>
-              <div class="cell corner">大节</div>
+              <div class="cell corner" style="grid-column:1;grid-row:1;">大节</div>
               {weekDays.map((d) => (
-                <div class={`cell day-head${d.isToday ? ' is-today' : ''}`}>
+                <div
+                  class={`cell day-head${d.isToday ? ' is-today' : ''}`}
+                  style={`grid-column:${d.idx + 1};grid-row:1;`}
+                >
                   <span class="day-label">{d.label}</span>
                   <span class="day-date">{d.date}</span>
                 </div>
               ))}
 
+              {/* 关键：节次格与背景格必须显式定位。
+                  否则某行课程多的时候（课程也是 8 格里的成员），
+                  自动排队的「节次格 + 7 个空格」会被挤爆，标签跑到别的格子里去。 */}
               {blocks.map((b) => (
                 <>
-                  <div class="cell sec-head">
+                  <div class="cell sec-head" style={`grid-column:1;grid-row:${b + 1};`}>
                     <span class="sec-no">
                       {String(b * 2 - 1).padStart(2, '0')}-{String(b * 2).padStart(2, '0')}
                     </span>
                     {timeOfBlock(b) && <span class="sec-time">{timeOfBlock(b)}</span>}
                   </div>
-                  {weekDays.map((d) => <div class="cell slot" />)}
+                  {weekDays.map((d) => (
+                    <div class="cell slot" style={`grid-column:${d.idx + 1};grid-row:${b + 1};`} />
+                  ))}
                 </>
               ))}
 
