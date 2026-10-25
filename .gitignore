@@ -45,3 +45,11 @@ cloudflared
 # 本地凭据备忘（含明文密码，绝不入库）
 .local-credentials.md
 
+
+# 教务系统抓取的中间产物（含登录 cookie 与验证码图片，绝不能入库）
+.jwc-session.json
+.jwc-state.json
+captcha.jpg
+captcha.png
+jwc-xskb.html
+jwc-schedule-raw.html
