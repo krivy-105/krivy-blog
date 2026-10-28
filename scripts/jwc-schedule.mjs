@@ -30,12 +30,35 @@ const S = JSON.parse(readFileSync(SESSION, 'utf8'));
 
 const BIDX = BASE + '/jsxsd/xskb/xskb_list.do';
 
+/** 服务器可能在响应里下发新 cookie（会话轮转），拿到就写回文件，让定时任务能一直续下去 */
+function persistCookies(res) {
+  const raw = res.headers.getSetCookie?.() || [];
+  if (raw.length === 0) return;
+  const jar = {};
+  for (const pair of S.cookie.split(';')) {
+    const i = pair.indexOf('=');
+    if (i > 0) jar[pair.slice(0, i).trim()] = pair.slice(i + 1).trim();
+  }
+  for (const c of raw) {
+    const [pair] = c.split(';');
+    const i = pair.indexOf('=');
+    if (i > 0) jar[pair.slice(0, i).trim()] = pair.slice(i + 1).trim();
+  }
+  const cookie = Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
+  if (cookie !== S.cookie) {
+    S.cookie = cookie;
+    writeFileSync(SESSION, JSON.stringify({ ...S, cookie, refreshed_at: Date.now() }, null, 2));
+    console.log('  ↻ 会话已刷新并写回 .jwc-session.json');
+  }
+}
+
 // ---------- 抓 ----------
 async function fetchHtml() {
   const res = await fetch(BIDX, {
     headers: { 'User-Agent': UA, Cookie: S.cookie, Referer: BASE + '/jsxsd/framework/xsMainV.jsp' },
     redirect: 'manual',
   });
+  persistCookies(res);
   if (res.status >= 300 && res.status < 400) {
     throw new Error(`cookie 已失效（跳转 ${res.headers.get('location')}），重新跑 scripts/jwc-login.mjs`);
   }
