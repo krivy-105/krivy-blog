@@ -135,27 +135,43 @@ function parse(html) {
         const txt = b.replace(/\s+/g, ' ');
         if (/^(&nbsp;|\s)*$/.test(txt) || strip(b) === '') continue;
 
-        // 课程名：第一个 <br> 之前
-        const nameRaw = b.split(/<br\s*\/?>/i)[0];
-        const course = strip(nameRaw).replace(/\s+/g, ' ');
-        if (!course) continue;
+        // 关键：同一个格子里可能塞了多门课，用一串短横线分隔，例如
+        //   人文艺术1 7-10(周) B2-202
+        //   ----------------------
+        //   形势与政策1 11-14(周) C1-301
+        // 不切开的话只能拿到第一门，后面的会被静默丢掉（踩过）。
+        const segments = b.split(/-{5,}/);
 
-        const teacher = strip((b.match(/<font[^>]*title=['"]教师['"][^>]*>([\s\S]*?)<\/font>/i) || [])[1] || '') || null;
-        const weeksRaw = strip((b.match(/<font[^>]*title=['"]周次\(节次\)['"][^>]*>([\s\S]*?)<\/font>/i) || [])[1] || '');
-        const location = strip((b.match(/<font[^>]*title=['"]教室['"][^>]*>([\s\S]*?)<\/font>/i) || [])[1] || '') || null;
+        for (const seg of segments) {
+          if (strip(seg) === '') continue;
 
-        courses.push({
-          course,
-          teacher,
-          location,
-          weekday,
-          start_section: secStart,
-          end_section: secEnd,
-          week_start: 1,
-          week_end: 30,
-          parity: 'all',
-          weeks: normWeeks(weeksRaw),
-        });
+          // 切开后第二段通常以 <br> 开头，必须先剥掉，否则「第一个 <br> 之前」
+          // 取到的是空串，整门课被跳过（这个坑也踩过）。
+          const head = seg.replace(/^(?:\s|<br\s*\/?>)+/i, '');
+
+          // 课程名：该段第一个 <br> 之前
+          const course = strip(head.split(/<br\s*\/?>/i)[0]).replace(/\s+/g, ' ');
+          if (!course) continue;
+
+          const teacher = strip((seg.match(/<font[^>]*title=['"]教师['"][^>]*>([\s\S]*?)<\/font>/i) || [])[1] || '') || null;
+          const weeksRaw = strip((seg.match(/<font[^>]*title=['"]周次\(节次\)['"][^>]*>([\s\S]*?)<\/font>/i) || [])[1] || '');
+          const location = strip((seg.match(/<font[^>]*title=['"]教室['"][^>]*>([\s\S]*?)<\/font>/i) || [])[1] || '') || null;
+          const weeks = normWeeks(weeksRaw);
+          if (!weeks) continue; // 没有周次的多半是残留片段
+
+          courses.push({
+            course,
+            teacher,
+            location,
+            weekday,
+            start_section: secStart,
+            end_section: secEnd,
+            week_start: 1,
+            week_end: 30,
+            parity: 'all',
+            weeks,
+          });
+        }
       }
     });
   }
@@ -173,14 +189,81 @@ function dedupe(list) {
   });
 }
 
+// ---------- 合并同课同格的多个周段 ----------
+// 教务系统会把一门课按周段拆成多条（例如「数据通信」在同一格出现
+// 4,7-8周 / 9-12周 / 13周 / 14周 四条），不合并的话页面上会叠四个色块。
+function expandWeeks(spec) {
+  const out = new Set();
+  if (!spec) return out;
+  for (const part of String(spec).split(',')) {
+    const p = part.trim();
+    if (!p) continue;
+    const m = p.match(/^(\d+)-(\d+)$/);
+    if (m) {
+      for (let w = Number(m[1]); w <= Number(m[2]); w++) out.add(w);
+    } else if (/^\d+$/.test(p)) {
+      out.add(Number(p));
+    }
+  }
+  return out;
+}
+
+function compactWeeks(set) {
+  const arr = [...set].filter((n) => Number.isInteger(n)).sort((a, b) => a - b);
+  const out = [];
+  let i = 0;
+  while (i < arr.length) {
+    let j = i;
+    while (j + 1 < arr.length && arr[j + 1] === arr[j] + 1) j++;
+    out.push(i === j ? String(arr[i]) : `${arr[i]}-${arr[j]}`);
+    i = j + 1;
+  }
+  return out.join(',');
+}
+
+function mergeCourses(list) {
+  const map = new Map();
+  for (const c of list) {
+    const key = [c.course, c.weekday, c.start_section, c.end_section, c.teacher || '', c.location || ''].join('|');
+    const set = expandWeeks(c.weeks);
+    if (!map.has(key)) {
+      map.set(key, { course: c.course, teacher: c.teacher, location: c.location,
+        weekday: c.weekday, start_section: c.start_section, end_section: c.end_section, weeks: set });
+    } else {
+      const e = map.get(key);
+      for (const w of set) e.weeks.add(w);
+    }
+  }
+  return [...map.values()].map((e) => ({
+    course: e.course,
+    teacher: e.teacher,
+    location: e.location,
+    weekday: e.weekday,
+    start_section: e.start_section,
+    end_section: e.end_section,
+    week_start: 1,
+    week_end: 30,
+    parity: 'all',
+    weeks: compactWeeks(e.weeks),
+  }));
+}
+
 // ---------- 主流程 ----------
-const html = await fetchHtml();
-writeFileSync('jwc-xskb.html', html);
-console.log(`✅ 抓到课表页 ${html.length} 字节，已存 jwc-xskb.html`);
+// --from <file>：跳过网络，直接解析本地 HTML（调试解析规则用）
+const fromIdx = process.argv.indexOf('--from');
+let html;
+if (fromIdx > -1 && process.argv[fromIdx + 1]) {
+  html = readFileSync(process.argv[fromIdx + 1], 'utf8');
+  console.log(`📄 读取本地文件 ${process.argv[fromIdx + 1]}（${html.length} 字节）`);
+} else {
+  html = await fetchHtml();
+  writeFileSync('jwc-xskb.html', html);
+  console.log(`✅ 抓到课表页 ${html.length} 字节，已存 jwc-xskb.html`);
+}
 
 const raw = parse(html);
-const courses = dedupe(raw);
-console.log(`✅ 解析出 ${courses.length} 条课程记录（去重前 ${raw.length}）`);
+const courses = mergeCourses(dedupe(raw));
+console.log(`✅ 解析出 ${courses.length} 条课程记录（原始 ${raw.length}，已合并同格周段）`);
 
 // 摘要
 const byDay = {};
