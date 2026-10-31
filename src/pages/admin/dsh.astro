@@ -1,0 +1,194 @@
+---
+import BaseHead from '../../components/BaseHead.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import { SITE_TITLE } from '../../consts';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
+// 仅管理员可见——和 /admin 其他页一样的闸门
+const user = Astro.locals.user;
+if (!user || user.role !== 'admin') {
+  return Astro.redirect('/');
+}
+
+// 链接来源：DSH 自启脚本每次开机写入的 web-access.txt
+const ACCESS_FILE = join(homedir(), '.dsh', 'web-access.txt');
+let accessUrl: string | null = null;
+let updatedAt: string | null = null;
+let fileNote: string | null = null;
+try {
+  if (existsSync(ACCESS_FILE)) {
+    const raw = readFileSync(ACCESS_FILE, 'utf8');
+    const m = raw.match(/https?:\/\/\S+token=\S+/);
+    if (m) accessUrl = m[0].replace(/[)\]>,]+$/, '');
+    updatedAt = new Date(statSync(ACCESS_FILE).mtimeMs).toLocaleString('zh-CN', { hour12: false });
+    if (!accessUrl) fileNote = '文件存在但没解析出带 token 的链接（dsh web 可能还没完成启动）';
+  } else {
+    fileNote = `未找到 ${ACCESS_FILE}：dsh web 未启动，或本站未跑在装有 DSH 的机器上`;
+  }
+} catch (e) {
+  fileNote = e instanceof Error ? e.message : String(e);
+}
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <BaseHead title={`DSH 通道 - ${SITE_TITLE}`} description="管理后台" />
+    <style>
+      .page-head { margin-bottom: 1.4rem; }
+      .page-head h1 { margin-bottom: 0.4rem; }
+      .page-head p { color: var(--text-gray); font-size: 0.92rem; margin: 0; }
+
+      .back-link { font-size: 0.88rem; color: var(--text-gray); text-decoration: none; }
+      .back-link:hover { color: var(--text-dark); }
+
+      .access-card {
+        background: var(--bg-white);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-lg);
+        padding: 1.4rem 1.6rem;
+        max-width: 760px;
+      }
+      .card-label {
+        display: flex; align-items: center; gap: 0.5rem;
+        font-size: 0.85rem; color: var(--text-gray); margin-bottom: 0.7rem;
+      }
+      .status-dot {
+        width: 9px; height: 9px; border-radius: 50%; display: inline-block;
+      }
+      .status-ok { background: #22c55e; }
+      .status-bad { background: #ef4444; }
+
+      .url-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+      .url-input {
+        flex: 1; min-width: 260px;
+        padding: 10px 12px;
+        border: 1.5px solid var(--border-light);
+        border-radius: var(--radius-md);
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 0.86rem;
+        background: var(--bg-white);
+        color: var(--text-dark);
+      }
+      .btn {
+        padding: 10px 18px;
+        border: none; border-radius: var(--radius-md);
+        font-size: 0.9rem; cursor: pointer;
+        text-decoration: none; display: inline-block;
+      }
+      .btn-primary { background: var(--text-dark); color: var(--bg-white); }
+      .btn-outline {
+        background: transparent; color: var(--text-dark);
+        border: 1.5px solid var(--border-light);
+      }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .btn.copied { background: #22c55e; color: #fff; border-color: #22c55e; }
+
+      .meta { margin-top: 0.9rem; font-size: 0.82rem; color: var(--text-gray); }
+      .meta code {
+        background: rgba(127,127,127,0.12);
+        padding: 2px 6px; border-radius: 4px;
+        font-family: ui-monospace, Consolas, monospace;
+      }
+      .note {
+        margin-top: 1rem; padding: 0.8rem 1rem;
+        background: rgba(239,68,68,0.08);
+        border: 1px solid rgba(239,68,68,0.35);
+        border-radius: var(--radius-md);
+        font-size: 0.86rem; color: var(--text-dark);
+        word-break: break-all;
+      }
+      .tips {
+        margin-top: 1.4rem; padding-top: 1rem;
+        border-top: 1px dashed var(--border-light);
+        font-size: 0.84rem; color: var(--text-gray); line-height: 1.7;
+      }
+    </style>
+  </head>
+
+  <body>
+    <Header />
+    <main>
+      <div class="page-head">
+        <a class="back-link" href="/admin">← 返回后台</a>
+        <h1>🕳 DSH 手机通道</h1>
+        <p>电脑端 DSH Web 的实时访问链接，token 每次重启电脑都会轮换</p>
+      </div>
+
+      <div class="access-card">
+        <div class="card-label">
+          <span class:list={['status-dot', accessUrl ? 'status-ok' : 'status-bad']}></span>
+          {accessUrl ? '链接可用' : '暂不可用'}
+        </div>
+
+        <div class="url-row">
+          <input
+            id="accessUrl"
+            class="url-input"
+            type="text"
+            readonly
+            value={accessUrl ?? (fileNote ?? '')}
+            data-url={accessUrl ?? ''}
+          />
+          <button id="copyBtn" class="btn btn-primary" disabled={!accessUrl}>一键复制</button>
+          <a id="openBtn" class="btn btn-outline" href={accessUrl ?? '#'} target="_blank" rel="noopener" aria-disabled={!accessUrl}>新窗口打开</a>
+        </div>
+
+        {accessUrl && updatedAt && (
+          <div class="meta">
+            更新于 <span id="updatedAt">{updatedAt}</span>（由开机自启脚本写入 <code>~/.dsh/web-access.txt</code>）
+          </div>
+        )}
+        {!accessUrl && fileNote && <div class="note">⚠️ {fileNote}</div>}
+
+        <div class="tips">
+          · 手机需先打开 Tailscale 并登录同一账号<br />
+          · 浏览器认证过一次后可直接访问裸地址 <code>http://100.91.60.96:54420/</code><br />
+          · 重启电脑后 token 失效，回到本页刷新即可拿到新链接
+        </div>
+      </div>
+    </main>
+    <Footer />
+
+    <script is:inline>
+      (() => {
+        const input = document.getElementById('accessUrl');
+        const btn = document.getElementById('copyBtn');
+        const open = document.getElementById('openBtn');
+        const url = input && input.dataset.url ? input.dataset.url : '';
+        if (!url) { if (open) open.addEventListener('click', (e) => e.preventDefault()); return; }
+
+        function flash(text) {
+          const old = btn.textContent;
+          btn.textContent = text;
+          btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = old; btn.classList.remove('copied'); }, 1500);
+        }
+        function fallbackCopy() {
+          input.removeAttribute('readonly');
+          input.select();
+          input.setSelectionRange(0, 99999);
+          let ok = false;
+          try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+          input.setAttribute('readonly', '');
+          window.getSelection && window.getSelection().removeAllRanges();
+          return ok;
+        }
+        btn.addEventListener('click', async () => {
+          let ok = false;
+          try {
+            if (navigator.clipboard && window.isSecureContext) {
+              await navigator.clipboard.writeText(url);
+              ok = true;
+            }
+          } catch (e) { ok = false; }
+          if (!ok) ok = fallbackCopy();
+          flash(ok ? '已复制 ✓' : '复制失败，请手动全选');
+        });
+      })();
+    </script>
+  </body>
+</html>
