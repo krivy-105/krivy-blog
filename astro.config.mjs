@@ -10,7 +10,7 @@ export default defineConfig({
 	site: 'https://krivy.cyou',
 	output: 'server',
 	adapter: node({ mode: 'middleware' }),
-	// 部署在 Railway 反向代理之后，边缘回源的 Host 与浏览器 Origin 不一致，
+	// 部署在 Caddy 反向代理之后，Host 与浏览器 Origin 可能不一致，
 	// Astro 默认的 Origin 校验会误判所有 POST 为跨站（403）。
 	// CSRF 防护仍由 session cookie 的 sameSite=lax 提供。
 	security: {

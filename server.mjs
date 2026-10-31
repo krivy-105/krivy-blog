@@ -60,7 +60,7 @@ function serveStatic(req, res) {
 }
 
 const server = createServer((req, res) => {
-  // Railway 等反向代理通过 x-forwarded-* 传递原始域名/协议。
+  // Caddy 等反向代理通过 x-forwarded-* 传递原始域名/协议。
   // 用第一个值（最接近客户端的那一跳）覆盖，确保 Astro 构造的请求 URL
   // 与浏览器地址栏一致（canonical、cookie、Origin 判断等）。
   const xfh = req.headers['x-forwarded-host'];
@@ -76,7 +76,7 @@ const server = createServer((req, res) => {
     res.end();
     return;
   }
-  // 健康检查：轻量、不经过 SSR/数据库，供 UptimeRobot / Railway 探针使用
+  // 健康检查：轻量、不经过 SSR/数据库，供 UptimeRobot 等外部探针与部署脚本使用
   const pathname = new URL(req.url, 'http://localhost').pathname;
   if (pathname === '/healthz') {
     res.writeHead(200, {

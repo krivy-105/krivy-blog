@@ -1,6 +1,6 @@
 name: Deploy
 
-# 推送到 main 就自动部署到 VPS，效果等同 Railway 的自动构建。
+# 推送到 main 就自动部署到 VPS：SSH 进去拉代码、重建镜像、替换容器、轮询健康检查。
 # 全流程只用 OpenSSH，没有引入任何第三方 action（少一层供应链风险）。
 #
 # 需要在仓库 Settings → Secrets and variables → Actions 里配三个 secret：

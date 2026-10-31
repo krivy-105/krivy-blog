@@ -278,7 +278,7 @@ export const changelog: ChangelogEntry[] = [
     detail: [
       '全栈重构：账号体系、私信、发文审核',
       '莫奈蓝设计系统 + 明暗双主题',
-      '绑定域名 krivy.cyou，部署 Railway + Cloudflare',
+      '绑定域名 krivy.cyou，接入 Cloudflare 解析',
     ],
   },
 ];

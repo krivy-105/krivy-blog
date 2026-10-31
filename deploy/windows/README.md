@@ -38,7 +38,7 @@ cd C:\Users\Airfa\my-blog
 # 创建隧道，记下输出的 Tunnel ID
 .\cloudflared.exe tunnel create krivy-blog
 
-# 把域名指到这个隧道（会创建一条 CNAME，替换掉原来指向 Railway 的 A 记录）
+# 把域名指到这个隧道（会创建一条 CNAME，替换掉原来指向服务器的 A 记录）
 .\cloudflared.exe tunnel route dns krivy-blog krivy.cyou
 ```
 

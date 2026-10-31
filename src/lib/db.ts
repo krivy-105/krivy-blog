@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { join, dirname } from 'node:path';
 import { mkdirSync, existsSync, readdirSync, unlinkSync } from 'node:fs';
 
-// 数据库路径：优先使用 DB_PATH 环境变量（Railway 等部署环境的持久卷挂载点），
+// 数据库路径：优先使用 DB_PATH 环境变量（容器内即 bind mount 的 /data），
 // 否则以进程工作目录为基准，指向项目根目录的 data/
 const DB_PATH = process.env.DB_PATH || join(process.cwd(), 'data', 'blog.db');
 export const DATA_DIR = dirname(DB_PATH);
@@ -25,7 +25,7 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 // WAL 下 synchronous 默认仍是 FULL：每个事务提交都要 fsync。
 // 本站每次页面浏览都会写 1-2 条统计（且写在响应发出去之前，直接算进 TTFB），
-// 而 Railway 持久卷的 fsync 延迟并不便宜。WAL + NORMAL 是 SQLite 官方推荐的
+// 而容器/网络存储上的 fsync 延迟并不便宜。WAL + NORMAL 是 SQLite 官方推荐的
 // 组合：不会损坏数据库，最坏情况只丢「断电瞬间最后几个事务」，对 PV/UV 统计无影响。
 db.pragma('synchronous = NORMAL');
 // SQLite 默认缓存 2MB(-2000)，调大以减少随机读的页换入换出

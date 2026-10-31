@@ -42,7 +42,7 @@ export function resetRateLimit(key: string) {
   buckets.delete(key);
 }
 
-// Railway + Cloudflare 后取真实客户端 IP
+// 经过 Caddy 反代后取真实客户端 IP：X-Forwarded-For 的第一个值
 export function getClientIp(headers: Headers): string {
   return (headers.get('x-forwarded-for') || '').split(',')[0]?.trim() || 'unknown';
 }

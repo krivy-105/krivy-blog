@@ -38,7 +38,8 @@ ENV NODE_ENV=production
 # 时区：容器默认 UTC，而全站日期用 toLocaleDateString('zh-CN') 在服务端渲染，
 # 不改这里的话北京时间 00:00–08:00 发布的文章会显示成前一天
 ENV TZ=Asia/Shanghai
-# Railway 持久卷挂载点；数据库文件存放在持久磁盘上
+# /data 是宿主机的 bind mount（compose 里 ./data:/data），
+# 数据库、上传图、头像、每日备份都落在这里，重建容器不会丢
 ENV DB_PATH=/data/blog.db
 
 # 复制生产依赖（含已编译的 better-sqlite3 原生二进制）与构建产物
@@ -49,7 +50,8 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/server.mjs ./server.mjs
 COPY --from=builder /app/dist ./dist
 
-# Railway 会自动注入 PORT 环境变量，此处仅为本地 docker 运行提供默认值
+# 端口由 compose 的 PORT 环境变量决定（Caddy 反代到 127.0.0.1:4321），
+# 这里只是给 docker run 直接跑时一个默认值
 EXPOSE 4321
 
 # 容器级健康检查

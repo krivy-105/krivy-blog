@@ -53,3 +53,7 @@ captcha.jpg
 captcha.png
 jwc-xskb.html
 jwc-schedule-raw.html
+
+# 一次性脚本与调试输出（一次性脚本里可能带凭据，不入库）
+logs-test.log
+scripts/move-link.mjs

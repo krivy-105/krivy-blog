@@ -22,41 +22,13 @@
 
 ---
 
-## 方案 A：Fly.io（改动最小，最接近 Railway）
+## 部署到 Linux 服务器
 
-区域建议选东京 `nrt` / 新加坡 `sin` / 香港 `hkg`。
+一台 2 核 2G 的 Ubuntu 就行（本站现在跑在洛杉矶的一台 VPS 上）。
+香港 / 日本 / 新加坡的机器国内 RTT 常在 30–60ms，访问更快。
 
-```bash
-# 1. 安装并登录
-curl -L https://fly.io/install.sh | sh
-fly auth login
 
-# 2. 创建应用（仓库里已有 fly.toml，会用它的配置）
-fly launch --no-deploy
-
-# 3. 建持久卷（区域要和 primary_region 一致）
-fly volumes create blog_data --size 1 --region nrt
-
-# 4. 设置环境变量
-fly secrets set ADMIN_PASSWORD='你的强密码' ADMIN_USERNAME=admin
-
-# 5. 部署
-fly deploy
-
-# 6. 看状态与日志
-fly status
-fly logs
-```
-
-**绑定域名**：`fly certs add krivy.cyou`，然后按它给的 DNS 记录去 Cloudflare 改。
-
----
-
-## 方案 B：任意 Linux 服务器（国内访问最快）
-
-香港/日本/新加坡的轻量服务器，国内 RTT 常在 30–60ms，比绕 Cloudflare 稳。
-
-### B-0 一键初始化（推荐，Oracle Cloud / 任意 Ubuntu）
+### 一键初始化（推荐 / 任意 Ubuntu）
 
 `deploy/server-init.sh` 会把下面这些事一次做完：
 
@@ -81,7 +53,7 @@ DOMAIN=krivy.cyou EMAIL=you@example.com sudo -E ./server-init.sh
 > ⚠️ Oracle 还有一道**云端安全列表**：控制台 → 实例 → 主 VCN → 安全列表 →
 > 添加入站规则，源 `0.0.0.0/0`、TCP、端口 80 与 443。本机 iptables 与云安全列表是两层，都要开。
 
-### B-1 手动步骤（想自己控制每一步时）
+### 手动步骤（想自己控制每一步时）
 
 ```bash
 # 1. 装 Docker
