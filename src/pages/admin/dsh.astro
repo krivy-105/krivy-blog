@@ -6,6 +6,7 @@ import { SITE_TITLE } from '../../consts';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { getDshLink, ensurePushKey } from '../../lib/dsh-link';
 
 // 仅管理员可见——和 /admin 其他页一样的闸门
 const user = Astro.locals.user;
@@ -13,23 +14,37 @@ if (!user || user.role !== 'admin') {
   return Astro.redirect('/');
 }
 
-// 链接来源：DSH 自启脚本每次开机写入的 web-access.txt
-const ACCESS_FILE = join(homedir(), '.dsh', 'web-access.txt');
+// 优先读数据库（电脑端开机脚本实时推送），本地文件只做同机兜底
+const pushKey = ensurePushKey();
 let accessUrl: string | null = null;
 let updatedAt: string | null = null;
+let source = '';
 let fileNote: string | null = null;
-try {
-  if (existsSync(ACCESS_FILE)) {
-    const raw = readFileSync(ACCESS_FILE, 'utf8');
-    const m = raw.match(/https?:\/\/\S+token=\S+/);
-    if (m) accessUrl = m[0].replace(/[)\]>,]+$/, '');
-    updatedAt = new Date(statSync(ACCESS_FILE).mtimeMs).toLocaleString('zh-CN', { hour12: false });
-    if (!accessUrl) fileNote = '文件存在但没解析出带 token 的链接（dsh web 可能还没完成启动）';
-  } else {
-    fileNote = `未找到 ${ACCESS_FILE}：dsh web 未启动，或本站未跑在装有 DSH 的机器上`;
+
+const stored = getDshLink();
+if (stored) {
+  accessUrl = stored.url;
+  updatedAt = stored.at ? new Date(stored.at).toLocaleString('zh-CN', { hour12: false }) : null;
+  source = '电脑实时推送';
+} else {
+  const ACCESS_FILE = join(homedir(), '.dsh', 'web-access.txt');
+  try {
+    if (existsSync(ACCESS_FILE)) {
+      const raw = readFileSync(ACCESS_FILE, 'utf8');
+      const m = raw.match(/https?:\/\/\S+token=\S+/);
+      if (m) {
+        accessUrl = m[0].replace(/[)\]>,]+$/, '');
+        updatedAt = new Date(statSync(ACCESS_FILE).mtimeMs).toLocaleString('zh-CN', { hour12: false });
+        source = '本机文件';
+      } else {
+        fileNote = '本机文件存在但没解析出带 token 的链接（dsh web 可能还没完成启动）';
+      }
+    } else {
+      fileNote = '数据库暂无推送记录，本机也没有 web-access.txt：请用下方配对密钥在电脑端完成推送';
+    }
+  } catch (e) {
+    fileNote = e instanceof Error ? e.message : String(e);
   }
-} catch (e) {
-  fileNote = e instanceof Error ? e.message : String(e);
 }
 ---
 
@@ -139,15 +154,24 @@ try {
 
         {accessUrl && updatedAt && (
           <div class="meta">
-            更新于 <span id="updatedAt">{updatedAt}</span>（由开机自启脚本写入 <code>~/.dsh/web-access.txt</code>）
+            更新于 <span id="updatedAt">{updatedAt}</span> · 来源：{source}
           </div>
         )}
         {!accessUrl && fileNote && <div class="note">⚠️ {fileNote}</div>}
 
+        <div class="card-label" style="margin-top:1.4rem;">电脑端配对密钥（推送通道凭据）</div>
+        <div class="url-row">
+          <input id="pushKey" class="url-input" type="text" readonly value={pushKey} />
+          <button class="btn btn-primary" data-copy="pushKey">复制密钥</button>
+        </div>
+        <div class="meta">
+          把此密钥写入电脑 <code>%USERPROFILE%\.dsh\push-key</code> 文件后，开机自启脚本会把最新链接实时推送到本站
+        </div>
+
         <div class="tips">
           · 手机需先打开 Tailscale 并登录同一账号<br />
           · 浏览器认证过一次后可直接访问裸地址 <code>http://100.91.60.96:54420/</code><br />
-          · 重启电脑后 token 失效，回到本页刷新即可拿到新链接
+          · 重启电脑后 token 失效——完成配对后本页会由脚本自动刷新，无需手动搬链接
         </div>
       </div>
     </main>
@@ -155,38 +179,46 @@ try {
 
     <script is:inline>
       (() => {
-        const input = document.getElementById('accessUrl');
-        const btn = document.getElementById('copyBtn');
+        function doCopy(text, btn) {
+          function flash(ok) {
+            const old = btn.textContent;
+            btn.textContent = ok ? '已复制 ✓' : '复制失败，请手动全选';
+            btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = old; btn.classList.remove('copied'); }, 1500);
+          }
+          function fallback() {
+            const input = document.createElement('textarea');
+            input.value = text;
+            input.style.position = 'fixed';
+            input.style.opacity = '0';
+            document.body.appendChild(input);
+            input.select();
+            let ok = false;
+            try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+            document.body.removeChild(input);
+            return ok;
+          }
+          if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(() => flash(true), () => flash(fallback()));
+          } else {
+            flash(fallback());
+          }
+        }
+        const mainInput = document.getElementById('accessUrl');
+        const mainBtn = document.getElementById('copyBtn');
         const open = document.getElementById('openBtn');
-        const url = input && input.dataset.url ? input.dataset.url : '';
-        if (!url) { if (open) open.addEventListener('click', (e) => e.preventDefault()); return; }
-
-        function flash(text) {
-          const old = btn.textContent;
-          btn.textContent = text;
-          btn.classList.add('copied');
-          setTimeout(() => { btn.textContent = old; btn.classList.remove('copied'); }, 1500);
+        const mainUrl = mainInput && mainInput.dataset.url ? mainInput.dataset.url : '';
+        if (mainUrl && mainBtn) {
+          mainBtn.addEventListener('click', () => doCopy(mainUrl, mainBtn));
+        } else if (open) {
+          open.addEventListener('click', (e) => e.preventDefault());
         }
-        function fallbackCopy() {
-          input.removeAttribute('readonly');
-          input.select();
-          input.setSelectionRange(0, 99999);
-          let ok = false;
-          try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
-          input.setAttribute('readonly', '');
-          window.getSelection && window.getSelection().removeAllRanges();
-          return ok;
-        }
-        btn.addEventListener('click', async () => {
-          let ok = false;
-          try {
-            if (navigator.clipboard && window.isSecureContext) {
-              await navigator.clipboard.writeText(url);
-              ok = true;
-            }
-          } catch (e) { ok = false; }
-          if (!ok) ok = fallbackCopy();
-          flash(ok ? '已复制 ✓' : '复制失败，请手动全选');
+        document.querySelectorAll('[data-copy]').forEach((btn) => {
+          if (btn.id === 'copyBtn') return;
+          btn.addEventListener('click', () => {
+            const t = document.getElementById(btn.dataset.copy);
+            if (t && t.value) doCopy(t.value, btn);
+          });
         });
       })();
     </script>
