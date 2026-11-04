@@ -12,7 +12,7 @@ import Icon from '../components/Icon.astro';
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <BaseHead title={`服务器开小差了 - ${SITE_TITLE}`} description="服务器暂时出错，请稍后再试。" />
+    <BaseHead title={`服务器出错 - ${SITE_TITLE}`} description="服务器暂时出错，请稍后再试。" />
     <meta name="robots" content="noindex, nofollow" />
   </head>
   <body>
@@ -31,10 +31,10 @@ import Icon from '../components/Icon.astro';
           </span>
           <span class="digit">0</span>
         </div>
-        <h1>服务器开了个小差</h1>
+        <h1>服务器出了点问题</h1>
         <p class="nf-sub">
-          内部处理时遇到了一点意外，已经记录下来了。<br />
-          刷新一下通常就能恢复，若持续出现请稍后再来。
+          这次请求没有完成，问题已经记录下来。<br />
+          刷新通常能恢复；持续出现请稍后再试。
         </p>
         <div class="nf-actions">
           <button class="nf-btn nf-btn-primary" onclick="location.reload()"><Icon name="refresh" size={13} /> 重新加载</button>

@@ -127,7 +127,7 @@ import Icon from '../../components/Icon.astro';
         <p>
           {reports.length > 0
             ? `当前有 ${reports.length} 条待处理举报。`
-            : '暂无待处理的举报，社区一片清净。'}
+            : '暂无待处理的举报。'}
         </p>
       </header>
 
@@ -211,7 +211,7 @@ import Icon from '../../components/Icon.astro';
             // 同步隐藏 Header 上的 pending-reports badge（由轮询自然刷新）
             const sub = document.querySelector('.page-head p');
             const rest = document.querySelectorAll('.report-card').length;
-            if (sub) sub.textContent = rest > 0 ? `当前有 ${rest} 条待处理举报。` : '暂无待处理的举报，社区一片清净。';
+            if (sub) sub.textContent = rest > 0 ? `当前有 ${rest} 条待处理举报。` : '暂无待处理的举报。';
             if (rest === 0) {
               const list = document.querySelector('.report-list');
               list?.remove();

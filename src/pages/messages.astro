@@ -26,25 +26,25 @@ import Icon from '../components/Icon.astro';
         <h3>私信</h3>
       </div>
       <div class="user-list" id="userList">
-        <div class="loading">加载中...</div>
+        <div class="loading">加载中…</div>
       </div>
     </div>
 
     <div class="chat-main">
       <div class="chat-header" id="chatHeader">
-        <span class="placeholder">选择一个用户开始对话</span>
+        <span class="placeholder">选择一位用户开始对话</span>
       </div>
       <div class="messages" id="messages">
         <div class="empty-state">
           <div class="empty-icon"><Icon name="message" size={32} /></div>
-          <p>选择左侧用户开始聊天</p>
+          <p>从左侧选择一位用户</p>
         </div>
       </div>
       <div class="chat-input-area" id="chatInputArea" style="display:none;">
         <div class="emoji-panel" id="emojiPanel" style="display:none;"></div>
         <div class="input-row">
           <button type="button" class="emoji-btn" id="emojiBtn" aria-label="选择表情"><Icon name="smile" size={18} /></button>
-          <textarea id="msgInput" placeholder="输入消息..." rows="1"></textarea>
+          <textarea id="msgInput" placeholder="输入消息…" rows="1"></textarea>
           <button type="button" class="btn btn-primary send-btn" id="sendBtn">发送</button>
         </div>
       </div>
@@ -279,7 +279,7 @@ import Icon from '../components/Icon.astro';
 
     function renderUserList() {
       if (users.length === 0) {
-        userListEl.innerHTML = '<div class="empty-list">暂无其他用户</div>';
+        userListEl.innerHTML = '<div class="empty-list">还没有其他用户</div>';
         return;
       }
       userListEl.innerHTML = users.map(u => {
@@ -322,7 +322,7 @@ import Icon from '../components/Icon.astro';
 
     function renderMessages(msgs) {
       if (msgs.length === 0) {
-        messagesEl.innerHTML = '<div class="empty-state"><div class="empty-icon"><Icon name="message" size={32} /></div><p>还没有消息，发送第一条吧</p></div>';
+        messagesEl.innerHTML = '<div class="empty-state"><div class="empty-icon"><Icon name="message" size={32} /></div><p>还没有消息。</p></div>';
         return;
       }
       messagesEl.innerHTML = msgs.map(m => {

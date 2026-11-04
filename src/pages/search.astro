@@ -30,7 +30,7 @@ const highlightTitle = (text: string) => highlightText(text, terms);
     <main class="narrow">
       <header class="page-head">
         <h1><Icon name="search" size={22} /> 搜索文章</h1>
-        <p>输入关键词，从已发布的全部文章中检索标题、摘要与正文。</p>
+        <p>在全部已发布文章中检索标题、摘要和正文。</p>
       </header>
 
       <form class="search-form" action="/search" method="GET" role="search">
@@ -55,7 +55,7 @@ const highlightTitle = (text: string) => highlightText(text, terms);
       ) : (
         <div class="empty-state card">
           <div class="empty-icon"><Icon name="search" size={32} /></div>
-          <p>输入关键词开始搜索，结果将匹配标题、摘要与正文。</p>
+          <p>输入关键词，从标题、摘要和正文中查找。</p>
         </div>
       )}
 

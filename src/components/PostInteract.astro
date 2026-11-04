@@ -164,7 +164,7 @@ import Icon from './Icon.astro';
               name="content"
               rows="3"
               maxlength="500"
-              placeholder="留下你的想法……（Enter 换行，Ctrl/⌘ + Enter 发送）"
+              placeholder="写下你的想法…（Ctrl/⌘ + Enter 发送）"
             ></textarea>
             <div class="comment-form-foot">
               <span class="comment-tip" id="piCommentTip"></span>
@@ -282,7 +282,7 @@ import Icon from './Icon.astro';
         ))
       }
     </ul>
-    {totalComments === 0 && <p class="comment-empty" id="piCommentEmpty">还没有评论，来做第一个发声的人吧。</p>}
+    {totalComments === 0 && <p class="comment-empty" id="piCommentEmpty">还没有评论。</p>}
   </section>
 
   <!-- 轻提示 -->
@@ -633,7 +633,7 @@ import Icon from './Icon.astro';
       e.preventDefault();
       const content = input!.value.trim();
       if (!content) {
-        tip!.textContent = '说点什么再发送吧';
+        tip!.textContent = '内容不能为空';
         input!.focus();
         return;
       }
@@ -715,7 +715,7 @@ import Icon from './Icon.astro';
               const p = document.createElement('p');
               p.className = 'comment-empty';
               p.id = 'piCommentEmpty';
-              p.textContent = '还没有评论，来做第一个发声的人吧。';
+              p.textContent = '还没有评论。';
               list!.after(p);
             }
           } else {

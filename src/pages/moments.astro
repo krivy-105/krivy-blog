@@ -27,14 +27,14 @@ import Icon from '../components/Icon.astro';
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <BaseHead title={`说说 - ${SITE_TITLE}`} description="短文与图片组成的日常碎片时间流。" />
+    <BaseHead title={`说说 - ${SITE_TITLE}`} description="短文字与图片组成的日常记录。" />
   </head>
   <body>
     <Header />
     <main class="narrow m-page">
       <header class="m-hero">
         <h1><Icon name="sparkles" size={22} /> 说说</h1>
-        <p>不必长篇大论——一张图、一句话，都是此刻的记录。</p>
+        <p>一张图，一句话。短的东西放这里。</p>
       </header>
 
       {user ? (
@@ -69,7 +69,7 @@ import Icon from '../components/Icon.astro';
       <section class="m-list">
         {moments.length === 0 ? (
           <div class="m-empty card">
-            <p>还没有动态。去拍一张窗外的云，或写句今天的心情吧</p>
+            <p>还没有说说。</p>
           </div>
         ) : (
           moments.map((m) => (

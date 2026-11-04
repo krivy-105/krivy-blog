@@ -28,7 +28,7 @@ import Icon from '../components/Icon.astro';
 <html lang="zh-CN">
   <head>
     <!-- charset / viewport / title / canonical 统一由 BaseHead 输出，此处不再重复 -->
-    <BaseHead title={title} description="我关注的人最近发布的文章动态。" />
+    <BaseHead title={title} description="你关注的人最近发布的文章。" />
   </head>
   <body>
     <Header />
@@ -38,20 +38,20 @@ import Icon from '../components/Icon.astro';
         <p class="page-sub">
           {followingCount > 0
             ? `你关注了 ${followingCount} 位作者，这是他们最近发布的文章。`
-            : '你还没有关注任何人，去作者主页点「+ 关注」就能在这里看到 TA 的新文章。'}
+            : '你还没有关注任何人。在作者主页点「+ 关注」，新文章会出现在这里。'}
         </p>
       </header>
 
       {feedPosts.length === 0 ? (
         <div class="empty card">
           <div class="empty-icon"><Icon name="inbox" size={32} /></div>
-          <h2>暂无动态</h2>
+          <h2>还没有动态</h2>
           <p>
             {followingCount === 0
-              ? '去文章页或归档页找找感兴趣的作者，关注后这里就会有动态啦。'
-              : '你关注的人最近还没发新文章，过几天再来看看吧。'}
+              ? '可以先从文章或归档里找人。'
+              : '关注的人最近没有发新文章。'}
           </p>
-          <a href="/blog" class="btn btn-primary">逛文章库</a>
+          <a href="/blog" class="btn btn-primary">全部文章</a>
           <a href="/archive" class="btn btn-outline">看归档</a>
         </div>
       ) : (

@@ -32,7 +32,7 @@ import Icon from '../../components/Icon.astro';
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <BaseHead title={`标签 · ${SITE_TITLE}`} description="浏览所有文章标签，发现你感兴趣的话题。" />
+    <BaseHead title={`标签 · ${SITE_TITLE}`} description="全部文章标签，按使用次数排列。" />
   </head>
   <body>
     <Header />
@@ -45,7 +45,7 @@ import Icon from '../../components/Icon.astro';
           <p class="head-sub">
             {tags.length > 0
               ? `共 ${tags.length} 个标签 · ${tags.reduce((a, b) => a + b.cnt, 0)} 篇关联文章`
-              : '还没有标签，写文章时添加标签吧。'}
+              : '还没有标签。发文章时加上标签，这里就会长出来。'}
           </p>
         </div>
       </section>
@@ -72,7 +72,7 @@ import Icon from '../../components/Icon.astro';
         ) : (
           <div class="empty-state card">
             <div class="empty-icon"><Icon name="tag" size={32} /></div>
-            <p>还没有标签，先去写文章添加一些吧。</p>
+            <p>还没有标签。</p>
             {Astro.locals.user && <a href="/write" class="btn btn-primary">去写文章</a>}
           </div>
         )}

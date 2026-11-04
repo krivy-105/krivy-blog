@@ -30,7 +30,7 @@ import Icon from '../../components/Icon.astro';
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <BaseHead title={`全部文章 - ${SITE_TITLE}`} description="所有已发布的文章" />
+    <BaseHead title={`全部文章 - ${SITE_TITLE}`} description="全部已发布文章，按时间排列。" />
   </head>
   <body>
     <Header />
@@ -82,7 +82,7 @@ import Icon from '../../components/Icon.astro';
       ) : (
         <div class="empty-state card">
           <div class="empty-icon"><Icon name="cloud" size={32} /></div>
-          <p>暂无文章，过段时间再来看看吧。</p>
+          <p>还没有文章。</p>
           <a href="/" class="btn btn-outline">返回首页</a>
         </div>
       )}

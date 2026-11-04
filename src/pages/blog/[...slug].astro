@@ -156,7 +156,7 @@ if (seriesInfo) {
           <div class="review-banner review-pending">
             <div class="review-banner-info">
               <strong><Icon name="eye" size={15} /> 草稿预览</strong>
-              <span>这是一篇尚未发布的文章，当前页面仅持有预览链接的人可见。</span>
+              <span>这是一篇尚未发布的文章，只有拿到预览链接的人能看到。</span>
             </div>
           </div>
         ) : post.status !== 'approved' ? (
@@ -412,7 +412,7 @@ if (seriesInfo) {
             const postId = toolbar.dataset.postId;
             const isOwnerAction = btn.dataset.action === 'owner-delete';
             const tip = isOwnerAction
-              ? '确认删除这篇文章？删除后将从站点消失且不可恢复。'
+              ? '确认删除这篇文章？删除后不可恢复。'
               : '确认以管理员身份下架这篇文章？下架后所有访客都无法查看。';
             if (!(await window.uiConfirm(tip))) return;
             btn.disabled = true;

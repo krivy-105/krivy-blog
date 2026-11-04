@@ -73,8 +73,8 @@ for (const r of cmtRows) cmtMap.set(r.post_id, r.count);
         <span class="hero-eyebrow">KRIVY · CYOU</span>
         <h1>want to see you</h1>
         <p class="hero-sub">
-          记录技术成长、生活点滴与思考感悟。<br class="br-pc" />
-          欢迎来到这片莫奈蓝色的静谧角落。
+          技术笔记、课程记录，和偶尔的生活片段。<br class="br-pc" />
+          写给自己，也留给路过的人。
         </p>
         <div class="hero-actions">
           <a href="/blog" class="btn btn-primary">浏览文章</a>
@@ -87,22 +87,21 @@ for (const r of cmtRows) cmtMap.set(r.post_id, r.count);
       <!-- 站点简介 -->
       <section class="intro card">
         <span class="eyebrow">ABOUT HERE</span>
-        <h2>一个记录与相遇的地方</h2>
+        <h2>一个安静写作的地方</h2>
         <div class="intro-body">
           <p>
-            「want to see you」装着技术路上的摸索与成长，也藏着生活里的细碎思考。
-            文字被认真地收进标签与连载，等你慢慢翻阅。
+            「want to see you」是我的长期笔记本：技术笔记、课程记录，还有一些当时没想清楚的问题。
+            文章按标签归档，成体系的收进连载。
           </p>
           <p>
-            你也不只是过客：注册账号就能发表自己的文章——Markdown 工具栏、实时预览、草稿自动保存，让写作很轻；
-            给喜欢的文字点赞收藏，在评论区楼中楼接着聊，关注感兴趣的人，他们的更新会出现在你的动态流；
-            互动通知与私信，也都安静地替你收好。
+            你也可以在这里写。注册后就能发文章，编辑器支持 Markdown、实时预览和草稿自动保存。
+            读到喜欢的可以点赞、收藏、评论；关注作者，更新会出现在你的动态里。
           </p>
-          <p class="intro-end">不打扰，不喧闹。欢迎坐下，读点什么，也写点什么。</p>
+          <p class="intro-end">没有算法推荐，也没有催更提醒。随便翻翻，想写了就写。</p>
         </div>
         <ul class="intro-chips">
           <li><a href="/blog"><Icon name="book" size={16} /> 浏览文章</a></li>
-          <li><a href="/tags"><Icon name="tag" size={16} /> 标签找文</a></li>
+          <li><a href="/tags"><Icon name="tag" size={16} /> 按标签找</a></li>
           <li><a href="/series"><Icon name="file" size={16} /> 系列连载</a></li>
           <li><a href="/write"><Icon name="pen" size={16} /> 开始写作</a></li>
         </ul>
@@ -156,8 +155,8 @@ for (const r of cmtRows) cmtMap.set(r.post_id, r.count);
         ) : (
           <div class="empty-state card">
             <div class="empty-icon"><Icon name="pen" size={32} /></div>
-            <p>还没有文章，敬请期待。</p>
-            {Astro.locals.user && <a href="/write" class="btn btn-primary">发表第一篇</a>}
+            <p>暂时还没有文章，第一篇的位置给你留着。</p>
+            {Astro.locals.user && <a href="/write" class="btn btn-primary">写第一篇</a>}
           </div>
         )}
 
@@ -214,7 +213,7 @@ for (const r of cmtRows) cmtMap.set(r.post_id, r.count);
         ) : (
           <div class="empty-state card small">
             <div class="empty-icon"><Icon name="flame" size={32} /></div>
-            <p>暂时没有热门数据，文章被点赞、评论、阅读后会出现在这里。</p>
+            <p>还没有热门数据。文章被阅读、点赞、评论后，会按热度排在这里。</p>
           </div>
         )}
       </section>

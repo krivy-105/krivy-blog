@@ -113,7 +113,7 @@ import Icon from '../../components/Icon.astro';
         <h1><Icon name="image" size={22} /> 头像审核</h1>
         <p>
           {pending.length > 0
-            ? `当前有 ${pending.length} 个待审核头像。通过后全站即刻生效，驳回则保留用户原头像并站内通知。`
+            ? `当前有 ${pending.length} 个待审核头像。通过后立即生效；驳回会保留原头像，并站内通知用户。`
             : '暂无待审核头像。'}
         </p>
       </header>
@@ -166,7 +166,7 @@ import Icon from '../../components/Icon.astro';
 
           let reason = '';
           if (action === 'reject') {
-            const input = window.prompt('驳回理由（可选，将通过站内通知发给用户，留空则不填）：');
+            const input = window.prompt('驳回理由（可选，会通过站内通知发给用户）：');
             if (input === null) return; // 取消
             reason = input.trim().slice(0, 200);
           } else if (!(await window.uiConfirm('确认通过该头像？通过后将立即替换用户当前头像。'))) {
@@ -188,7 +188,7 @@ import Icon from '../../components/Icon.astro';
             if (sub)
               sub.textContent =
                 rest > 0
-                  ? `当前有 ${rest} 个待审核头像。通过后全站即刻生效，驳回则保留用户原头像并站内通知。`
+                  ? `当前有 ${rest} 个待审核头像。通过后立即生效；驳回会保留原头像，并站内通知用户。`
                   : '暂无待审核头像。';
             if (rest === 0) {
               document.querySelector('.avatar-list')?.remove();

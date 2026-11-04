@@ -22,7 +22,7 @@ import Icon from '../components/Icon.astro';
         <div class="auth-head">
           <span class="auth-mark"><Icon name="sparkles" size={18} /></span>
           <h1 id="authTitle">欢迎回来</h1>
-          <p id="authSubtitle">登录后即可写文章、发私信</p>
+          <p id="authSubtitle">登录后可以写文章、发私信</p>
         </div>
 
         <div class="auth-tabs" role="tablist">
@@ -48,7 +48,7 @@ import Icon from '../components/Icon.astro';
         <form id="registerForm" style="display:none;">
           <div class="form-group">
             <label>用户名</label>
-            <input type="text" name="username" placeholder="给自己起个名字" autocomplete="username" required />
+            <input type="text" name="username" placeholder="起一个用户名" autocomplete="username" required />
           </div>
           <div class="form-group">
             <label>邮箱</label>
@@ -80,12 +80,12 @@ import Icon from '../components/Icon.astro';
           loginForm.style.display = 'block';
           registerForm.style.display = 'none';
           authTitle.textContent = '欢迎回来';
-          authSubtitle.textContent = '登录后即可写文章、发私信';
+          authSubtitle.textContent = '登录后可以写文章、发私信';
         } else {
           loginForm.style.display = 'none';
           registerForm.style.display = 'block';
           authTitle.textContent = '创建账号';
-          authSubtitle.textContent = '注册后可发表文章，审核通过即展示';
+          authSubtitle.textContent = '注册后可以发文章，通过审核即公开展示';
         }
         loginError.textContent = '';
         registerError.textContent = '';

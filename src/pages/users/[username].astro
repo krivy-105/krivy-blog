@@ -102,7 +102,7 @@ import Icon from '../../components/Icon.astro';
           <div class="not-found card">
             <div class="nf-icon"><Icon name="cloud" size={32} /></div>
             <h1>没有这位用户</h1>
-            <p>你寻找的用户不存在，或已改名。</p>
+            <p>这个用户不存在，可能已经改名。</p>
             <a href="/blog" class="btn btn-primary">去看看文章</a>
           </div>
         ) : (
@@ -158,10 +158,10 @@ import Icon from '../../components/Icon.astro';
                   {isSelf ? (
                     <div class="bio-edit">
                       <p class="profile-bio" id="bioText">
-                        {profile.bio || '这个人很神秘，还没有填写简介。'}
+                        {profile.bio || '还没有填写简介。'}
                       </p>
                       <div class="bio-editor" id="bioEditor" hidden>
-                        <textarea id="bioInput" maxlength="200" rows="3" placeholder="介绍一下自己吧（最多 200 字）" set:text={profile.bio || ''}></textarea>
+                        <textarea id="bioInput" maxlength="200" rows="3" placeholder="介绍一下自己（最多 200 字）" set:text={profile.bio || ''}></textarea>
                         <div class="bio-actions">
                           <span class="bio-tip" id="bioTip"></span>
                           <div class="bio-btns">
@@ -173,7 +173,7 @@ import Icon from '../../components/Icon.astro';
                       <button type="button" class="bio-edit-btn" id="bioEditBtn"><Icon name="pen" size={13} /> 编辑简介</button>
                     </div>
                   ) : (
-                    <p class="profile-bio">{profile.bio || '这个人很神秘，还没有填写简介。'}</p>
+                    <p class="profile-bio">{profile.bio || '还没有填写简介。'}</p>
                   )}
 
                   <div class="profile-meta">
@@ -250,7 +250,7 @@ import Icon from '../../components/Icon.astro';
                       <a href="/admin" class="rp-link">前往管理后台审核 →</a>
                     </>
                   ) : (
-                    '文章通过审核后会公开展示在下方，驳回后可修改内容重新投稿。'
+                    '通过审核后会显示在下方；被驳回可以修改后重新提交。'
                   )}
                 </p>
               </section>
@@ -265,7 +265,7 @@ import Icon from '../../components/Icon.astro';
               {posts.length === 0 ? (
                 <div class="empty-state card">
                   <div class="empty-icon"><Icon name="pen" size={32} /></div>
-                  <p>{isSelf ? '你还没有已发布的文章，去写第一篇吧。' : 'TA 还没有发布文章。'}</p>
+                  <p>{isSelf ? '你还没有发布文章。' : '还没有发布文章。'}</p>
                   {isSelf && <a href="/write" class="btn btn-primary">写文章</a>}
                 </div>
               ) : (
@@ -311,7 +311,7 @@ import Icon from '../../components/Icon.astro';
                 {bookmarkPosts.length === 0 ? (
                   <div class="empty-state card">
                     <div class="empty-icon"><Icon name="star" size={32} /></div>
-                    <p>还没有收藏文章，看到喜欢的文章点星标即可收藏。</p>
+                    <p>还没有收藏。在文章页点星标即可收藏。</p>
                   </div>
                 ) : (
                   <ul class="up-list">
@@ -424,7 +424,7 @@ import Icon from '../../components/Icon.astro';
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || '保存失败');
             if (text) {
-              text.textContent = data.bio || '这个人很神秘，还没有填写简介。';
+              text.textContent = data.bio || '还没有填写简介。';
               text.classList.toggle('is-empty', !data.bio);
             }
             editor?.setAttribute('hidden', '');

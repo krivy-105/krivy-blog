@@ -96,7 +96,7 @@ import Icon from '../components/Icon.astro';
 <html lang="zh-CN">
   <head>
     <!-- charset / viewport / title / canonical 统一由 BaseHead 输出，此处不再重复 -->
-    <BaseHead title={title} description="你的通知中心：评论、点赞、关注。" />
+    <BaseHead title={title} description="评论、点赞与关注提醒。" />
   </head>
   <body>
     <Header />
@@ -108,7 +108,7 @@ import Icon from '../components/Icon.astro';
             <p class="page-sub">
               {unreadCount > 0
                 ? `有 ${unreadCount} 条未读通知`
-                : '暂无未读通知，享受安静的一天吧。'}
+                : '没有未读通知。'}
             </p>
           </div>
           {unreadCount > 0 && (
@@ -123,7 +123,7 @@ import Icon from '../components/Icon.astro';
         <div class="empty card">
           <div class="empty-icon"><Icon name="inbox" size={32} /></div>
           <h2>暂无通知</h2>
-          <p>当有人评论、点赞你的文章或关注你时，会在这里第一时间告诉你。</p>
+          <p>评论、点赞、关注，都会通知到这里。</p>
           <a href="/blog" class="btn btn-primary">逛文章库</a>
         </div>
       ) : (
@@ -326,7 +326,7 @@ import Icon from '../components/Icon.astro';
           });
           markBtn.remove();
           const sub = document.querySelector('.page-sub');
-          if (sub) sub.textContent = '暂无未读通知，享受安静的一天吧。';
+          if (sub) sub.textContent = '没有未读通知。';
           // 同步隐藏 Header 上的角标
           const badge = document.getElementById('notifBadge');
           if (badge) badge.style.display = 'none';

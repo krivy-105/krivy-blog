@@ -31,7 +31,7 @@ import Icon from '../components/Icon.astro';
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <BaseHead title={`关于本站 - ${SITE_TITLE}`} description="关于本站：一个自己搭、自己维护的个人博客，说说它是怎么跑起来的。" />
+    <BaseHead title={`关于本站 - ${SITE_TITLE}`} description="关于本站：一台自己的服务器、一个数据库文件，说说这个博客是怎么搭起来的。" />
   </head>
   <body>
     <Header />
@@ -39,43 +39,43 @@ import Icon from '../components/Icon.astro';
       <header class="about-hero">
         <div class="avatar"><Icon name="wrench" size={32} /></div>
         <h1>关于本站</h1>
-        <p class="about-sub">从页面到服务器都是自己搭的，简单说说它是怎么跑起来的。</p>
+        <p class="about-sub">从页面到服务器都是自己搭的。下面说清楚它怎么跑，以及为什么这么搭。</p>
       </header>
 
       <div class="about-grid">
         <div class="about-content prose">
           <p class="about-lead">
-            这个站没有用现成的博客系统：文章、评论、标签全部存在自己的数据库里，
-            页面在服务器上生成好再发给你，跑在一台我自己维护的机器上。
-            下面几段说说它是怎么拼起来的。
+            这个站没有用现成的博客系统。文章、评论、标签都存在自己的数据库里，
+            页面在服务器上渲染好再发出去，整套东西跑在一台我自己维护的机器上。
+            下面分几段说清楚。
           </p>
 
-          <h3>怎么拼起来的</h3>
+          <h3>用什么搭的</h3>
           <p>
-            页面框架用 Astro，Node 在服务器上渲染——所以你打开看到的就是完整页面，
-            不需要等浏览器再拼一遍。私信和通知走 WebSocket 实时推送，不用反复刷新。
-            除此之外没有额外依赖：没接第三方博客平台，也没有单独的数据库服务。
+            页面框架是 Astro，由 Node 在服务器端渲染，所以你收到的是完整 HTML，
+            不用等浏览器再拼一次。私信和通知走 WebSocket 推送，不需要轮询刷新。
+            除此之外没有别的依赖：不接第三方博客平台，也没有独立的数据库服务。
           </p>
 
           <h3>数据放在哪</h3>
           <p>
-            所有内容装在一个数据库文件里（SQLite），和上传的图片一起放在固定的数据目录。
-            好处是换机器时整包搬走就行，更新代码、重启服务都不会动到它。
+            文字内容存在一个 SQLite 数据库文件里，上传的图片放在同一个数据目录。
+            迁移时整包拷走就行；更新代码、重启服务都不会碰到它。
             服务每天自动备份一次，保留最近 7 份。
           </p>
 
           <h3>安全</h3>
           <p>
-            密码不会以原文保存，登录状态靠浏览器 cookie 维持；
-            文章内容在显示前会先过滤一遍，防止有人插入恶意脚本。
-            头像上传后先进人工审核队列，通过之后才会出现在页面上。
+            密码只存哈希，不存明文；登录状态靠 HttpOnly cookie 维持。
+            用户提交的内容在输出前统一过滤，避免有人注入脚本。
+            头像上传后先进人工审核队列，通过之后才会上线。
           </p>
 
           <h3>怎么上线</h3>
           <p>
-            改完代码推上去，服务重新加载就生效，中途不用停机。
-            对外通过 Cloudflare 的加密通道接入——机器在家也能被正常访问，
-            而且不需要把公网地址暴露出来。
+            改完代码跑一次部署脚本：构建、替换产物、重启容器，一般二三十秒，
+            期间站点仍然可以访问。对外通过 Cloudflare Tunnel 接入，
+            服务器不用暴露公网端口，放在内网也能正常提供服务。
           </p>
 
           <blockquote>一台自己的机器，一个数据库文件，没有多余依赖。</blockquote>
@@ -121,7 +121,7 @@ import Icon from '../components/Icon.astro';
           </ol>
 
           <button type="button" class="cl-more" id="clMore" hidden></button>
-          <p class="cl-foot">…持续更新中</p>
+          <p class="cl-foot">持续更新</p>
         </aside>
       </div>
     </main>

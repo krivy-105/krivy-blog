@@ -131,7 +131,7 @@ import Icon from '../../components/Icon.astro';
       {seriesList.length === 0 ? (
         <div class="empty-state card">
           <div class="empty-icon"><Icon name="book" size={32} /></div>
-          <p>还没有创建任何连载系列。</p>
+          <p>还没有连载系列。</p>
           {Astro.locals.user && <a href="/write" class="btn btn-primary">开始创作</a>}
         </div>
       ) : (
