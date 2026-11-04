@@ -1306,3 +1306,182 @@ html.motion-ready .section-head.is-in h2::after {
   .img-fade { opacity: 1; filter: none; transition: none; }
   .reading-progress::after { display: none; }
 }
+
+/* ============================================================
+   动效层（v4）：更强的在场感
+   ------------------------------------------------------------
+   在 v3 之上再叠一层。原则不变：
+   · 全部以 html.motion-ready 为开关，JS 不跑时什么都不会缺；
+   · 指针类效果只在「真鼠标」设备启用（hover + pointer: fine）；
+   · 所有位移量都收在 3px / 2.4deg 这个量级，宁可"感觉到"也不"晃眼睛"。
+   ============================================================ */
+
+/* ---------- 1. 进场：上浮 + 微缩 + 由虚到实（三段同时收敛） ---------- */
+html.motion-ready .reveal {
+  opacity: 0;
+  transform: translateY(28px) scale(0.984);
+  filter: blur(5px);
+}
+html.motion-ready .reveal.is-in {
+  opacity: 1;
+  transform: none;
+  filter: blur(0);
+  transition:
+    opacity 0.8s var(--ease-out-expo) var(--d, 0ms),
+    transform 0.8s var(--ease-out-expo) var(--d, 0ms),
+    filter 0.7s var(--ease-out-expo) var(--d, 0ms);
+}
+
+/* ---------- 2. 卡片 3D 轻微倾斜（--rx / --ry 由指针驱动） ---------- */
+@media (hover: hover) and (pointer: fine) {
+  html.motion-ready .tilt {
+    transform: perspective(1400px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg))
+      translateY(var(--ty, 0px));
+    transition:
+      transform 0.5s var(--ease-out-expo),
+      box-shadow 0.4s var(--ease),
+      border-color 0.4s var(--ease);
+  }
+  /* 倾斜的同时保留原本的"抬起 4px"手感 */
+  html.motion-ready .tilt:hover {
+    --ty: -5px;
+    will-change: transform;
+  }
+}
+
+/* ---------- 3. 页面级光标柔光：跟着鼠标走的一团水色 ---------- */
+html.motion-ready .cursor-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 520px;
+  height: 520px;
+  margin: -260px 0 0 -260px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  background: radial-gradient(
+    circle,
+    rgba(126, 166, 184, 0.13) 0%,
+    rgba(126, 166, 184, 0.07) 38%,
+    transparent 66%
+  );
+  transition: opacity 0.6s var(--ease);
+  will-change: transform;
+}
+html.motion-ready .cursor-glow.is-on { opacity: 1; }
+[data-theme="dark"] html.motion-ready .cursor-glow {
+  background: radial-gradient(
+    circle,
+    rgba(143, 180, 197, 0.16) 0%,
+    rgba(143, 180, 197, 0.08) 40%,
+    transparent 68%
+  );
+}
+
+/* ---------- 4. 导航链接：下划线从中间展开 ---------- */
+@media (hover: hover) and (pointer: fine) {
+  html.motion-ready .nav-center a::after {
+    content: '';
+    position: absolute;
+    left: 11px;
+    right: 11px;
+    bottom: 2px;
+    height: 1.5px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--monet-blue), var(--monet-blue-dark));
+    opacity: 0.85;
+    transform: scaleX(0);
+    transform-origin: 50% 50%;
+    transition: transform 0.34s var(--ease-out-expo);
+    pointer-events: none;
+  }
+  html.motion-ready .nav-center a:hover::after { transform: scaleX(1); }
+}
+
+/* ---------- 5. 标签：hover 时带一点弹性放大 ---------- */
+html.motion-ready .tag-chip {
+  transition:
+    scale 0.32s var(--ease-spring),
+    transform 0.28s var(--ease-spring),
+    background 0.25s var(--ease),
+    color 0.25s var(--ease),
+    border-color 0.25s var(--ease);
+}
+html.motion-ready .tag-chip:hover { scale: 1.05; }
+
+/* ---------- 6. 首屏水光：跟着指针在首屏水面滑过的一团亮 ---------- */
+html.motion-ready .hero-spot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 420px;
+  height: 420px;
+  margin: -210px 0 0 -210px;
+  border-radius: 50%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(143, 180, 197, 0.26) 38%,
+    transparent 68%
+  );
+  filter: blur(10px);
+  transition: opacity 0.55s var(--ease);
+  will-change: transform;
+}
+html.motion-ready .hero-spot.is-on { opacity: 1; }
+[data-theme="dark"] html.motion-ready .hero-spot {
+  background: radial-gradient(
+    circle,
+    rgba(168, 199, 212, 0.34) 0%,
+    rgba(107, 148, 168, 0.2) 40%,
+    transparent 70%
+  );
+}
+
+/* ---------- 7. 回到顶部：外圈一枚缓慢旋转的水色光环 ---------- */
+html.motion-ready .backtop:not([hidden])::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0 58%,
+    rgba(107, 148, 168, 0.45) 76%,
+    rgba(143, 180, 197, 0.8) 88%,
+    transparent 100%
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  animation: ring-spin 3.6s linear infinite;
+}
+@keyframes ring-spin {
+  to { rotate: 360deg; }
+}
+
+/* ---------- 8. 降级：关闭动效时 v4 全部退回静态 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html.motion-ready .reveal,
+  html.motion-ready .reveal.is-in {
+    filter: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+    transition: none !important;
+  }
+  html.motion-ready .tilt,
+  html.motion-ready .tilt:hover {
+    transform: none !important;
+    --ty: 0px;
+  }
+  html.motion-ready .cursor-glow,
+  html.motion-ready .hero-spot { display: none; }
+  html.motion-ready .nav-center a::after { display: none; }
+  html.motion-ready .tag-chip:hover { scale: 1 !important; }
+  html.motion-ready .backtop::before { display: none; }
+}

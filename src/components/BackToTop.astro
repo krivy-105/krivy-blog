@@ -43,6 +43,9 @@
     box-shadow: var(--shadow-md);
     transition: var(--transition);
   }
+  /* display:flex 的特异性会盖过 [hidden] 的 UA 样式，必须显式压回来，
+     否则按钮在页面加载时（scrollY<=400）就会露出来 */
+  .backtop[hidden] { display: none; }
   .backtop:hover {
     transform: translateY(-3px);
     border-color: var(--monet-blue);

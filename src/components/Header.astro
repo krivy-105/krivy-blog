@@ -258,7 +258,7 @@ const pendingCount = isAdmin
           const r = el.getBoundingClientRect();
           const dx = (ev.clientX - (r.left + r.width / 2)) / r.width;
           const dy = (ev.clientY - (r.top + r.height / 2)) / r.height;
-          el.style.translate = (dx * 8).toFixed(2) + 'px ' + (dy * 5).toFixed(2) + 'px';
+          el.style.translate = (dx * 11).toFixed(2) + 'px ' + (dy * 7.5).toFixed(2) + 'px';
         });
         el.addEventListener('pointerleave', function () {
           el.style.translate = '0px 0px';
@@ -292,6 +292,112 @@ const pendingCount = isAdmin
       // 兜底：事件万一丢失也不让图片永久隐形
       setTimeout(done, 4000);
     });
+
+    // ---- 8. 页面级光标柔光：一团水色跟着指针缓慢追上（带插值，不硬跟） ----
+    const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    if (finePointer) {
+      const glow = document.createElement('div');
+      glow.className = 'cursor-glow';
+      glow.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(glow);
+
+      let gx = 0, gy = 0, gtx = 0, gty = 0, gRaf = 0, gInit = false;
+      const glowTick = function () {
+        gx += (gtx - gx) * 0.14;
+        gy += (gty - gy) * 0.14;
+        // 用 transform 而不是 left/top：只走合成层，不触发布局
+        glow.style.transform = 'translate3d(' + gx.toFixed(1) + 'px, ' + gy.toFixed(1) + 'px, 0)';
+        if (Math.abs(gtx - gx) > 0.4 || Math.abs(gty - gy) > 0.4) {
+          gRaf = requestAnimationFrame(glowTick);
+        } else {
+          gRaf = 0;
+        }
+      };
+      const glowWake = function () { if (!gRaf) gRaf = requestAnimationFrame(glowTick); };
+
+      document.addEventListener('pointermove', function (ev) {
+        gtx = ev.clientX;
+        gty = ev.clientY;
+        if (!gInit) {
+          // 首次直接落位，避免从左上角一路飞过来
+          gx = gtx; gy = gty; gInit = true;
+          glow.classList.add('is-on');
+        }
+        glowWake();
+      }, { passive: true });
+      document.documentElement.addEventListener('pointerleave', function () {
+        glow.classList.remove('is-on');
+      });
+      document.documentElement.addEventListener('pointerenter', function () {
+        if (gInit) glow.classList.add('is-on');
+      });
+    }
+
+    // ---- 9. 卡片 3D 轻微倾斜：指针在卡片内的相对位置 → --rx / --ry ----
+    if (finePointer) {
+      const TILT = '.card, .post-card, .post-item, .series-card, .link-card, .related-card, .hot-list';
+      const MAX_X = 2.4;   // 上下倾斜上限（度）
+      const MAX_Y = 2.9;   // 左右倾斜上限（度）
+
+      document.addEventListener('pointermove', function (ev) {
+        const t = ev.target && ev.target.closest ? ev.target.closest(TILT) : null;
+        if (!t) return;
+        const r = t.getBoundingClientRect();
+        if (!r.width || !r.height) return;
+        const px = (ev.clientX - r.left) / r.width - 0.5;
+        const py = (ev.clientY - r.top) / r.height - 0.5;
+        if (!t.classList.contains('tilt')) t.classList.add('tilt');
+        t.style.setProperty('--rx', (-py * MAX_X).toFixed(2) + 'deg');
+        t.style.setProperty('--ry', (px * MAX_Y).toFixed(2) + 'deg');
+      }, { passive: true });
+
+      // 指针离开这张卡片时归零；在卡片内部移动（relatedTarget 仍在卡内）不重置
+      document.addEventListener('pointerout', function (ev) {
+        const t = ev.target && ev.target.closest ? ev.target.closest(TILT) : null;
+        if (!t) return;
+        if (ev.relatedTarget && t.contains(ev.relatedTarget)) return;
+        t.style.setProperty('--rx', '0deg');
+        t.style.setProperty('--ry', '0deg');
+      }, { passive: true });
+    }
+
+    // ---- 10. 首屏水光：指针划过时一团亮光在水面上滑行 ----
+    if (hero && finePointer) {
+      const spot = document.createElement('div');
+      spot.className = 'hero-spot';
+      spot.setAttribute('aria-hidden', 'true');
+      hero.insertBefore(spot, hero.firstChild);
+
+      let sx = 0, sy = 0, stx = 0, sty = 0, sRaf = 0, sInit = false;
+      const spotTick = function () {
+        sx += (stx - sx) * 0.12;
+        sy += (sty - sy) * 0.12;
+        spot.style.transform = 'translate3d(' + sx.toFixed(1) + 'px, ' + sy.toFixed(1) + 'px, 0)';
+        if (Math.abs(stx - sx) > 0.4 || Math.abs(sty - sy) > 0.4) {
+          sRaf = requestAnimationFrame(spotTick);
+        } else {
+          sRaf = 0;
+        }
+      };
+      const spotWake = function () { if (!sRaf) sRaf = requestAnimationFrame(spotTick); };
+
+      hero.addEventListener('pointermove', function (ev) {
+        const r = hero.getBoundingClientRect();
+        stx = ev.clientX - r.left;
+        sty = ev.clientY - r.top;
+        if (!sInit) {
+          sx = stx; sy = sty; sInit = true;
+          spot.classList.add('is-on');
+        }
+        spotWake();
+      }, { passive: true });
+      hero.addEventListener('pointerleave', function () {
+        spot.classList.remove('is-on');
+      });
+      hero.addEventListener('pointerenter', function () {
+        if (sInit) spot.classList.add('is-on');
+      });
+    }
   })();
 </script>
 

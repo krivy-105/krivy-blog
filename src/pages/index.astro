@@ -66,6 +66,8 @@ for (const r of cmtRows) cmtMap.set(r.post_id, r.count);
       <div class="hero-motes" aria-hidden="true">
         <span></span><span></span><span></span>
         <span></span><span></span><span></span>
+        <span></span><span></span><span></span>
+        <span></span><span></span><span></span>
       </div>
       <div class="hero-inner">
         <span class="hero-eyebrow">KRIVY · CYOU</span>
@@ -297,21 +299,27 @@ for (const r of cmtRows) cmtMap.set(r.post_id, r.count);
       rgba(143, 180, 197, 0.6) 45%,
       transparent 72%
     );
-    box-shadow: 0 0 12px rgba(107, 148, 168, 0.45);
+    box-shadow: 0 0 16px rgba(107, 148, 168, 0.6);
     opacity: 0;
     animation: mote-rise var(--dur, 26s) linear var(--delay, 0s) infinite;
   }
-  .hero-motes span:nth-child(1) { --x: 11%; --s: 6px; --dur: 27s; --delay: -2s; --drift: 26px; }
-  .hero-motes span:nth-child(2) { --x: 27%; --s: 4px; --dur: 22s; --delay: -9s; --drift: -18px; }
-  .hero-motes span:nth-child(3) { --x: 43%; --s: 5px; --dur: 31s; --delay: -16s; --drift: 30px; }
-  .hero-motes span:nth-child(4) { --x: 61%; --s: 3px; --dur: 24s; --delay: -6s; --drift: -24px; }
-  .hero-motes span:nth-child(5) { --x: 78%; --s: 6px; --dur: 29s; --delay: -13s; --drift: 16px; }
-  .hero-motes span:nth-child(6) { --x: 92%; --s: 4px; --dur: 25s; --delay: -20s; --drift: -28px; }
+  .hero-motes span:nth-child(1) { --x: 6%; --s: 6px; --dur: 27s; --delay: -2s; --drift: 26px; }
+  .hero-motes span:nth-child(2) { --x: 17%; --s: 3px; --dur: 21s; --delay: -14s; --drift: -20px; }
+  .hero-motes span:nth-child(3) { --x: 27%; --s: 5px; --dur: 24s; --delay: -9s; --drift: -18px; }
+  .hero-motes span:nth-child(4) { --x: 36%; --s: 4px; --dur: 29s; --delay: -19s; --drift: 22px; }
+  .hero-motes span:nth-child(5) { --x: 43%; --s: 6px; --dur: 31s; --delay: -16s; --drift: 30px; }
+  .hero-motes span:nth-child(6) { --x: 52%; --s: 3px; --dur: 23s; --delay: -5s; --drift: -26px; }
+  .hero-motes span:nth-child(7) { --x: 61%; --s: 4px; --dur: 26s; --delay: -6s; --drift: -24px; }
+  .hero-motes span:nth-child(8) { --x: 69%; --s: 5px; --dur: 32s; --delay: -22s; --drift: 18px; }
+  .hero-motes span:nth-child(9) { --x: 78%; --s: 6px; --dur: 29s; --delay: -13s; --drift: 16px; }
+  .hero-motes span:nth-child(10) { --x: 86%; --s: 3px; --dur: 22s; --delay: -17s; --drift: -32px; }
+  .hero-motes span:nth-child(11) { --x: 92%; --s: 4px; --dur: 25s; --delay: -20s; --drift: -28px; }
+  .hero-motes span:nth-child(12) { --x: 96%; --s: 5px; --dur: 28s; --delay: -11s; --drift: 22px; }
 
   @keyframes mote-rise {
     0% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.8); }
-    14% { opacity: 0.6; }
-    72% { opacity: 0.32; }
+    14% { opacity: 0.78; }
+    72% { opacity: 0.42; }
     100% { opacity: 0; transform: translate3d(var(--drift, 20px), -380px, 0) scale(1.15); }
   }
   .hero-eyebrow {
@@ -362,7 +370,7 @@ for (const r of cmtRows) cmtMap.set(r.post_id, r.count);
     color: transparent;
     animation:
       hero-rise 0.95s var(--ease-out-expo) 0.06s both,
-      title-flow 11s ease-in-out 1.8s infinite;
+      title-flow 7.5s ease-in-out 1.8s infinite;
   }
   :global([data-theme="dark"]) .hero h1 {
     background-image: linear-gradient(
