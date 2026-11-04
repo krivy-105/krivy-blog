@@ -1099,6 +1099,29 @@ export const searchQueries = {
      WHERE post_fts MATCH ? AND p.status = 'approved' AND p.deleted_at IS NULL
      ORDER BY rank`
   ),
+
+  // 子串兜底查询。
+  // FTS5 默认的 unicode61 分词器把连续的汉字当成一个整体 token：
+  // 标题「数通学习全流程」整串是一个 token，于是搜「学习」「流程」都命中不了，
+  // 只有从词首前缀（「数通」）或者被标点隔开的词（「模拟器」）才搜得到。
+  // 没有装中文分词扩展的前提下，用 LIKE 做一层子串召回最实际：
+  // 本站文章量小，全表扫描的代价可以忽略；标题命中的排前面。
+  searchLike: db.prepare(
+    `SELECT p.id, p.slug, p.title, p.description, p.created_at,
+            u.username AS author_name,
+            p.content AS preview
+     FROM posts p
+     JOIN users u ON p.author_id = u.id
+     WHERE p.status = 'approved' AND p.deleted_at IS NULL
+       AND (
+         p.title LIKE ? ESCAPE '\\'
+         OR IFNULL(p.description, '') LIKE ? ESCAPE '\\'
+         OR p.content LIKE ? ESCAPE '\\'
+       )
+     ORDER BY CASE WHEN p.title LIKE ? ESCAPE '\\' THEN 0 ELSE 1 END,
+              p.created_at DESC
+     LIMIT 50`
+  ),
 };
 
 // ---- 浏览量相关查询 ----

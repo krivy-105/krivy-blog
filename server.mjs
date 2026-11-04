@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 // 由 `npm run build` 预编译产出（scripts/build-server-lib.mjs），生产环境无需 tsx
 import { sessionQueries, messageQueries } from './dist/server/lib/index.mjs';
 import { createReadStream, existsSync, statSync } from 'node:fs';
-import { join, normalize } from 'node:path';
+import { join, normalize, relative, isAbsolute } from 'node:path';
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4321;
 const CLIENT_DIR = join(process.cwd(), 'dist', 'client');
@@ -33,8 +33,9 @@ const MIME_TYPES = {
 function serveStatic(req, res) {
   const pathname = new URL(req.url, 'http://localhost').pathname;
   const filePath = normalize(join(CLIENT_DIR, pathname));
-  // 防止路径穿越
-  if (!filePath.startsWith(CLIENT_DIR)) return false;
+  // 防止路径穿越：relative 判断真实归属，startsWith 会被 dist/client-x 这类同名前缀绕过
+  const rel = relative(CLIENT_DIR, filePath);
+  if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) return false;
   if (!existsSync(filePath)) return false;
   let stat;
   try { stat = statSync(filePath); } catch { return false; }

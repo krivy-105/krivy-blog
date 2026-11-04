@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { searchQueries } from '../../lib/db';
+import { sanitizeQuery, searchPosts } from '../../lib/search';
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -8,26 +8,9 @@ const json = (data: unknown, status = 200) =>
   });
 
 // GET /api/search?q=关键词 —— 即时搜索接口，最多返回 10 条
+// 检索逻辑（FTS5 优先 + 中文子串兜底 + 摘要转义）统一在 src/lib/search.ts
 export const GET: APIRoute = ({ url }) => {
-  const rawQ = (url.searchParams.get('q') || '').trim();
-  if (!rawQ) return json([]);
-
-  // 清洗 FTS5 运算符，仅保留普通文本
-  const safeQ = rawQ.replace(/["'*:()\-]/g, ' ').replace(/\s+/g, ' ').trim();
+  const safeQ = sanitizeQuery(url.searchParams.get('q') || '');
   if (!safeQ) return json([]);
-
-  try {
-    const rows = (searchQueries.search.all(safeQ + '*') as any[]).slice(0, 10).map((r) => ({
-      id: r.id,
-      slug: r.slug,
-      title: r.title,
-      description: r.description || '',
-      author_name: r.author_name,
-      created_at: r.created_at,
-      preview: r.preview || '',
-    }));
-    return json(rows);
-  } catch {
-    return json([]);
-  }
+  return json(searchPosts(safeQ, 10));
 };

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { commentQueries, postQueries, notificationQueries } from '../../../../lib/db';
+import { bumpRateLimit, getClientIp } from '../../../../lib/rate-limit';
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -29,6 +30,22 @@ export const GET: APIRoute = async ({ params, url }) => {
 export const POST: APIRoute = async ({ params, request, locals }) => {
   const user = locals.user;
   if (!user) return json({ error: '请先登录后再评论' }, 401);
+
+  // 限流：评论会写库 + 发通知 + 推 WebSocket，是全站最容易被脚本刷的写接口。
+  // 原来只有留言板/说说/注册/上传做了限流，评论这条漏了。
+  // 双维度：单账号 10 条/分钟（防脚本），单 IP 30 条/10 分钟（防批量小号）。
+  const ip = getClientIp(request.headers);
+  const byUser = bumpRateLimit(`comment:user:${user.id}`, 10, 60 * 1000);
+  const byIp = bumpRateLimit(`comment:ip:${ip}`, 30, 10 * 60 * 1000);
+  if (!byUser.ok || !byIp.ok) {
+    return new Response(JSON.stringify({ error: '评论太频繁了，稍后再试' }), {
+      status: 429,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Retry-After': String(Math.max(byUser.retryAfterSec, byIp.retryAfterSec, 1)),
+      },
+    });
+  }
 
   const postId = Number(params.id);
   if (!Number.isFinite(postId)) return json({ error: '文章不存在' }, 404);

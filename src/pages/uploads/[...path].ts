@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { readFile } from 'node:fs/promises';
-import { join, normalize, extname } from 'node:path';
+import { join, normalize, extname, relative, isAbsolute } from 'node:path';
 import { UPLOAD_DIR } from '../../lib/db';
 
 const MIME: Record<string, string> = {
@@ -11,13 +11,21 @@ const MIME: Record<string, string> = {
   '.gif': 'image/gif',
 };
 
+// 判断 target 是否真的落在 base 目录内部。
+// 不能用 target.startsWith(base)：那样 /data/uploads-evil/x.webp 也会被判为"在
+// /data/uploads 里面"（同名前缀）。用 relative 判断才是真正的目录归属。
+function isInside(base: string, target: string): boolean {
+  const rel = relative(base, target);
+  return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+}
+
 // GET /uploads/images/xxx.webp、/uploads/moments/xxx.webp
 // 用户上传文件存在数据持久卷的 data/uploads/ 下，经 SSR 路由读取
 export const GET: APIRoute = async ({ params }) => {
   const raw = params.path || '';
   // 防目录穿越：归一化后必须仍位于 UPLOAD_DIR 内，且只允许单层子目录
   const filePath = normalize(join(UPLOAD_DIR, raw));
-  if (!filePath.startsWith(UPLOAD_DIR)) {
+  if (!isInside(UPLOAD_DIR, filePath)) {
     return new Response('Not found', { status: 404 });
   }
   const ext = extname(filePath).toLowerCase();

@@ -14,10 +14,15 @@
   /* 点缀色（点赞爱心） */
   --heart: #ef6f83;
 
-  /* 文字色 */
+  /* 文字色
+     对比度按 WCAG AA（正文 4.5:1）校准，白底实测：
+       text-dark 11.9:1 / text-gray 5.4:1 / text-light 4.5:1
+     早先的 #9aa8b2 只有 2.4:1，时间戳、浏览量、placeholder 这类小字
+     在弱光或低端屏上基本读不清；这里压深两档，同时把 gray 也压深一点，
+     保住「正文 → 次要 → 辅助」三级层次不至于糊成一片。 */
   --text-dark: #283947;
-  --text-gray: #647684;
-  --text-light: #9aa8b2;
+  --text-gray: #5a6c7c;
+  --text-light: #6b7883;
 
   /* 背景 */
   --bg-white: #ffffff;
@@ -67,7 +72,8 @@
 
   --text-dark: #d6dde2;
   --text-gray: #98a4ad;
-  --text-light: #6c7984;
+  /* 深色底 #1a242b 上 4.5:1（原 #6c7984 只有 3.5:1） */
+  --text-light: #7e8b96;
 
   --bg-white: #1a242b;
   --bg-gradient: linear-gradient(180deg, #131a20 0%, #161f24 32%, #1a242b 72%);
@@ -329,13 +335,16 @@ th {
 }
 .btn:active { transform: translateY(0) scale(0.98); }
 
+/* 主按钮：白字压在这条渐变上，最亮端 #86b0c2 只有 2.3:1，
+   小字号按钮根本不够看。整条渐变压深到 4.8–6.9:1 区间，
+   仍然是莫奈蓝，只是饱和度更实一点。 */
 .btn-primary {
-  background: linear-gradient(135deg, #86b0c2 0%, #5f889d 58%, #4f7b90 100%);
+  background: linear-gradient(135deg, #50788d 0%, #446c81 58%, #3a5f73 100%);
   color: #fff;
   box-shadow: 0 4px 14px rgba(95, 136, 157, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 .btn-primary:hover {
-  background: linear-gradient(135deg, #79a5b8 0%, #547e92 58%, #456f84 100%);
+  background: linear-gradient(135deg, #4a7288 0%, #3e657a 58%, #345569 100%);
   transform: translateY(-2px);
   box-shadow: 0 10px 26px rgba(95, 136, 157, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   color: #fff;
@@ -931,7 +940,10 @@ html.motion-ready body::before {
   from { transform: translate3d(-1.5%, -1%, 0) scale(1); }
   to   { transform: translate3d(1.5%, 1.5%, 0) scale(1.07); }
 }
-:global([data-theme="dark"]) html.motion-ready body::before { opacity: 0.75; }
+/* 全局样式表里不能写 Astro 的 :global() 作用域语法——
+   那是 .astro <style> 作用域编译期的写法，写进 .css 会被 lightningcss
+   当成非法伪类，构建时每次刷一条警告。这里就是纯 CSS，直接写选择器即可。 */
+[data-theme="dark"] html.motion-ready body::before { opacity: 0.75; }
 
 /* ---------- 滚动进场：淡入上移，按序错开 ---------- */
 html.motion-ready .reveal {
@@ -963,7 +975,7 @@ html.motion-ready .glow-card::after {
   );
 }
 html.motion-ready .glow-card:hover::after { opacity: 1; }
-:global([data-theme="dark"]) html.motion-ready .glow-card::after {
+[data-theme="dark"] html.motion-ready .glow-card::after {
   background: radial-gradient(
     260px circle at var(--mx, 50%) var(--my, 50%),
     rgba(143, 180, 197, 0.16),
@@ -997,7 +1009,7 @@ header.is-scrolled {
   box-shadow: 0 10px 30px rgba(20, 40, 55, 0.1);
   border-bottom-color: color-mix(in srgb, var(--monet-blue) 20%, transparent);
 }
-:global([data-theme="dark"]) header.is-scrolled {
+[data-theme="dark"] header.is-scrolled {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 

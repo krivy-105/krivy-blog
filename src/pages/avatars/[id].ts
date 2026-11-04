@@ -1,7 +1,13 @@
 import type { APIRoute } from 'astro';
 import { readFile } from 'node:fs/promises';
-import { join, normalize } from 'node:path';
+import { join, normalize, relative, isAbsolute } from 'node:path';
 import { AVATAR_DIR } from '../../lib/db';
+
+// 目录归属判断不能用 startsWith（同名前缀的兄弟目录会绕过），用 relative
+function isInside(base: string, target: string): boolean {
+  const rel = relative(base, target);
+  return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+}
 
 // GET /avatars/:id —— 读取用户头像
 // 头像文件保存在数据持久卷（data/avatars/），不在 dist/client 静态目录里，
@@ -15,7 +21,7 @@ export const GET: APIRoute = async ({ params, url }) => {
   // ?kind=pending 读取待审核头像文件（审核通过后会替换为正式文件）
   const isPending = url.searchParams.get('kind') === 'pending';
   const filePath = normalize(join(AVATAR_DIR, `${id}${isPending ? '.pending' : ''}.webp`));
-  if (!filePath.startsWith(AVATAR_DIR)) {
+  if (!isInside(AVATAR_DIR, filePath)) {
     return new Response('Not found', { status: 404 });
   }
 
