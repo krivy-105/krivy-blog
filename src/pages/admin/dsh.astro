@@ -46,6 +46,7 @@ if (stored) {
     fileNote = e instanceof Error ? e.message : String(e);
   }
 }
+import Icon from '../../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -129,7 +130,7 @@ if (stored) {
     <main>
       <div class="page-head">
         <a class="back-link" href="/admin">← 返回后台</a>
-        <h1>🕳 DSH 手机通道</h1>
+        <h1><Icon name="settings" size={22} /> DSH 手机通道</h1>
         <p>电脑端 DSH Web 的实时访问链接，token 每次重启电脑都会轮换</p>
       </div>
 
@@ -157,7 +158,7 @@ if (stored) {
             更新于 <span id="updatedAt">{updatedAt}</span> · 来源：{source}
           </div>
         )}
-        {!accessUrl && fileNote && <div class="note">⚠️ {fileNote}</div>}
+        {!accessUrl && fileNote && <div class="note"><Icon name="alert" size={13} /> {fileNote}</div>}
 
         <div class="card-label" style="margin-top:1.4rem;">电脑端配对密钥（推送通道凭据）</div>
         <div class="url-row">

@@ -290,7 +290,9 @@ th {
   margin: 0 auto 2.5rem;
 }
 .section-head .eyebrow {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 0.78rem;
   letter-spacing: 0.22em;
   color: var(--monet-blue-dark);
@@ -520,7 +522,8 @@ th {
 /* ---------------- 移动端底部导航留白 ---------------- */
 @media (max-width: 767.98px) {
   body {
-    padding-bottom: calc(3.6rem + env(safe-area-inset-bottom, 0px));
+    /* 底部导航实测 59px，留 4.4rem(70px) 防止页脚最后一行被压住 */
+    padding-bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -896,4 +899,398 @@ th {
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
   background: var(--monet-blue);
   background-clip: padding-box;
+}
+
+/* ============================================================
+   动效层（v2）：进场景 / 极光背景 / 指针光晕 / 按钮流光
+   ------------------------------------------------------------
+   全部用 html.motion-ready 作为开关：JS 没跑或用户开了「减少动态效果」时，
+   所有内容保持原样可见，绝不会出现"白屏等动画"。
+   ============================================================ */
+
+:root {
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* ---------- 极光背景：极缓漂移，只做气氛 ---------- */
+html.motion-ready body::before {
+  content: '';
+  position: fixed;
+  inset: -18vmax;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38vmax 38vmax at 16% 10%, rgba(107, 148, 168, 0.15), transparent 62%),
+    radial-gradient(32vmax 32vmax at 84% 20%, rgba(143, 180, 197, 0.13), transparent 60%),
+    radial-gradient(42vmax 42vmax at 48% 96%, rgba(168, 138, 107, 0.09), transparent 66%);
+  animation: aurora-drift 46s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes aurora-drift {
+  from { transform: translate3d(-1.5%, -1%, 0) scale(1); }
+  to   { transform: translate3d(1.5%, 1.5%, 0) scale(1.07); }
+}
+:global([data-theme="dark"]) html.motion-ready body::before { opacity: 0.75; }
+
+/* ---------- 滚动进场：淡入上移，按序错开 ---------- */
+html.motion-ready .reveal {
+  opacity: 0;
+  transform: translateY(18px);
+}
+html.motion-ready .reveal.is-in {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.72s var(--ease-out-expo) var(--d, 0ms),
+    transform 0.72s var(--ease-out-expo) var(--d, 0ms);
+}
+
+/* ---------- 指针光晕：桌面端鼠标划过卡片时的一圈柔光 ---------- */
+html.motion-ready .glow-card { position: relative; }
+html.motion-ready .glow-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s var(--ease);
+  background: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(107, 148, 168, 0.14),
+    transparent 64%
+  );
+}
+html.motion-ready .glow-card:hover::after { opacity: 1; }
+:global([data-theme="dark"]) html.motion-ready .glow-card::after {
+  background: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(143, 180, 197, 0.16),
+    transparent 64%
+  );
+}
+
+/* ---------- 主按钮流光 ---------- */
+.btn-primary { position: relative; overflow: hidden; }
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: -70%;
+  width: 45%;
+  height: 140%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.34), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.65s var(--ease-out-expo);
+}
+.btn-primary:hover::after { left: 120%; }
+
+/* ---------- 按下反馈 ---------- */
+.btn:active,
+.tag-chip:active,
+.owner-btn:active { transform: scale(0.97); }
+
+/* ---------- 顶栏滚动状态 ---------- */
+header.is-scrolled {
+  box-shadow: 0 10px 30px rgba(20, 40, 55, 0.1);
+  border-bottom-color: color-mix(in srgb, var(--monet-blue) 20%, transparent);
+}
+:global([data-theme="dark"]) header.is-scrolled {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- 首屏标题：极轻的渐变文字（不支持时自动回退） ---------- */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .hero h1 {
+    background: linear-gradient(120deg, var(--monet-blue-deep, #4a7286) 0%, var(--monet-blue, #6b94a8) 52%, var(--text-dark) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+/* ---------- 正文链接：下划线从左侧滑入 ---------- */
+.prose a {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 1px;
+  transition: background-size 0.32s var(--ease-out-expo);
+}
+.prose a:hover { background-size: 100% 1px; }
+
+/* ---------- 尊重「减少动态效果」 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html.motion-ready body::before { animation: none !important; }
+  html.motion-ready .reveal,
+  html.motion-ready .reveal.is-in {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .btn-primary::after { display: none !important; }
+  .hero h1 { color: inherit !important; background: none !important; -webkit-background-clip: border-box !important; }
+}
+
+/* ============================================================
+   悬停放大（互动反馈）
+   ------------------------------------------------------------
+   · 用独立的 scale 属性，不用 transform：不会覆盖卡片原有的
+     translateY 悬停位移，两者可以叠加
+   · 封顶 --hover-zoom（默认 1.025 = 宽度只增加 2.5%），
+     想更明显/更克制改这一个变量就行
+   · 只在「真鼠标」设备启用，触屏不会误触
+   ============================================================ */
+
+@supports (scale: 1) {
+  @media (hover: hover) and (pointer: fine) {
+    .post-card,
+    .post-item,
+    .series-card,
+    .m-entry,
+    .gb-entry,
+    .link-card,
+    .related-card,
+    .cl-item,
+    .tag-cloud {
+      --hover-zoom: 1.025;
+      position: relative;
+      z-index: 1;
+      transition:
+        scale 0.34s var(--ease-spring),
+        box-shadow 0.34s var(--ease),
+        border-color 0.34s var(--ease);
+    }
+
+    .post-card:hover,
+    .post-item:hover,
+    .series-card:hover,
+    .m-entry:hover,
+    .gb-entry:hover,
+    .link-card:hover,
+    .related-card:hover,
+    .cl-item:hover,
+    .tag-cloud:hover {
+      scale: var(--hover-zoom);
+      z-index: 3;
+    }
+
+    /* 指针离开时用更"软"的回弹曲线，回来时更干脆 */
+    .post-card:not(:hover),
+    .post-item:not(:hover),
+    .series-card:not(:hover),
+    .m-entry:not(:hover),
+    .gb-entry:not(:hover),
+    .link-card:not(:hover),
+    .related-card:not(:hover),
+    .cl-item:not(:hover),
+    .tag-cloud:not(:hover) {
+      scale: 1;
+      transition:
+        scale 0.42s var(--ease-out-expo),
+        box-shadow 0.42s var(--ease),
+        border-color 0.42s var(--ease);
+    }
+  }
+}
+
+/* 减少动效：一律不缩放 */
+@media (prefers-reduced-motion: reduce) {
+  .post-card, .post-item, .series-card, .m-entry, .gb-entry,
+  .link-card, .related-card, .cl-item, .tag-cloud {
+    scale: 1 !important;
+    transition: none !important;
+  }
+}
+
+/* ============================================================
+   文章内「分部分切换」（如：安装教程 / 课程学习）
+   ------------------------------------------------------------
+   用法：正文里用带 id 的 h2 当分界锚点——
+     <h2 id="part-install">第一部分 · 安装教程</h2>
+     <h2 id="part-learn">第二部分 · 课程学习</h2>
+   脚本会自动把中间内容装进两个面板，并生成上面的切换按钮。
+   没有 JS 时两个部分按顺序正常显示，不影响阅读。
+   ============================================================ */
+
+.article-parts-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 1.5rem 0 1.9rem;
+  padding: 0.4rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--monet-blue) 7%, transparent);
+  border: 1px solid var(--border-light);
+}
+.aps-btn {
+  flex: 1 1 auto;
+  min-height: 44px;
+  padding: 0.6rem 1.15rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--monet-blue-dark);
+  font: inherit;
+  font-size: 0.94rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.28s var(--ease), color 0.28s var(--ease), transform 0.28s var(--ease-spring);
+}
+.aps-btn:hover { background: color-mix(in srgb, var(--monet-blue) 12%, transparent); }
+.aps-btn:active { transform: scale(0.98); }
+.aps-btn.is-active {
+  background: var(--monet-blue);
+  color: #fff;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--monet-blue) 32%, transparent);
+}
+.aps-btn:focus-visible {
+  outline: 2px solid var(--monet-blue);
+  outline-offset: 2px;
+}
+.article-part[hidden] { display: none; }
+/* 面板里的第一个标题不需要额外上边距，避免切换后顶部空一块 */
+.article-part > h3:first-child { margin-top: 0; }
+
+@media (max-width: 480px) {
+  .article-parts-switch { padding: 0.32rem; gap: 0.4rem; }
+  .aps-btn { font-size: 0.88rem; padding: 0.55rem 0.8rem; }
+}
+
+/* ============================================================
+   首屏之外的区块延后渲染
+   ------------------------------------------------------------
+   content-visibility: auto 让浏览器跳过屏幕外内容的布局与绘制，
+   减少首屏主线程工作量（文章页 DOM 有 600+ 节点，评论区尤其重）。
+   contain-intrinsic-size 给一个占位高度，避免滚动时高度突变。
+   注意：只加在评论区/相关阅读这类"首屏看不到"的区块上，
+   正文不动，否则会影响 Ctrl+F 查找和锚点定位。
+   ============================================================ */
+
+.comments,
+.related {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 640px;
+}
+
+/* 低端设备 / 减少动效：保持功能但不做额外渲染优化 */
+@media (prefers-reduced-motion: reduce) {
+  .comments,
+  .related {
+    content-visibility: visible;
+  }
+}
+
+/* ============================================================
+   动效层（v3）：点缀级交互
+   ------------------------------------------------------------
+   一律以 html.motion-ready 为开关（JS 未执行 / 用户关闭动效时全部失效，
+   但功能与可读性完全不受影响）。所有动效只作用于「反馈」，不承载信息。
+   ============================================================ */
+
+/* ---------- 按钮点击涟漪 ---------- */
+html.motion-ready .btn {
+  position: relative;
+  overflow: hidden;
+  /* 让涟漪的圆形不会被圆角切断 */
+  isolation: isolate;
+}
+html.motion-ready .ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.26;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  animation: ripple-out 0.62s var(--ease-out-expo) forwards;
+}
+@keyframes ripple-out {
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+
+/* ---------- 区块标题下的装饰线：进场时从中间展开 ---------- */
+.section-head h2::after {
+  content: '';
+  display: block;
+  width: 56px;
+  height: 2px;
+  margin: 0.7rem auto 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--monet-blue) 32%, var(--monet-blue-dark) 68%, transparent);
+  opacity: 0.75;
+}
+html.motion-ready .section-head h2::after {
+  width: 0;
+  transition: width 0.9s var(--ease-out-expo) 0.12s;
+}
+html.motion-ready .section-head.is-in h2::after {
+  width: 56px;
+}
+
+/* ---------- 图片：解码完成后才淡入，避免"半张图"跳出来 ---------- */
+.img-fade {
+  opacity: 0;
+  filter: blur(10px);
+  transition:
+    opacity 0.65s var(--ease-out-expo),
+    filter 0.65s var(--ease-out-expo);
+}
+.img-fade.is-loaded {
+  opacity: 1;
+  filter: blur(0);
+}
+
+/* ---------- 阅读进度条：末端一枚跟着滑动的光点 ---------- */
+.reading-progress::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: calc(var(--p, 0) * 100%);
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  background: var(--monet-blue-dark);
+  box-shadow: 0 0 10px 2px color-mix(in srgb, var(--monet-blue) 55%, transparent);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+  pointer-events: none;
+}
+.reading-progress.is-reading::after {
+  opacity: 0.85;
+  transform: scale(1);
+}
+
+/* ---------- 主题切换：从按钮位置圆形扩散 ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+  ::view-transition-new(root) {
+    animation: theme-reveal 0.58s var(--ease-out-expo) both;
+  }
+}
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(0 at var(--vt-x, 50%) var(--vt-y, 50%));
+  }
+  to {
+    clip-path: circle(var(--vt-r, 140vmax) at var(--vt-x, 50%) var(--vt-y, 50%));
+  }
+}
+
+/* ---------- 降级：关闭动效时以上全部退回静态 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html.motion-ready .ripple { display: none; }
+  html.motion-ready .section-head h2::after { width: 56px; transition: none; }
+  .img-fade { opacity: 1; filter: none; transition: none; }
+  .reading-progress::after { display: none; }
 }

@@ -39,6 +39,7 @@ const uvPts = pts('uv');
 
 const totalPv = rows.reduce((s, r) => s + r.pv, 0);
 const totalUv = rows.reduce((s, r) => s + r.uv, 0);
+import Icon from '../../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -51,7 +52,7 @@ const totalUv = rows.reduce((s, r) => s + r.uv, 0);
     <main class="narrow">
       <a href="/admin" class="back-link">← 返回管理后台</a>
       <header class="page-head">
-        <h1>📊 站点统计</h1>
+        <h1><Icon name="chart" size={22} /> 站点统计</h1>
         <p>最近 30 天 PV/UV 趋势，数据按 IP 哈希去重。</p>
       </header>
 

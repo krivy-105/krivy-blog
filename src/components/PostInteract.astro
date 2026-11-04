@@ -44,6 +44,7 @@ const shareUrl = new URL(`/blog/${slug}/`, Astro.site).href;
 
 const formatDate = (ts: number) =>
   new Date(ts).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+import Icon from './Icon.astro';
 ---
 
 <div
@@ -134,8 +135,7 @@ const formatDate = (ts: number) =>
         <span class="comments-num" id="piCommentNum">{totalComments}</span>
       </h3>
       <div class="sort-tabs" role="tablist" aria-label="评论排序">
-        <button type="button" class="sort-tab is-active" role="tab" data-sort="hot" aria-selected="true">
-          🔥 最热
+        <button type="button" class="sort-tab is-active" role="tab" data-sort="hot" aria-selected="true"><Icon name="flame" size={13} /> 最热
         </button>
         <button type="button" class="sort-tab" role="tab" data-sort="new" aria-selected="false">
           ⏱ 最新

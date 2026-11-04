@@ -8,6 +8,7 @@
 
 <script>
   const bar = document.getElementById('readingProgressBar');
+  const wrap = document.getElementById('readingProgress');
   const article = document.querySelector('article');
 
   function update() {
@@ -26,6 +27,11 @@
     if (p < 0) p = 0;
     if (p > 1) p = 1;
     bar.style.transform = `scaleX(${p})`;
+    // 末端光点跟着走：位置交给 CSS，JS 只提供比例
+    if (wrap) {
+      wrap.style.setProperty('--p', String(p));
+      wrap.classList.toggle('is-reading', p > 0.005);
+    }
   }
 
   update();

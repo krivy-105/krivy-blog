@@ -33,6 +33,7 @@ const highlightTitle = (text: string) => {
   }
   return out;
 };
+import Icon from '../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -44,7 +45,7 @@ const highlightTitle = (text: string) => {
     <Header />
     <main class="narrow">
       <header class="page-head">
-        <h1>🔍 搜索文章</h1>
+        <h1><Icon name="search" size={22} /> 搜索文章</h1>
         <p>输入关键词，从已发布的全部文章中检索标题、摘要与正文。</p>
       </header>
 
@@ -69,7 +70,7 @@ const highlightTitle = (text: string) => {
         </p>
       ) : (
         <div class="empty-state card">
-          <div class="empty-icon">🔍</div>
+          <div class="empty-icon"><Icon name="search" size={32} /></div>
           <p>输入关键词开始搜索，结果将匹配标题、摘要与正文。</p>
         </div>
       )}
@@ -89,7 +90,7 @@ const highlightTitle = (text: string) => {
                   <p class="search-preview" set:html={r.preview || r.description || ''} />
                 </div>
                 <div class="item-meta">
-                  <a class="meta-author" href={`/users/${r.author_name}`}>✍️ {r.author_name}</a>
+                  <a class="meta-author" href={`/users/${r.author_name}`}><Icon name="pen" size={13} /> {r.author_name}</a>
                   <time>{formatDate(r.created_at)}</time>
                 </div>
               </div>

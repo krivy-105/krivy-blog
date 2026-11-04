@@ -6,11 +6,11 @@ import { SITE_TITLE } from '../consts';
 import { changelog, type ChangelogEntry } from '../data/changelog';
 
 const typeLabels: Record<ChangelogEntry['type'], string> = {
-  feat: '✨ 功能',
-  fix: '🛠 修复',
-  style: '🎨 视觉',
-  perf: '⚡ 优化',
-  security: '🛡 安全',
+  feat: '功能',
+  fix: '修复',
+  style: '视觉',
+  perf: '优化',
+  security: '安全',
 };
 
 // 筛选按钮用的短标签（不带 emoji，省空间）
@@ -24,67 +24,66 @@ const typeShort: Record<ChangelogEntry['type'], string> = {
 
 const typeOrder: ChangelogEntry['type'][] = ['feat', 'fix', 'style', 'perf', 'security'];
 // 折叠态一次只列这么多，其余点按钮展开，避免日志墙
-const COLLAPSED_LIMIT = 8;
+const COLLAPSED_LIMIT = 6;
+import Icon from '../components/Icon.astro';
 ---
 
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <BaseHead title={`关于本站 - ${SITE_TITLE}`} description="这个站点怎么跑起来的：Astro SSR、SQLite + FTS5、自建 WebSocket 与自有服务器上的自动部署" />
+    <BaseHead title={`关于本站 - ${SITE_TITLE}`} description="关于本站：一个自己搭、自己维护的个人博客，说说它是怎么跑起来的。" />
   </head>
   <body>
     <Header />
     <main class="about-page">
       <header class="about-hero">
-        <div class="avatar">🛠️</div>
+        <div class="avatar"><Icon name="wrench" size={32} /></div>
         <h1>关于本站</h1>
-        <p class="about-sub">从数据库到反向代理都是自己配的，简单交代下它是怎么跑起来的。</p>
+        <p class="about-sub">从页面到服务器都是自己搭的，简单说说它是怎么跑起来的。</p>
       </header>
 
       <div class="about-grid">
         <div class="about-content prose">
           <p class="about-lead">
-            这个站没有用现成的博客系统：文章、评论、标签全部存在数据库里，页面一律服务端渲染，
-            跑在一台自己维护的服务器上。下面几段说说它是怎么拼起来的——以及为什么这么拼。
+            这个站没有用现成的博客系统：文章、评论、标签全部存在自己的数据库里，
+            页面在服务器上生成好再发给你，跑在一台我自己维护的机器上。
+            下面几段说说它是怎么拼起来的。
           </p>
 
-          <h3>架构</h3>
+          <h3>怎么拼起来的</h3>
           <p>
-            Astro 7 SSR + <code>@astrojs/node</code>（Node 22）。入口是自己写的一层
-            <code>server.mjs</code>：既托管 HTTP 与静态资源，也用 <code>ws</code> 挂了一条 WebSocket——
-            所以私信是实时推送的，不是轮询。
+            页面框架用 Astro，Node 在服务器上渲染——所以你打开看到的就是完整页面，
+            不需要等浏览器再拼一遍。私信和通知走 WebSocket 实时推送，不用反复刷新。
+            除此之外没有额外依赖：没接第三方博客平台，也没有单独的数据库服务。
           </p>
 
-          <h3>数据</h3>
+          <h3>数据放在哪</h3>
           <p>
-            全部状态收敛进一个 SQLite 文件（<code>better-sqlite3</code>，同步 API + 事务），
-            没有 Redis、没有独立数据库服务。全文检索直接用 FTS5，索引交给触发器维护，
-            文章增删改不需要手动同步。库和上传的图片都放在 <code>/data</code> 目录下，
-            重建容器、更新代码都不影响它；服务每天自动做一次一致性快照，保留最近 7 份。
+            所有内容装在一个数据库文件里（SQLite），和上传的图片一起放在固定的数据目录。
+            好处是换机器时整包搬走就行，更新代码、重启服务都不会动到它。
+            服务每天自动备份一次，保留最近 7 份。
           </p>
 
-          <h3>安全与处理</h3>
+          <h3>安全</h3>
           <p>
-            bcrypt 存密码，session cookie 走 <code>httpOnly</code> + <code>sameSite=lax</code>；
-            全站响应头带 CSP 与 HSTS，登录接口按 IP 限流且失败文案统一（不泄露账号是否存在）。
-            头像经 sharp 自动旋转、居中裁剪成 256×256 的 WebP，上传后先进人工审核队列；
-            正文用 marked 渲染、再经 sanitize-html 白名单净化，杜绝脚本注入。
+            密码不会以原文保存，登录状态靠浏览器 cookie 维持；
+            文章内容在显示前会先过滤一遍，防止有人插入恶意脚本。
+            头像上传后先进人工审核队列，通过之后才会出现在页面上。
           </p>
 
-          <h3>部署</h3>
+          <h3>怎么上线</h3>
           <p>
-            代码托管在 GitHub，推送到 <code>main</code> 后由 GitHub Actions 自动 SSH 进服务器，
-            拉代码、重建镜像、替换容器，再轮询健康检查——全程约两分钟，人不用登录服务器。
-            前面挂 Caddy 负责反向代理、gzip/zstd 压缩与 Let's Encrypt 证书的自动申请和续期；
-            机器就是一台普通的 2 核 2G VPS，没有用任何托管平台。
+            改完代码推上去，服务重新加载就生效，中途不用停机。
+            对外通过 Cloudflare 的加密通道接入——机器在家也能被正常访问，
+            而且不需要把公网地址暴露出来。
           </p>
 
-          <blockquote>一个仓库、一台机器、一个 .db 文件——够用，且好维护。</blockquote>
+          <blockquote>一台自己的机器，一个数据库文件，没有多余依赖。</blockquote>
         </div>
 
         <aside class="changelog-aside" aria-label="站点更新日志">
           <div class="cl-bar">
-            <h2 class="cl-title">🗓️ 更新日志</h2>
+            <h2 class="cl-title"><Icon name="calendar" size={22} /> 更新日志</h2>
             <span class="cl-count">{changelog.length} 条</span>
           </div>
 
@@ -133,7 +132,8 @@ const COLLAPSED_LIMIT = 8;
       var items = Array.prototype.slice.call(document.querySelectorAll('.cl-item'));
       var moreBtn = document.getElementById('clMore');
       var filterBtns = Array.prototype.slice.call(document.querySelectorAll('.cl-filter'));
-      var LIMIT = 8;
+      // 折叠时先显示几条（改动时和上方 COLLAPSED_LIMIT 保持一致）
+      var LIMIT = 6;
       var activeType = 'all';
       var expanded = false;
 

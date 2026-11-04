@@ -21,6 +21,7 @@ const formatDate = (ts: number) =>
     hour: '2-digit',
     minute: '2-digit',
   });
+import Icon from '../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -32,7 +33,7 @@ const formatDate = (ts: number) =>
     <Header />
     <main class="narrow m-page">
       <header class="m-hero">
-        <h1>✨ 说说</h1>
+        <h1><Icon name="sparkles" size={22} /> 说说</h1>
         <p>不必长篇大论——一张图、一句话，都是此刻的记录。</p>
       </header>
 
@@ -49,8 +50,7 @@ const formatDate = (ts: number) =>
             placeholder="此刻在想什么？（直接 Ctrl+V 也能贴图）"
           ></textarea>
           <div class="m-composer-foot">
-            <label class="m-img-pick">
-              🖼️ 配图
+            <label class="m-img-pick"><Icon name="image" size={13} /> 配图
               <input type="file" id="mImage" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
             </label>
             <span id="mImgName" class="m-img-name"></span>
@@ -69,7 +69,7 @@ const formatDate = (ts: number) =>
       <section class="m-list">
         {moments.length === 0 ? (
           <div class="m-empty card">
-            <p>还没有动态。去拍一张窗外的云，或写句今天的心情吧 ☁️</p>
+            <p>还没有动态。去拍一张窗外的云，或写句今天的心情吧</p>
           </div>
         ) : (
           moments.map((m) => (

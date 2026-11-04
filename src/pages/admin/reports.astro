@@ -39,6 +39,7 @@ function timeAgo(ts: number): string {
   if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`;
   return new Date(ts).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
 }
+import Icon from '../../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -122,7 +123,7 @@ function timeAgo(ts: number): string {
     <main>
       <a href="/admin" class="back-link">← 返回管理后台</a>
       <header class="page-head">
-        <h1>🚩 评论举报处理</h1>
+        <h1><Icon name="flag" size={22} /> 评论举报处理</h1>
         <p>
           {reports.length > 0
             ? `当前有 ${reports.length} 条待处理举报。`
@@ -132,7 +133,7 @@ function timeAgo(ts: number): string {
 
       {reports.length === 0 ? (
         <div class="empty">
-          <div class="empty-icon">✨</div>
+          <div class="empty-icon"><Icon name="sparkles" size={32} /></div>
           <p>暂无待处理的举报</p>
         </div>
       ) : (
@@ -216,7 +217,7 @@ function timeAgo(ts: number): string {
               list?.remove();
               const empty = document.createElement('div');
               empty.className = 'empty';
-              empty.innerHTML = '<div class="empty-icon">✨</div><p>暂无待处理的举报</p>';
+              empty.innerHTML = '<div class="empty-icon"><Icon name="sparkles" size={32} /></div><p>暂无待处理的举报</p>';
               list?.parentNode?.appendChild(empty);
             }
           } catch (e) {

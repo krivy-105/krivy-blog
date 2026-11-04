@@ -14,7 +14,7 @@ const updatedText = new Date(updated).toLocaleDateString('zh-CN', {
 
 const sections = [
   {
-    icon: '🛠️',
+    icon: 'wrench',
     title: '正在做',
     items: [
       '持续打磨这个独立博客：PWA 可安装、文章分享卡、自定义 404，慢慢补齐细节。',
@@ -22,21 +22,22 @@ const sections = [
     ],
   },
   {
-    icon: '📚',
+    icon: 'book',
     title: '最近在读',
     items: ['一些关于 Web 性能与系统设计的长文', '偶尔翻翻散文和画册，给眼睛放个假'],
   },
   {
-    icon: '🌿',
+    icon: 'sparkles',
     title: '生活',
     items: ['保持规律的作息和运动', '给房间里的植物浇水，观察它们慢慢长'],
   },
   {
-    icon: '💡',
+    icon: 'star',
     title: '接下来想试',
     items: ['文章正文图片懒加载与 CDN', '更丰富的标签云与专栏导航', '评论区表情包支持'],
   },
 ];
+import Icon from '../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -48,7 +49,7 @@ const sections = [
     <Header />
     <main class="narrow now-page">
       <header class="now-hero">
-        <div class="now-emoji">🌤️</div>
+        <div class="now-emoji"><Icon name="cloud" size={32} /></div>
         <h1>Now</h1>
         <p class="now-sub">我最近在做什么——一页能说完的状态。</p>
         <p class="now-updated">最后更新：{updatedText}</p>
@@ -57,7 +58,7 @@ const sections = [
       <div class="now-grid">
         {sections.map((s) => (
           <section class="now-card">
-            <h2><span class="now-icon">{s.icon}</span>{s.title}</h2>
+            <h2><span class="now-icon"><Icon name={s.icon} size={18} /></span>{s.title}</h2>
             <ul>
               {s.items.map((item) => <li>{item}</li>)}
             </ul>

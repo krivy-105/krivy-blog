@@ -7,6 +7,7 @@ import { tagQueries } from '../../lib/db';
 
 const tag = decodeURIComponent(Astro.params.tag as string);
 const posts = tagQueries.postsByTag.all(tag) as any[];
+import Icon from '../../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -35,13 +36,13 @@ const posts = tagQueries.postsByTag.all(tag) as any[];
                   aria-label={`阅读文章：${post.title}`}
                 ></a>
                 <div class="item-main">
-                  {post.pinned_at && <span class="pin-badge">📌 置顶</span>}
+                  {post.pinned_at && <span class="pin-badge"><Icon name="pin" size={13} /> 置顶</span>}
                   <h2>{post.title}</h2>
                   {post.description && <p class="post-desc">{post.description}</p>}
                 </div>
                 <div class="item-meta">
                   <time>{new Date(post.created_at).toLocaleDateString('zh-CN')}</time>
-                  <a class="meta-author" href={`/users/${post.author_name}`}>✍️ {post.author_name}</a>
+                  <a class="meta-author" href={`/users/${post.author_name}`}><Icon name="pen" size={13} /> {post.author_name}</a>
                 </div>
               </div>
             </li>
@@ -49,7 +50,7 @@ const posts = tagQueries.postsByTag.all(tag) as any[];
         </ul>
       ) : (
         <div class="empty-state card">
-          <div class="empty-icon">🏷️</div>
+          <div class="empty-icon"><Icon name="tag" size={32} /></div>
           <p>这个标签下还没有文章。</p>
           <a href="/blog" class="btn btn-outline">浏览全部文章</a>
         </div>

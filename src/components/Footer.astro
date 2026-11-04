@@ -1,4 +1,5 @@
 ---
+import Icon from './Icon.astro';
 import { SITE_TITLE } from '../consts';
 const today = new Date();
 ---
@@ -12,13 +13,13 @@ const today = new Date();
     </div>
     <p class="footer-slogan">用心记录，慢慢生长。</p>
     <ul class="footer-links" aria-label="页脚快捷链接">
-      <li><a href="/now" class="footer-link">🌤️ Now</a></li>
-      <li><a href="/moments" class="footer-link">✨ 说说</a></li>
-      <li><a href="/guestbook" class="footer-link">💌 留言板</a></li>
-      <li><a href="/tags" class="footer-link">🏷️ 标签</a></li>
-      <li><a href="/archive" class="footer-link">📅 归档</a></li>
-      <li><a href="/links" class="footer-link">🔗 友链</a></li>
-      <li><a href="/about" class="footer-link">🛠️ 关于</a></li>
+      <li><a href="/now" class="footer-link"><Icon name="cloud" size={15} class="fl-ic" /> Now</a></li>
+      <li><a href="/moments" class="footer-link"><Icon name="sparkles" size={15} class="fl-ic" /> 说说</a></li>
+      <li><a href="/guestbook" class="footer-link"><Icon name="mail" size={15} class="fl-ic" /> 留言板</a></li>
+      <li><a href="/tags" class="footer-link"><Icon name="tag" size={15} class="fl-ic" /> 标签</a></li>
+      <li><a href="/archive" class="footer-link"><Icon name="calendar" size={15} class="fl-ic" /> 归档</a></li>
+      <li><a href="/links" class="footer-link"><Icon name="link" size={15} class="fl-ic" /> 友链</a></li>
+      <li><a href="/about" class="footer-link"><Icon name="wrench" size={15} class="fl-ic" /> 关于</a></li>
     </ul>
     <p class="copyright">&copy; {today.getFullYear()} {SITE_TITLE}. All rights reserved.</p>
   </div>
@@ -91,6 +92,15 @@ const today = new Date();
     font-weight: 500;
     border: 1px solid transparent;
     transition: all 0.25s var(--ease);
+  }
+  .footer-link :global(.fl-ic) {
+    flex: 0 0 auto;
+    opacity: 0.85;
+    transition: transform 0.25s var(--ease);
+  }
+  .footer-link:hover :global(.fl-ic) {
+    transform: translateY(-1px);
+    opacity: 1;
   }
   .footer-link:hover {
     background: var(--glass-bg);

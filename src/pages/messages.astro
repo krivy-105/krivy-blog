@@ -9,6 +9,7 @@ if (!user) {
 }
 
 const initialUserId = Astro.url.searchParams.get('user');
+import Icon from '../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -35,14 +36,14 @@ const initialUserId = Astro.url.searchParams.get('user');
       </div>
       <div class="messages" id="messages">
         <div class="empty-state">
-          <div class="empty-icon">💬</div>
+          <div class="empty-icon"><Icon name="message" size={32} /></div>
           <p>选择左侧用户开始聊天</p>
         </div>
       </div>
       <div class="chat-input-area" id="chatInputArea" style="display:none;">
         <div class="emoji-panel" id="emojiPanel" style="display:none;"></div>
         <div class="input-row">
-          <button type="button" class="emoji-btn" id="emojiBtn">😊</button>
+          <button type="button" class="emoji-btn" id="emojiBtn" aria-label="选择表情"><Icon name="smile" size={18} /></button>
           <textarea id="msgInput" placeholder="输入消息..." rows="1"></textarea>
           <button type="button" class="btn btn-primary send-btn" id="sendBtn">发送</button>
         </div>
@@ -321,7 +322,7 @@ const initialUserId = Astro.url.searchParams.get('user');
 
     function renderMessages(msgs) {
       if (msgs.length === 0) {
-        messagesEl.innerHTML = '<div class="empty-state"><div class="empty-icon">💬</div><p>还没有消息，发送第一条吧</p></div>';
+        messagesEl.innerHTML = '<div class="empty-state"><div class="empty-icon"><Icon name="message" size={32} /></div><p>还没有消息，发送第一条吧</p></div>';
         return;
       }
       messagesEl.innerHTML = msgs.map(m => {

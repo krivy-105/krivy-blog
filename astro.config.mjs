@@ -16,6 +16,13 @@ export default defineConfig({
 	security: {
 		checkOrigin: false,
 	},
+	// 关键 CSS 内联进 HTML：
+	// 这台机器的回源要跨境走隧道，多一个阻塞请求就多一个往返（实测 200-600ms）。
+	// 把全局样式（约 37KB）内联后省掉这次往返，首屏渲染明显提前；
+	// 代价是 HTML 变大几 KB（brotli 后），换少一次 RTT 很划算。
+	build: {
+		inlineStylesheets: 'always',
+	},
 	// 链接预取：鼠标悬停站内链接时预加载，点击近乎秒开
 	prefetch: {
 		prefetchAll: true,

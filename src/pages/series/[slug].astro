@@ -16,6 +16,7 @@ const total = posts.length;
 
 const currentUser = Astro.locals.user;
 const isAuthor = currentUser?.id === series?.author_id;
+import Icon from '../../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -191,7 +192,7 @@ const isAuthor = currentUser?.id === series?.author_id;
     <main class="narrow">
       {!series ? (
         <div class="not-found card">
-          <div class="nf-icon">🌫️</div>
+          <div class="nf-icon"><Icon name="cloud" size={32} /></div>
           <h1>找不到这个系列</h1>
           <p>你访问的系列可能已被删除或未创建。</p>
           <a href="/series" class="btn btn-primary">返回系列列表</a>
@@ -203,7 +204,7 @@ const isAuthor = currentUser?.id === series?.author_id;
           <header class="series-header">
             <div class="series-top">
               <div>
-                <h1 class="series-title">📚 {series.title}</h1>
+                <h1 class="series-title"><Icon name="book" size={22} /> {series.title}</h1>
                 <div class="series-meta">
                   <span>作者 <a href={`/users/${series.author_name}`}>@{series.author_name}</a></span>
                   <span>创建于 {new Date(series.created_at).toLocaleDateString('zh-CN')}</span>
@@ -215,11 +216,11 @@ const isAuthor = currentUser?.id === series?.author_id;
             {series.description && <p class="series-desc">{series.description}</p>}
           </header>
 
-          <h2 class="section-title">📖 目录（{total}）</h2>
+          <h2 class="section-title"><Icon name="book" size={22} /> 目录（{total}）</h2>
 
           {total === 0 ? (
             <div class="empty-state card" style="text-align:center;padding:3rem 2rem;">
-              <div class="empty-icon">📝</div>
+              <div class="empty-icon"><Icon name="pen" size={32} /></div>
               <p style="color:var(--text-gray);">该系列还没有已发布的文章。</p>
               {isAuthor && <a href="/write" class="btn btn-primary">为该系列写第一篇</a>}
             </div>

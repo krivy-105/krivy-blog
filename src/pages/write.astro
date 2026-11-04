@@ -12,6 +12,7 @@ if (!user) {
 }
 
 const mySeries = seriesQueries.listByAuthor.all(user.id) as any[];
+import Icon from '../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -145,7 +146,7 @@ const mySeries = seriesQueries.listByAuthor.all(user.id) as any[];
     <Header />
     <main>
       <header class="page-head">
-        <h1>✍️ 写文章</h1>
+        <h1><Icon name="pen" size={22} /> 写文章</h1>
         <p>支持 Markdown 语法，提交后经管理员审核即可发布。</p>
       </header>
       <div class="write-container">
@@ -189,7 +190,7 @@ const mySeries = seriesQueries.listByAuthor.all(user.id) as any[];
             <div class="form-group schedule-group">
               <label class="schedule-toggle">
                 <input type="checkbox" id="scheduleChk" />
-                <span>🕐 定时发布</span>
+                <span><Icon name="clock" size={14} /> 定时发布</span>
               </label>
               <input
                 type="datetime-local"

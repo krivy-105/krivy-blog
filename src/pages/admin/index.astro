@@ -29,6 +29,7 @@ const formatTime = (ts: number) =>
     hour: '2-digit',
     minute: '2-digit',
   });
+import Icon from '../../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -150,19 +151,18 @@ const formatTime = (ts: number) =>
   <body>
     <Header />
     <main>
-      <h1 style="font-size:1.8rem; margin-bottom: 1rem;">🛠️ 管理后台</h1>
+      <h1 style="font-size:1.8rem; margin-bottom: 1rem;"><Icon name="wrench" size={24} /> 管理后台</h1>
 
       <div class="admin-sublinks">
-        <a href="/admin/stats">📊 统计</a>
-        <a href="/admin/links">🔗 友链</a>
-        <a href="/admin/reports">
-          🚩 举报{pendingReports > 0 && <span class="sublink-badge">{pendingReports}</span>}
+        <a href="/admin/stats"><Icon name="chart" size={13} /> 统计</a>
+        <a href="/admin/links"><Icon name="link" size={13} /> 友链</a>
+        <a href="/admin/reports"><Icon name="flag" size={13} /> 举报{pendingReports > 0 && <span class="sublink-badge">{pendingReports}</span>}
         </a>
         <a href="/admin/avatars">
-          🖼️ 头像{pendingAvatars > 0 && <span class="sublink-badge">{pendingAvatars}</span>}
+          <Icon name="image" size={14} /> 头像{pendingAvatars > 0 && <span class="sublink-badge">{pendingAvatars}</span>}
         </a>
-        <a href="/admin/dsh" title="DSH 手机通道实时链接，仅管理员可见">🕳 DSH 通道</a>
-        <a href="/api/admin/backup" title="立即生成数据库快照并下载到本地，建议定期异地保存">💾 下载备份</a>
+        <a href="/admin/dsh" title="DSH 手机通道实时链接，仅管理员可见"><Icon name="settings" size={14} /> DSH 通道</a>
+        <a href="/api/admin/backup" title="立即生成数据库快照并下载到本地，建议定期异地保存"><Icon name="download" size={13} /> 下载备份</a>
       </div>
 
       <div class="admin-tabs">
@@ -224,7 +224,7 @@ const formatTime = (ts: number) =>
               ) : allPosts.map((p) => (
                 <tr>
                   <td class="post-title">
-                    {p.pinned_at && <span title="已置顶">📌</span>}{' '}
+                    {p.pinned_at && <span title="已置顶"><Icon name="pin" size={13} /></span>}{' '}
                     <a href={`/blog/${p.slug}/`} title="管理员预览">{p.title}</a>
                   </td>
                   <td>

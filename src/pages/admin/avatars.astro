@@ -32,6 +32,7 @@ function timeAgo(ts: number): string {
   if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`;
   return new Date(ts).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
 }
+import Icon from '../../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -109,7 +110,7 @@ function timeAgo(ts: number): string {
     <main>
       <a href="/admin" class="back-link">← 返回管理后台</a>
       <header class="page-head">
-        <h1>🖼️ 头像审核</h1>
+        <h1><Icon name="image" size={22} /> 头像审核</h1>
         <p>
           {pending.length > 0
             ? `当前有 ${pending.length} 个待审核头像。通过后全站即刻生效，驳回则保留用户原头像并站内通知。`
@@ -119,7 +120,7 @@ function timeAgo(ts: number): string {
 
       {pending.length === 0 ? (
         <div class="empty">
-          <div class="empty-icon">🕊️</div>
+          <div class="empty-icon"><Icon name="image" size={32} /></div>
           <p>暂无待审核头像</p>
         </div>
       ) : (
@@ -193,7 +194,7 @@ function timeAgo(ts: number): string {
               document.querySelector('.avatar-list')?.remove();
               const empty = document.createElement('div');
               empty.className = 'empty';
-              empty.innerHTML = '<div class="empty-icon">🕊️</div><p>暂无待审核头像</p>';
+              empty.innerHTML = '<div class="empty-icon"><Icon name="image" size={32} /></div><p>暂无待审核头像</p>';
               document.querySelector('main')?.appendChild(empty);
             }
           } catch (e) {

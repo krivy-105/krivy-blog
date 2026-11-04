@@ -3,7 +3,29 @@ import crypto from 'node:crypto';
 import { getUserFromToken, COOKIE_NAME } from './lib/auth';
 import { recordPageView } from './lib/db';
 
+// 文章合并 / 改名后的旧地址 → 新地址（301 永久跳转，保住外部链接与书签）
+const LEGACY_REDIRECTS: Record<string, string> = {
+  // 「HCNA 数通备考资料合集」已合并进「数通学习全流程」的第二部分
+  'hcna-数通备考资料合集12-大主题练习题-实验指南-mucq7vzx': '华为-ensp-模拟器安装教程win11-完整版-mudu8s5v',
+  '数通学习资料集合-muc94793': '华为-ensp-模拟器安装教程win11-完整版-mudu8s5v',
+};
+
 export const onRequest = defineMiddleware(async (context, next) => {
+  // 旧文章地址跳转
+  const legacyMatch = context.url.pathname.match(/^\/blog\/([^/]+)\/?$/);
+  if (legacyMatch) {
+    let slug = legacyMatch[1];
+    try {
+      slug = decodeURIComponent(slug);
+    } catch {
+      /* 保持原样 */
+    }
+    const target = LEGACY_REDIRECTS[slug];
+    if (target) {
+      return context.redirect(`/blog/${encodeURIComponent(target)}/`, 301);
+    }
+  }
+
   const token = context.cookies.get(COOKIE_NAME)?.value;
   if (token) {
     const user = getUserFromToken(token);
@@ -66,9 +88,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
     ];
     const isPrivatePath = privatePrefixes.some((p) => reqPath.startsWith(p));
     if (!hasSession && !isPrivatePath) {
+      // 匿名访客的公开页面：让 Cloudflare 边缘多留一会儿。
+      // 原来 s-maxage=30 意味着每 30 秒就要回源一次，而回源要跨境走隧道（~1s），
+      // 边缘命中率上不去，TTFB 就一直是 1 秒。改成 10 分钟 + 一天的后台刷新窗口，
+      // 内容更新最多晚 10 分钟反映到缓存，对博客完全够用。
       res.headers.set(
         'Cache-Control',
-        'public, max-age=0, s-maxage=30, stale-while-revalidate=60'
+        'public, max-age=60, s-maxage=600, stale-while-revalidate=86400'
       );
     } else {
       res.headers.set('Cache-Control', 'private, no-cache');

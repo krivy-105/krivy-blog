@@ -116,6 +116,7 @@ const fmtDate = (ms: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 const weekEndLabel = weekStartMs ? fmtDate(weekStartMs + 6 * DAY) : '';
+import Icon from '../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -158,7 +159,7 @@ const weekEndLabel = weekStartMs ? fmtDate(weekStartMs + 6 * DAY) : '';
 
       {courses.length === 0 ? (
         <section class="empty card">
-          <div class="empty-icon">📅</div>
+          <div class="empty-icon"><Icon name="calendar" size={32} /></div>
           <h2>还没有课表数据</h2>
           <p>课表由校内网的抓取脚本推送上来。先在本机跑一次同步：</p>
           <pre><code>node scripts/fetch-schedule.mjs</code></pre>

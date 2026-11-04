@@ -17,6 +17,7 @@ const formatDate = (ts: number) =>
     hour: '2-digit',
     minute: '2-digit',
   });
+import Icon from '../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -28,7 +29,7 @@ const formatDate = (ts: number) =>
     <Header />
     <main class="narrow gb-page">
       <header class="gb-hero">
-        <h1>💌 留言板</h1>
+        <h1><Icon name="mail" size={22} /> 留言板</h1>
         <p>这里不聊具体文章——问候、建议、碎碎念，都可以留下。</p>
       </header>
 
@@ -60,7 +61,7 @@ const formatDate = (ts: number) =>
       <section class="gb-list">
         {entries.length === 0 ? (
           <div class="gb-empty card">
-            <p>还没有留言，来做第一个打招呼的人吧 🌿</p>
+            <p>还没有留言，来做第一个打招呼的人吧</p>
           </div>
         ) : (
           entries.map((e) => (

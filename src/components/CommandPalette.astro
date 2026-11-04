@@ -93,7 +93,7 @@
         <span class="cmdk-item-title"></span>
         <span class="cmdk-item-meta"></span>`;
       li.querySelector('.cmdk-item-title')!.textContent = r.title;
-      li.querySelector('.cmdk-item-meta')!.textContent = r.author_name ? `✍️ ${r.author_name}` : '';
+      li.querySelector('.cmdk-item-meta')!.textContent = r.author_name ? `${r.author_name}` : '';
       li.addEventListener('click', () => {
         window.location.href = `/blog/${r.slug}/`;
       });

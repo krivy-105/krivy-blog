@@ -35,6 +35,7 @@ const years = Array.from(groups.keys()).sort((a, b) => Number(b) - Number(a));
 const padDay = (ts: number) => String(new Date(ts).getDate()).padStart(2, '0');
 const monthLabel = (m: string) => m;
 const fmt = (ts: number, m: string, d: string) => `${m}-${d}`;
+import Icon from '../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -46,13 +47,13 @@ const fmt = (ts: number, m: string, d: string) => `${m}-${d}`;
     <Header />
     <main class="narrow">
       <header class="page-head">
-        <h1>📚 文章归档</h1>
+        <h1><Icon name="book" size={22} /> 文章归档</h1>
         <p>共 {allPosts.length} 篇文章，按时间倒序归档。</p>
       </header>
 
       {years.length === 0 ? (
         <div class="empty-state card">
-          <div class="empty-icon">📭</div>
+          <div class="empty-icon"><Icon name="inbox" size={32} /></div>
           <p>暂无已发布的文章。</p>
           <a href="/write" class="btn btn-outline btn-sm">去写第一篇</a>
         </div>
@@ -73,7 +74,7 @@ const fmt = (ts: number, m: string, d: string) => `${m}-${d}`;
                         <li>
                           <time>{padDay(p.created_at)}</time>
                           <a href={`/blog/${p.slug}/`}>{p.title}</a>
-                          <span class="archive-author">✍️ {p.author_name}</span>
+                          <span class="archive-author"><Icon name="pen" size={13} /> {p.author_name}</span>
                         </li>
                       ))}
                     </ul>

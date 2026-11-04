@@ -24,6 +24,7 @@ for (const r of tagRows) {
 const viewRows = viewQueries.countForPostList.all() as { post_id: number; count: number }[];
 const viewMap = new Map<number, number>();
 for (const r of viewRows) viewMap.set(r.post_id, r.count);
+import Icon from '../../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -54,7 +55,7 @@ for (const r of viewRows) viewMap.set(r.post_id, r.count);
                   aria-label={`阅读文章：${post.title}`}
                 ></a>
                 <div class="item-main">
-                  {post.pinned_at && <span class="pin-badge">📌 置顶</span>}
+                  {post.pinned_at && <span class="pin-badge"><Icon name="pin" size={13} /> 置顶</span>}
                   <h2>{post.title}</h2>
                   {post.description && <p class="post-desc">{post.description}</p>}
                   {(tagMap.get(post.id) || []).length > 0 && (
@@ -68,10 +69,10 @@ for (const r of viewRows) viewMap.set(r.post_id, r.count);
                 <div class="item-meta">
                   <time>{new Date(post.created_at).toLocaleDateString('zh-CN')}</time>
                   <a class="meta-author" href={`/users/${post.author_name}`}
-                    >✍️ {post.author_name}</a
+                    ><Icon name="pen" size={13} /> {post.author_name}</a
                   >
                   {viewMap.has(post.id) && (
-                    <span class="view-count">👁 {viewMap.get(post.id)}</span>
+                    <span class="view-count"><Icon name="eye" size={13} /> {viewMap.get(post.id)}</span>
                   )}
                 </div>
               </div>
@@ -80,7 +81,7 @@ for (const r of viewRows) viewMap.set(r.post_id, r.count);
         </ul>
       ) : (
         <div class="empty-state card">
-          <div class="empty-icon">🌧️</div>
+          <div class="empty-icon"><Icon name="cloud" size={32} /></div>
           <p>暂无文章，过段时间再来看看吧。</p>
           <a href="/" class="btn btn-outline">返回首页</a>
         </div>

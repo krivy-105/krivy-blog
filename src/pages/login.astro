@@ -7,6 +7,7 @@ const user = Astro.locals.user;
 if (user) {
   return Astro.redirect('/');
 }
+import Icon from '../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -19,7 +20,7 @@ if (user) {
     <main class="auth-wrapper">
       <div class="auth-card">
         <div class="auth-head">
-          <span class="auth-mark">✦</span>
+          <span class="auth-mark"><Icon name="sparkles" size={18} /></span>
           <h1 id="authTitle">欢迎回来</h1>
           <p id="authSubtitle">登录后即可写文章、发私信</p>
         </div>

@@ -26,6 +26,7 @@ function tagWeight(cnt: number): number {
   if (ratio >= 0.3) return 600;
   return 500;
 }
+import Icon from '../../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -70,7 +71,7 @@ function tagWeight(cnt: number): number {
           </div>
         ) : (
           <div class="empty-state card">
-            <div class="empty-icon">🏷️</div>
+            <div class="empty-icon"><Icon name="tag" size={32} /></div>
             <p>还没有标签，先去写文章添加一些吧。</p>
             {Astro.locals.user && <a href="/write" class="btn btn-primary">去写文章</a>}
           </div>

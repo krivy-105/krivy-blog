@@ -152,6 +152,149 @@ const pendingCount = isAdmin
   });
 </script>
 
+<script>
+  // ============================================================
+  // 动效层：进场景 / 顶栏滚动状态 / 卡片指针光晕
+  // 全部是渐进增强——JS 不跑或用户偏好减少动效时，内容照常显示。
+  // ============================================================
+  (function () {
+    const root = document.documentElement;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return;
+
+    root.classList.add('motion-ready');
+
+    // ---- 1. 滚动进场：先定位元素，再交给 IntersectionObserver ----
+    const SEL = [
+      '.post-card', '.hot-list', '.post-item', '.intro', '.intro-chips li',
+      '.section-head', '.cl-item', '.series-card', '.tag-row', '.day-block',
+      '.about-content h3', '.links-grid > *', '.guest-item', '.moment-card',
+    ].join(',');
+
+    const els = Array.prototype.slice.call(document.querySelectorAll(SEL));
+    els.forEach(function (el, i) {
+      el.classList.add('reveal');
+      // 同一屏内的元素按顺序错开，最多 240ms，避免一屏等太久
+      el.style.setProperty('--d', Math.min((i % 8) * 45, 240) + 'ms');
+    });
+
+    if ('IntersectionObserver' in window && els.length) {
+      const io = new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) {
+              e.target.classList.add('is-in');
+              io.unobserve(e.target);
+            }
+          });
+        },
+        { rootMargin: '0px 0px -6% 0px', threshold: 0.05 }
+      );
+      els.forEach(function (el) { io.observe(el); });
+    } else {
+      // 兜底：任何情况下都不让内容卡在透明状态
+      els.forEach(function (el) { el.classList.add('is-in'); });
+    }
+
+    // ---- 2. 顶栏滚动状态 ----
+    const header = document.querySelector('header');
+    if (header) {
+      let ticking = false;
+      const apply = function () {
+        header.classList.toggle('is-scrolled', window.scrollY > 8);
+        ticking = false;
+      };
+      apply();
+      window.addEventListener('scroll', function () {
+        if (!ticking) { ticking = true; requestAnimationFrame(apply); }
+      }, { passive: true });
+    }
+
+    // ---- 3. 卡片指针光晕（只给精确指针设备，触屏不参与） ----
+    if (window.matchMedia('(pointer: fine)').matches) {
+      const GLOW = '.card, .post-card, .hot-list, .post-item';
+      let current = null;
+      document.addEventListener('pointermove', function (ev) {
+        const t = ev.target && ev.target.closest ? ev.target.closest(GLOW) : null;
+        if (!t) { current = null; return; }
+        if (t !== current) { current = t; t.classList.add('glow-card'); }
+        const r = t.getBoundingClientRect();
+        t.style.setProperty('--mx', (ev.clientX - r.left) + 'px');
+        t.style.setProperty('--my', (ev.clientY - r.top) + 'px');
+      }, { passive: true });
+    }
+
+    // ---- 4. 首屏光斑视差：指针位置 → --par-x / --par-y（线性插值，避免抖动） ----
+    const hero = document.querySelector('.hero');
+    if (hero && window.matchMedia('(pointer: fine)').matches) {
+      let curX = 0, curY = 0, aimX = 0, aimY = 0, raf = 0;
+      const tick = function () {
+        curX += (aimX - curX) * 0.09;
+        curY += (aimY - curY) * 0.09;
+        hero.style.setProperty('--par-x', curX.toFixed(3));
+        hero.style.setProperty('--par-y', curY.toFixed(3));
+        if (Math.abs(aimX - curX) > 0.002 || Math.abs(aimY - curY) > 0.002) {
+          raf = requestAnimationFrame(tick);
+        } else {
+          raf = 0;
+        }
+      };
+      const wake = function () { if (!raf) raf = requestAnimationFrame(tick); };
+      hero.addEventListener('pointermove', function (ev) {
+        const r = hero.getBoundingClientRect();
+        aimX = ((ev.clientX - r.left) / r.width - 0.5) * 2;
+        aimY = ((ev.clientY - r.top) / r.height - 0.5) * 2;
+        wake();
+      }, { passive: true });
+      hero.addEventListener('pointerleave', function () {
+        aimX = 0; aimY = 0; wake();
+      });
+    }
+
+    // ---- 5. 磁吸按钮：指针靠近时轻微吸附（用 translate，不覆盖 hover 的 transform） ----
+    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      document.querySelectorAll('.hero-actions .btn, .more-wrap .btn').forEach(function (el) {
+        el.addEventListener('pointermove', function (ev) {
+          const r = el.getBoundingClientRect();
+          const dx = (ev.clientX - (r.left + r.width / 2)) / r.width;
+          const dy = (ev.clientY - (r.top + r.height / 2)) / r.height;
+          el.style.translate = (dx * 8).toFixed(2) + 'px ' + (dy * 5).toFixed(2) + 'px';
+        });
+        el.addEventListener('pointerleave', function () {
+          el.style.translate = '0px 0px';
+        });
+      });
+    }
+
+    // ---- 6. 点击涟漪 ----
+    document.addEventListener('pointerdown', function (ev) {
+      const btn = ev.target && ev.target.closest ? ev.target.closest('.btn') : null;
+      if (!btn || btn.disabled) return;
+      const r = btn.getBoundingClientRect();
+      const size = Math.max(r.width, r.height) * 2.2;
+      const dot = document.createElement('span');
+      dot.className = 'ripple';
+      dot.style.width = size + 'px';
+      dot.style.height = size + 'px';
+      dot.style.left = (ev.clientX - r.left) + 'px';
+      dot.style.top = (ev.clientY - r.top) + 'px';
+      btn.appendChild(dot);
+      setTimeout(function () { dot.remove(); }, 700);
+    }, { passive: true });
+
+    // ---- 7. 图片淡入：解码完成后才显形，避免"半张图"跳出来 ----
+    document.querySelectorAll('main img').forEach(function (img) {
+      if (img.complete && img.naturalWidth) return;
+      img.classList.add('img-fade');
+      const done = function () { img.classList.add('is-loaded'); };
+      img.addEventListener('load', done, { once: true });
+      img.addEventListener('error', done, { once: true });
+      // 兜底：事件万一丢失也不让图片永久隐形
+      setTimeout(done, 4000);
+    });
+  })();
+</script>
+
 <style>
   header {
     padding: 0 1.5rem;
@@ -169,6 +312,12 @@ const pendingCount = isAdmin
     background: color-mix(in srgb, var(--bg-white) 78%, transparent);
     border-bottom-color: color-mix(in srgb, var(--border-light) 80%, transparent);
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  }
+  /* 不支持背景模糊的环境（老 WebView / 部分安卓浏览器）直接用实色，
+     否则 78% 透明度会让滚动的正文透上来 */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    header { background: var(--bg-white); }
+    :global([data-theme="dark"]) header { background: var(--bg-white); }
   }
   nav {
     display: flex;
@@ -403,6 +552,14 @@ const pendingCount = isAdmin
 
   /* 手机端 */
   @media (max-width: 768px) {
+    /* 手机端把背景做实一点：78% 透明 + 背景模糊在部分移动浏览器里
+       backdrop-filter 会被降级，滚动时正文会透出来，看起来像和导航重叠 */
+    header {
+      background: color-mix(in srgb, var(--bg-white) 99%, transparent);
+    }
+    :global([data-theme="dark"]) header {
+      background: color-mix(in srgb, var(--bg-white) 99%, transparent);
+    }
     header { padding: 0 0.9rem; }
     .nav-toggle { display: flex; width: 44px; height: 44px; padding: 11px; }
     .theme-toggle { width: 42px; height: 42px; }
@@ -488,19 +645,39 @@ const pendingCount = isAdmin
     })
   );
 
-  // 主题切换
+  // 主题切换：支持的浏览器用 View Transition 做「从按钮扩散」的圆形切换
   const themeToggle = document.getElementById('themeToggle');
-  themeToggle?.addEventListener('click', async () => {
-    const cur = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-    document.documentElement.dataset.theme = cur;
-    try { localStorage.setItem('theme', cur); } catch {}
-    try {
-      await fetch('/api/theme', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ theme: cur }),
-      });
-    } catch {}
+  themeToggle?.addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    const apply = () => {
+      document.documentElement.dataset.theme = next;
+      try { localStorage.setItem('theme', next); } catch {}
+    };
+
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!document.startViewTransition || reduce) {
+      apply();
+    } else {
+      const r = themeToggle.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      // 半径取到最远的那个视口角，保证整屏都能被盖住
+      const radius = Math.hypot(
+        Math.max(cx, window.innerWidth - cx),
+        Math.max(cy, window.innerHeight - cy)
+      );
+      const root = document.documentElement;
+      root.style.setProperty('--vt-x', cx + 'px');
+      root.style.setProperty('--vt-y', cy + 'px');
+      root.style.setProperty('--vt-r', radius + 'px');
+      document.startViewTransition(apply);
+    }
+
+    fetch('/api/theme', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ theme: next }),
+    }).catch(() => {});
   });
 </script>
 

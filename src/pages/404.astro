@@ -6,6 +6,7 @@ import { SITE_TITLE } from '../consts';
 
 // 作为错误页被 Astro.rewrite / 适配器调用时确保真实 404 状态码
 Astro.response.status = 404;
+import Icon from '../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -37,8 +38,8 @@ Astro.response.status = 404;
         </p>
         <div class="nf-actions">
           <a href="/" class="nf-btn nf-btn-primary">← 回到首页</a>
-          <a href="/blog" class="nf-btn">📚 浏览文章</a>
-          <a href="/archive" class="nf-btn">📅 归档时间线</a>
+          <a href="/blog" class="nf-btn"><Icon name="book" size={13} /> 浏览文章</a>
+          <a href="/archive" class="nf-btn"><Icon name="calendar" size={13} /> 归档时间线</a>
         </div>
       </section>
     </main>

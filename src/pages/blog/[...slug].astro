@@ -6,6 +6,7 @@ import PostInteract from '../../components/PostInteract.astro';
 import ReadingProgress from '../../components/ReadingProgress.astro';
 import TableOfContents from '../../components/TableOfContents.astro';
 import Avatar from '../../components/Avatar.astro';
+import Icon from '../../components/Icon.astro';
 import { postQueries, tagQueries, viewQueries, seriesQueries, userQueries } from '../../lib/db';
 import { renderMarkdown } from '../../lib/markdown';
 import { verifyPreview } from '../../lib/preview-token';
@@ -122,7 +123,7 @@ if (seriesInfo) {
       {seriesNav && post.status === 'approved' && (
         <div class="series-nav">
           <a href={`/series/${seriesNav.series.slug}/`} class="series-nav-head">
-            <span class="series-nav-icon">📚</span>
+            <span class="series-nav-icon"><Icon name="book" size={18} /></span>
             <div class="series-nav-head-main">
               <strong class="series-nav-title">{seriesNav.series.title}</strong>
               <span class="series-nav-progress">
@@ -154,7 +155,7 @@ if (seriesInfo) {
         previewMode ? (
           <div class="review-banner review-pending">
             <div class="review-banner-info">
-              <strong>👀 草稿预览</strong>
+              <strong><Icon name="eye" size={15} /> 草稿预览</strong>
               <span>这是一篇尚未发布的文章，当前页面仅持有预览链接的人可见。</span>
             </div>
           </div>
@@ -163,10 +164,10 @@ if (seriesInfo) {
             <div class="review-banner-info">
               <strong>
                 {post.status === 'pending'
-                  ? '⏳ 待审核文章预览'
+                  ? '待审核文章预览'
                   : post.status === 'scheduled'
-                    ? '🕐 定时发布中的文章'
-                    : '⛔ 已被驳回的文章'}
+                    ? '定时发布中的文章'
+                    : '已被驳回的文章'}
               </strong>
               <span>
                 {post.status === 'pending'
@@ -201,18 +202,18 @@ if (seriesInfo) {
             </a>
             <time datetime={new Date(post.created_at).toISOString()}>{dateStr}</time>
             {post.status === 'approved' && (
-              <span class="view-count">👁 {viewCount}</span>
+              <span class="view-count"><Icon name="eye" size={14} /> {viewCount}</span>
             )}
             {post.status === 'approved' && (
-              <span class="read-info">📖 约 {wordCount} 字 · {readMinutes} 分钟</span>
+              <span class="read-info"><Icon name="file" size={14} /> 约 {wordCount} 字 · {readMinutes} 分钟</span>
             )}
           </div>
           {canDelete && (
             <div class="owner-toolbar" data-post-id={post.id}>
-              {canEdit && <a class="owner-btn" href={`/edit/${post.id}`}>✏️ 编辑</a>}
+              {canEdit && <a class="owner-btn" href={`/edit/${post.id}`}><Icon name="pen" size={14} /> 编辑</a>}
               {isOwner
-                ? <button type="button" class="owner-btn owner-btn-danger" data-action="owner-delete">🗑 删除</button>
-                : <button type="button" class="owner-btn owner-btn-danger" data-action="admin-takedown">🛡 管理员下架</button>}
+                ? <button type="button" class="owner-btn owner-btn-danger" data-action="owner-delete"><Icon name="trash" size={14} /> 删除</button>
+                : <button type="button" class="owner-btn owner-btn-danger" data-action="admin-takedown"><Icon name="shield" size={14} /> 管理员下架</button>}
             </div>
           )}
           {tags.length > 0 && (
@@ -226,6 +227,83 @@ if (seriesInfo) {
 
         <div class="article-content prose" set:html={htmlContent} />
 
+        <script>
+          // 文章内「分部分切换」增强：
+          // 正文若含 <h2 id="part-install"> 与 <h2 id="part-learn">，
+          // 就把两段内容分别装进面板，并在顶部生成切换按钮。
+          // 没有这两个锚点时什么都不做；没有 JS 时两部分按顺序正常阅读。
+          (function () {
+            var body = document.querySelector('.article-content');
+            if (!body) return;
+            var headA = body.querySelector('#part-install');
+            var headB = body.querySelector('#part-learn');
+            if (!headA || !headB) return;
+
+            var kids = Array.prototype.slice.call(body.childNodes);
+            var ia = kids.indexOf(headA);
+            var ib = kids.indexOf(headB);
+            if (ia < 0 || ib < 0 || ib <= ia) return;
+
+            var panelA = document.createElement('div');
+            panelA.className = 'article-part';
+            var panelB = document.createElement('div');
+            panelB.className = 'article-part';
+
+            kids.slice(ia + 1, ib).forEach(function (n) { panelA.appendChild(n); });
+            kids.slice(ib + 1).forEach(function (n) { panelB.appendChild(n); });
+
+            var clean = function (el, fallback) {
+              var t = (el.textContent || '').trim();
+              t = t.replace(/^\s*第[一二三四五]部分\s*[·:：\-]?\s*/, '');
+              return t || fallback;
+            };
+            var labelA = clean(headA, '安装教程');
+            var labelB = clean(headB, '课程学习');
+
+            var bar = document.createElement('div');
+            bar.className = 'article-parts-switch';
+            bar.setAttribute('role', 'tablist');
+
+            var mkBtn = function (text, active) {
+              var b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'aps-btn' + (active ? ' is-active' : '');
+              b.setAttribute('role', 'tab');
+              b.setAttribute('aria-selected', String(!!active));
+              b.textContent = text;
+              return b;
+            };
+            var btnA = mkBtn('① ' + labelA, true);
+            var btnB = mkBtn('② ' + labelB, false);
+            bar.appendChild(btnA);
+            bar.appendChild(btnB);
+
+            headA.remove();
+            headB.remove();
+            body.insertBefore(panelB, body.firstChild);
+            body.insertBefore(panelA, panelB);
+            body.insertBefore(bar, panelA);
+
+            panelB.hidden = true;
+
+            function pick(isA) {
+              btnA.classList.toggle('is-active', isA);
+              btnB.classList.toggle('is-active', !isA);
+              btnA.setAttribute('aria-selected', String(isA));
+              btnB.setAttribute('aria-selected', String(!isA));
+              panelA.hidden = !isA;
+              panelB.hidden = isA;
+              // 如果切换条已经滚出视口，切完把视线带回顶部
+              if (bar.getBoundingClientRect().top < 0) {
+                var top = bar.getBoundingClientRect().top + window.scrollY - 90;
+                window.scrollTo({ top: top, behavior: 'smooth' });
+              }
+            }
+            btnA.addEventListener('click', function () { pick(true); });
+            btnB.addEventListener('click', function () { pick(false); });
+          })();
+        </script>
+
         {
           post.status === 'approved' && related.length > 0 && (
             <section class="related">
@@ -236,7 +314,7 @@ if (seriesInfo) {
                     <a class="related-card" href={`/blog/${p.slug}/`}>
                       <strong>{p.title}</strong>
                       {p.description && <div class="related-desc">{p.description}</div>}
-                      <span class="related-author">✍️ {p.author_name}</span>
+                      <span class="related-author"><Icon name="pen" size={13} /> {p.author_name}</span>
                     </a>
                   </li>
                 ))}
@@ -283,7 +361,7 @@ if (seriesInfo) {
           </a>
           {currentUser && currentUser.id !== post.author_id && (
             <a href={`/messages?user=${post.author_id}`} class="btn btn-outline btn-sm">
-              💬 私信作者
+              <Icon name="message" size={14} /> 私信作者
             </a>
           )}
         </div>
@@ -557,7 +635,7 @@ if (seriesInfo) {
     transition: background 0.25s var(--ease);
   }
   .series-nav-head:hover { background: linear-gradient(90deg, var(--monet-blue-light) 0%, var(--monet-blue-lighter) 100%); }
-  .series-nav-icon { font-size: 1.4rem; line-height: 1; }
+  .series-nav-icon { display: inline-flex; align-items: center; color: var(--monet-blue-dark); }
   .series-nav-head-main { flex: 1; min-width: 0; }
   .series-nav-title {
     display: block;
@@ -680,6 +758,9 @@ if (seriesInfo) {
 
   /* 字数 / 阅读时间 */
   .read-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     color: var(--text-light);
     font-size: 0.82rem;
   }
@@ -757,7 +838,9 @@ if (seriesInfo) {
     overflow: hidden;
   }
   .related-author {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 4px;
     font-size: 0.78rem;
     color: var(--text-light);
     margin-top: 0.3rem;

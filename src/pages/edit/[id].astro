@@ -49,6 +49,7 @@ const scheduleDefault =
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
       })()
     : '';
+import Icon from '../../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -197,7 +198,7 @@ const scheduleDefault =
         ) : (
           <>
             <header class="page-head">
-              <h1>✏️ 编辑文章</h1>
+              <h1><Icon name="pen" size={22} /> 编辑文章</h1>
               <p>修改后重新提交，将再次进入审核流程。</p>
             </header>
             <div class="write-container">
@@ -241,7 +242,7 @@ const scheduleDefault =
                   <div class="form-group schedule-group">
                     <label class="schedule-toggle">
                       <input type="checkbox" id="scheduleChk" checked={isScheduled} />
-                      <span>🕐 定时发布</span>
+                      <span><Icon name="clock" size={14} /> 定时发布</span>
                     </label>
                     <input
                       type="datetime-local"
@@ -255,7 +256,7 @@ const scheduleDefault =
                   </div>
                   <div class="submit-row">
                     <button type="submit" class="btn btn-primary">保存修改</button>
-                    <button type="button" class="btn btn-ghost btn-sm" id="copyPreviewBtn">🔗 复制预览链接</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="copyPreviewBtn"><Icon name="link" size={13} /> 复制预览链接</button>
                     <a href={`/users/${user.username}`} class="btn btn-ghost btn-sm">取消</a>
                     <span id="submitMsg" class="msg"></span>
                   </div>
@@ -313,7 +314,7 @@ const scheduleDefault =
           try {
             await navigator.clipboard.writeText(previewUrl);
             copyBtn.textContent = '✓ 已复制到剪贴板';
-            setTimeout(() => { copyBtn.textContent = '🔗 复制预览链接'; }, 2000);
+            setTimeout(() => { copyBtn.textContent = '复制预览链接'; }, 2000);
           } catch {
             window.prompt('复制预览链接：', previewUrl);
           }

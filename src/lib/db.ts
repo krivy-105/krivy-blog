@@ -705,7 +705,7 @@ export const postQueries = {
      JOIN users u ON p.author_id = u.id
      LEFT JOIN (SELECT post_id, COUNT(*) AS cnt FROM post_views GROUP BY post_id) v ON v.post_id = p.id
      LEFT JOIN (SELECT post_id, COUNT(*) AS cnt FROM post_likes GROUP BY post_id) l ON l.post_id = p.id
-     LEFT JOIN (SELECT post_id, COUNT(*) AS cnt FROM comments GROUP BY post_id) c ON c.post_id = p.id
+     LEFT JOIN (SELECT post_id, COUNT(*) AS cnt FROM comments WHERE deleted_at IS NULL AND hidden_at IS NULL GROUP BY post_id) c ON c.post_id = p.id
      WHERE p.status = 'approved' AND p.deleted_at IS NULL
      ORDER BY score DESC, p.created_at DESC
      LIMIT 5`
@@ -1096,7 +1096,7 @@ export const searchQueries = {
      FROM post_fts
      JOIN posts p ON p.id = post_fts.rowid
      JOIN users u ON p.author_id = u.id
-     WHERE post_fts MATCH ? AND p.status = 'approved'
+     WHERE post_fts MATCH ? AND p.status = 'approved' AND p.deleted_at IS NULL
      ORDER BY rank`
   ),
 };
@@ -1124,6 +1124,16 @@ export const linkQueries = {
 
 // 内置「数通」学习入口：按 URL 幂等播种，本地与线上启动自动补齐
 const SEED_LINK_GROUPS: { category: string; items: [string, string, string][] }[] = [
+  {
+    category: '本站',
+    items: [
+      [
+        '后勤综合服务指南',
+        'https://hqb.krivy.cyou',
+        '广东职业技术学院后勤基建部服务指南：报修、医务室、食堂、宿舍、水电缴费',
+      ],
+    ],
+  },
   {
     category: '数通',
     items: [

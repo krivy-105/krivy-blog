@@ -18,7 +18,7 @@ type LinkItem = {
 const links = linkQueries.list.all() as LinkItem[];
 
 // 按分类分组；「友链」固定在最前，「数通」次之，其余分类按名字追加
-const ORDER = ['友链', '数通'];
+const ORDER = ['本站', '友链', '数通'];
 const groups = new Map<string, LinkItem[]>();
 for (const l of links) {
   const cat = l.category || '友链';
@@ -29,6 +29,7 @@ const groupNames = [
   ...ORDER.filter((c) => groups.has(c)),
   ...[...groups.keys()].filter((c) => !ORDER.includes(c)).sort(),
 ];
+import Icon from '../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -40,13 +41,13 @@ const groupNames = [
     <Header />
     <main class="narrow">
       <header class="page-head">
-        <h1>🔗 友情链接</h1>
+        <h1><Icon name="link" size={22} /> 友情链接</h1>
         <p>朋友们的站点，和我常去的学习入口。</p>
       </header>
 
       {links.length === 0 ? (
         <div class="empty-state card">
-          <div class="empty-icon">🤝</div>
+          <div class="empty-icon"><Icon name="link" size={32} /></div>
           <p>还没有友链，期待与你的站点互链。</p>
         </div>
       ) : (

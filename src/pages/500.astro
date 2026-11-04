@@ -6,6 +6,7 @@ import { SITE_TITLE } from '../consts';
 
 // 作为错误页被 Astro / 适配器调用时确保真实 500 状态码
 Astro.response.status = 500;
+import Icon from '../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -36,9 +37,9 @@ Astro.response.status = 500;
           刷新一下通常就能恢复，若持续出现请稍后再来。
         </p>
         <div class="nf-actions">
-          <button class="nf-btn nf-btn-primary" onclick="location.reload()">🔄 重新加载</button>
+          <button class="nf-btn nf-btn-primary" onclick="location.reload()"><Icon name="refresh" size={13} /> 重新加载</button>
           <a href="/" class="nf-btn">← 回到首页</a>
-          <a href="/blog" class="nf-btn">📚 浏览文章</a>
+          <a href="/blog" class="nf-btn"><Icon name="book" size={13} /> 浏览文章</a>
         </div>
       </section>
     </main>

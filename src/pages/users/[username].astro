@@ -83,6 +83,7 @@ if (profile) {
 const joinDate = profile
   ? new Date(profile.created_at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' })
   : '';
+import Icon from '../../components/Icon.astro';
 ---
 
 <!doctype html>
@@ -99,7 +100,7 @@ const joinDate = profile
       {
         !profile ? (
           <div class="not-found card">
-            <div class="nf-icon">🌫️</div>
+            <div class="nf-icon"><Icon name="cloud" size={32} /></div>
             <h1>没有这位用户</h1>
             <p>你寻找的用户不存在，或已改名。</p>
             <a href="/blog" class="btn btn-primary">去看看文章</a>
@@ -128,15 +129,14 @@ const joinDate = profile
                       ) : (
                         <span class="profile-avatar-initial">{profile.username.slice(0, 1).toUpperCase()}</span>
                       )}
-                      <span class="avatar-mask"><span>📷 更换头像</span></span>
+                      <span class="avatar-mask"><span><Icon name="image" size={13} /> 更换头像</span></span>
                     </button>
                     {profile.avatar_status === 'pending' && (
                       <span class="avatar-status-badge" title="新头像审核中">审核中</span>
                     )}
                     <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
                     {profile.avatar_status === 'pending' && (
-                      <p class="avatar-upload-tip is-pending" role="status">
-                        ⏳ 新头像已提交，等待管理员审核，通过后自动生效
+                      <p class="avatar-upload-tip is-pending" role="status"><Icon name="clock" size={13} /> 新头像已提交，等待管理员审核，通过后自动生效
                       </p>
                     )}
                     {profile.avatar_status === 'rejected' && (
@@ -170,7 +170,7 @@ const joinDate = profile
                           </div>
                         </div>
                       </div>
-                      <button type="button" class="bio-edit-btn" id="bioEditBtn">✎ 编辑简介</button>
+                      <button type="button" class="bio-edit-btn" id="bioEditBtn"><Icon name="pen" size={13} /> 编辑简介</button>
                     </div>
                   ) : (
                     <p class="profile-bio">{profile.bio || '这个人很神秘，还没有填写简介。'}</p>
@@ -215,8 +215,7 @@ const joinDate = profile
                       >
                         <span class="follow-text">{isFollowing ? '已关注' : '+ 关注'}</span>
                       </button>
-                      <a href={`/messages?user=${profile.id}`} class="btn btn-outline btn-sm dm-btn">
-                        💬 私信
+                      <a href={`/messages?user=${profile.id}`} class="btn btn-outline btn-sm dm-btn"><Icon name="message" size={13} /> 私信
                       </a>
                     </div>
                   )}
@@ -237,7 +236,7 @@ const joinDate = profile
                       <span class="rp-title">{p.title}</span>
                       <span class="rp-meta">
                         <span class:list={['tag', `tag-${p.status}`]}>
-                          {p.status === 'pending' ? '⏳ 审核中' : '⛔ 已驳回'}
+                          {p.status === 'pending' ? '审核中' : '已驳回'}
                         </span>
                         <time>{new Date(p.created_at).toLocaleDateString('zh-CN')}</time>
                       </span>
@@ -265,7 +264,7 @@ const joinDate = profile
 
               {posts.length === 0 ? (
                 <div class="empty-state card">
-                  <div class="empty-icon">🪶</div>
+                  <div class="empty-icon"><Icon name="pen" size={32} /></div>
                   <p>{isSelf ? '你还没有已发布的文章，去写第一篇吧。' : 'TA 还没有发布文章。'}</p>
                   {isSelf && <a href="/write" class="btn btn-primary">写文章</a>}
                 </div>
@@ -281,19 +280,18 @@ const joinDate = profile
                             <div class="up-foot">
                               <time>{new Date(p.created_at).toLocaleDateString('zh-CN')}</time>
                               <span class="up-stats">
-                                <span class="up-like">♥ {likeMap.get(p.id) ?? 0}</span>
-                                <span class="up-comment">💬 {commentMap.get(p.id) ?? 0}</span>
+                                <span class="up-like"><Icon name="heart" size={13} /> {likeMap.get(p.id) ?? 0}</span>
+                                <span class="up-comment"><Icon name="message" size={13} /> {commentMap.get(p.id) ?? 0}</span>
                               </span>
                             </div>
                           </div>
                         </a>
                         {isSelf && (
                           <div class="up-actions">
-                            <a href={`/edit/${p.id}`} class="up-btn up-btn-edit" title="编辑文章" data-action="edit">
-                              ✎ 编辑
+                            <a href={`/edit/${p.id}`} class="up-btn up-btn-edit" title="编辑文章" data-action="edit"><Icon name="pen" size={13} /> 编辑
                             </a>
                             <button type="button" class="up-btn up-btn-del" title="删除文章" data-action="delete" data-id={p.id}>
-                              🗑 删除
+                              <Icon name="trash" size={13} /> 删除
                             </button>
                           </div>
                         )}
@@ -312,8 +310,8 @@ const joinDate = profile
                 </h2>
                 {bookmarkPosts.length === 0 ? (
                   <div class="empty-state card">
-                    <div class="empty-icon">⭐</div>
-                    <p>还没有收藏文章，看到喜欢的文章点 ⭐ 即可收藏。</p>
+                    <div class="empty-icon"><Icon name="star" size={32} /></div>
+                    <p>还没有收藏文章，看到喜欢的文章点星标即可收藏。</p>
                   </div>
                 ) : (
                   <ul class="up-list">
@@ -325,7 +323,7 @@ const joinDate = profile
                               <h3>{p.title}</h3>
                               {p.description && <p class="up-desc">{p.description}</p>}
                               <div class="up-foot">
-                                <span class="up-author">✍️ {p.author_name}</span>
+                                <span class="up-author"><Icon name="pen" size={13} /> {p.author_name}</span>
                                 <span class="up-bookmarked-at">
                                   收藏于 {new Date(p.bookmarked_at).toLocaleDateString('zh-CN')}
                                 </span>

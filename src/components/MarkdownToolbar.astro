@@ -5,6 +5,7 @@ interface Props {
   targetId?: string;
 }
 const { targetId = 'content' } = Astro.props;
+import Icon from './Icon.astro';
 ---
 
 <div class="md-toolbar" data-md-toolbar={targetId} role="toolbar" aria-label="Markdown 格式工具栏">
@@ -13,14 +14,14 @@ const { targetId = 'content' } = Astro.props;
   <button type="button" data-md-action="italic" title="斜体" aria-label="斜体"><i>I</i></button>
   <button type="button" data-md-action="strike" title="删除线" aria-label="删除线"><s>S</s></button>
   <span class="md-sep" aria-hidden="true"></span>
-  <button type="button" data-md-action="quote" title="引用" aria-label="引用">❝</button>
+  <button type="button" data-md-action="quote" title="引用" aria-label="引用"><Icon name="message" size={15} /></button>
   <button type="button" data-md-action="code" title="行内代码" aria-label="行内代码">{'</>'}</button>
   <button type="button" data-md-action="codeblock" title="代码块" aria-label="代码块">{ '{ }' }</button>
   <span class="md-sep" aria-hidden="true"></span>
-  <button type="button" data-md-action="link" title="插入链接" aria-label="插入链接">🔗</button>
-  <button type="button" data-md-action="image" title="插入图片" aria-label="插入图片">🖼️</button>
+  <button type="button" data-md-action="link" title="插入链接" aria-label="插入链接"><Icon name="link" size={15} /></button>
+  <button type="button" data-md-action="image" title="插入图片" aria-label="插入图片"><Icon name="image" size={15} /></button>
   <span class="md-sep" aria-hidden="true"></span>
-  <button type="button" data-md-action="ul" title="无序列表" aria-label="无序列表">☰</button>
+  <button type="button" data-md-action="ul" title="无序列表" aria-label="无序列表"><Icon name="file" size={15} /></button>
   <button type="button" data-md-action="ol" title="有序列表" aria-label="有序列表">1.</button>
 </div>
 
