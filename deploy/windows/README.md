@@ -28,7 +28,7 @@ ADMIN_PASSWORD=你现在的管理员密码
 临时隧道的地址每次重启都变，绑自己的域名就不行了。具名隧道免费，且地址永久固定：
 
 ```powershell
-cd C:\Users\Airfa\my-blog
+cd D:\my-blog
 .\cloudflared.exe tunnel login
 ```
 
