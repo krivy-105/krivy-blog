@@ -4,6 +4,7 @@ import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import { SITE_TITLE } from '../consts';
 import { postQueries } from '../lib/db';
+import { dateKeyCN } from '../lib/time';
 
 const allPosts = postQueries.findApprovedForArchive.all() as {
   id: number;
@@ -17,9 +18,7 @@ const allPosts = postQueries.findApprovedForArchive.all() as {
 type ArchivePost = { slug: string; title: string; created_at: number; author_name: string };
 const groups = new Map<string, Map<string, ArchivePost[]>>();
 for (const p of allPosts) {
-  const d = new Date(p.created_at);
-  const y = String(d.getFullYear());
-  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const [y, m] = dateKeyCN(p.created_at).split('-');
   if (!groups.has(y)) groups.set(y, new Map());
   const ym = groups.get(y)!;
   if (!ym.has(m)) ym.set(m, []);
@@ -32,7 +31,7 @@ for (const p of allPosts) {
 }
 
 const years = Array.from(groups.keys()).sort((a, b) => Number(b) - Number(a));
-const padDay = (ts: number) => String(new Date(ts).getDate()).padStart(2, '0');
+const padDay = (ts: number) => dateKeyCN(ts).slice(8, 10);
 const monthLabel = (m: string) => m;
 const fmt = (ts: number, m: string, d: string) => `${m}-${d}`;
 import Icon from '../components/Icon.astro';
@@ -63,7 +62,7 @@ import Icon from '../components/Icon.astro';
           const months = Array.from(ym.keys()).sort((a, b) => Number(b) - Number(a));
           return (
             <section class="archive-year">
-              <h2>{y} 年 <span class="archive-year-count">({allPosts.filter((p) => String(new Date(p.created_at).getFullYear()) === y).length} 篇)</span></h2>
+              <h2>{y} 年 <span class="archive-year-count">({allPosts.filter((p) => dateKeyCN(p.created_at).slice(0, 4) === y).length} 篇)</span></h2>
               {months.map((m) => {
                 const posts = ym.get(m)!;
                 return (

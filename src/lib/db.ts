@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
 import { join, dirname } from 'node:path';
 import { mkdirSync, existsSync, readdirSync, unlinkSync } from 'node:fs';
+import { dateKeyCN } from './time';
 
 // 数据库路径：优先使用 DB_PATH 环境变量（容器内即 bind mount 的 /data），
 // 否则以进程工作目录为基准，指向项目根目录的 data/
@@ -1187,11 +1188,13 @@ export const statQueries = {
   ),
   last30: db.prepare(
     `SELECT date, pv, uv FROM site_stats
-     WHERE date >= date('now', '-30 days')
+     WHERE date >= date('now', '+8 hours', '-30 days')
      ORDER BY date ASC`
   ),
   today: db.prepare(
-    `SELECT date, pv, uv FROM site_stats WHERE date = date('now')`
+    // date('now') 是 UTC；写入键走的是北京时间的 dateKeyCN()，
+    // 这里必须补 '+8 hours' 才对得上，否则北京时间 00:00–08:00 查不到当天
+    `SELECT date, pv, uv FROM site_stats WHERE date = date('now', '+8 hours')`
   ),
 };
 
@@ -1474,7 +1477,7 @@ export type UserListRow = Pick<
 // 使用 SQLite online backup（db.backup），WAL 模式下可安全在线执行；
 // 文件按日期命名，保留最近 BACKUP_KEEP 份。可用 DISABLE_DB_BACKUP=1 关闭。
 async function runDailyBackup(): Promise<void> {
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = dateKeyCN();
   const target = join(BACKUP_DIR, `blog-${stamp}.db`);
   try {
     if (existsSync(target)) return; // 当天已备份
@@ -1508,7 +1511,7 @@ if (process.env.DISABLE_DB_BACKUP !== '1') {
  * 同一天多次调用覆盖同名文件，因此仍受 runDailyBackup 的 7 份轮转约束。
  */
 export async function createBackupNow(): Promise<string> {
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = dateKeyCN();
   const target = join(BACKUP_DIR, `blog-${stamp}.db`);
   await db.backup(target);
   return target;

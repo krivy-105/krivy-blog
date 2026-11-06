@@ -4,6 +4,7 @@ import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import { SITE_TITLE } from '../consts';
 import { scheduleQueries, type ScheduleCourse } from '../lib/db';
+import { cnOpts, dateKeyCN } from '../lib/time';
 
 // ---- 读取数据 ----
 const courses = scheduleQueries.all.all() as ScheduleCourse[];
@@ -27,14 +28,14 @@ try {
 } catch {}
 
 // ---- 当前周次 & 周切换 ----
+// 学年起始日与「今天」都按北京时间口径算，容器时区是 UTC 也不会差一天
 const DAY = 86400000;
-const startMs = startDate ? new Date(`${startDate}T00:00:00`).getTime() : 0;
-const now = Date.now();
-const todayStart = new Date();
-todayStart.setHours(0, 0, 0, 0);
+const startMs = startDate ? Date.parse(`${startDate}T00:00:00+08:00`) : 0;
+const todayKey = dateKeyCN();
+const todayStartMs = Date.parse(`${todayKey}T00:00:00+08:00`);
 
 // 真实当前周：从学期第一天算起
-const realWeek = startMs ? Math.floor((todayStart.getTime() - startMs) / (7 * DAY)) + 1 : 1;
+const realWeek = startMs ? Math.floor((todayStartMs - startMs) / (7 * DAY)) + 1 : 1;
 
 const weekParam = Number(Astro.url.searchParams.get('week') || '');
 const week = Number.isFinite(weekParam) && weekParam >= 1 && weekParam <= totalWeeks
@@ -49,8 +50,8 @@ const weekDays = Array.from({ length: 7 }, (_, i) => {
   return {
     idx: i + 1,
     label: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][i],
-    date: d ? `${d.getMonth() + 1}/${d.getDate()}` : '',
-    isToday: d ? d.toDateString() === todayStart.toDateString() : false,
+    date: d ? new Intl.DateTimeFormat('zh-CN', cnOpts({ month: 'numeric', day: 'numeric' })).format(d) : '',
+    isToday: ms ? dateKeyCN(ms) === todayKey : false,
   };
 });
 
@@ -112,8 +113,8 @@ const colorOf = (name: string) => {
 
 const fmtDate = (ms: number) => {
   if (!ms) return '';
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  // 日历日一律按北京时间取，容器是 UTC 时 getFullYear/getDate 会差一天
+  return dateKeyCN(ms);
 };
 const weekEndLabel = weekStartMs ? fmtDate(weekStartMs + 6 * DAY) : '';
 import Icon from '../components/Icon.astro';
@@ -256,7 +257,7 @@ import Icon from '../components/Icon.astro';
 
           <p class="sync-note">
             共 {courses.length} 门课 · 本周 {weekCourses.length} 节
-            {syncedAt ? ` · 数据更新于 ${new Date(syncedAt).toLocaleString('zh-CN', { hour12: false })}` : ''}
+            {syncedAt ? ` · 数据更新于 ${new Date(syncedAt).toLocaleString('zh-CN', cnOpts({ hour12: false }))}` : ''}
           </p>
         </>
       )}

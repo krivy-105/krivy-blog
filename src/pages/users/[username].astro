@@ -81,7 +81,7 @@ if (profile) {
 }
 
 const joinDate = profile
-  ? new Date(profile.created_at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' })
+  ? new Date(profile.created_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long' })
   : '';
 import Icon from '../../components/Icon.astro';
 ---
@@ -238,7 +238,7 @@ import Icon from '../../components/Icon.astro';
                         <span class:list={['tag', `tag-${p.status}`]}>
                           {p.status === 'pending' ? '审核中' : '已驳回'}
                         </span>
-                        <time>{new Date(p.created_at).toLocaleDateString('zh-CN')}</time>
+                        <time>{new Date(p.created_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}</time>
                       </span>
                     </li>
                   ))}
@@ -278,7 +278,7 @@ import Icon from '../../components/Icon.astro';
                             <h3>{p.title}</h3>
                             {p.description && <p class="up-desc">{p.description}</p>}
                             <div class="up-foot">
-                              <time>{new Date(p.created_at).toLocaleDateString('zh-CN')}</time>
+                              <time>{new Date(p.created_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}</time>
                               <span class="up-stats">
                                 <span class="up-like"><Icon name="heart" size={13} /> {likeMap.get(p.id) ?? 0}</span>
                                 <span class="up-comment"><Icon name="message" size={13} /> {commentMap.get(p.id) ?? 0}</span>
@@ -325,7 +325,7 @@ import Icon from '../../components/Icon.astro';
                               <div class="up-foot">
                                 <span class="up-author"><Icon name="pen" size={13} /> {p.author_name}</span>
                                 <span class="up-bookmarked-at">
-                                  收藏于 {new Date(p.bookmarked_at).toLocaleDateString('zh-CN')}
+                                  收藏于 {new Date(p.bookmarked_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}
                                 </span>
                               </div>
                             </div>

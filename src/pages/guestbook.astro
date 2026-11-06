@@ -11,6 +11,7 @@ const entries = guestbookQueries.list.all() as any[];
 
 const formatDate = (ts: number) =>
   new Date(ts).toLocaleString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

@@ -67,7 +67,7 @@ import Icon from '../../components/Icon.astro';
                   )}
                 </div>
                 <div class="item-meta">
-                  <time>{new Date(post.created_at).toLocaleDateString('zh-CN')}</time>
+                  <time>{new Date(post.created_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}</time>
                   <a class="meta-author" href={`/users/${post.author_name}`}
                     ><Icon name="pen" size={13} /> {post.author_name}</a
                   >

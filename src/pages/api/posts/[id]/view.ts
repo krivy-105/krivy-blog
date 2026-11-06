@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import crypto from 'node:crypto';
 import { postQueries, viewQueries } from '../../../../lib/db';
+import { dateKeyCN } from '../../../../lib/time';
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -22,7 +23,7 @@ export const POST: APIRoute = ({ params, request }) => {
     .update(ip + (process.env.VIEW_SALT || 'blog-view-salt'))
     .digest('hex')
     .slice(0, 16);
-  const date = new Date().toISOString().slice(0, 10);
+  const date = dateKeyCN();
 
   try {
     viewQueries.record.run(postId, date, hash, Date.now());

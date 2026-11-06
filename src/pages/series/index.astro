@@ -145,7 +145,7 @@ import Icon from '../../components/Icon.astro';
               <p class="series-desc">{s.description || '作者暂未填写这个系列的简介。'}</p>
               <div class="series-foot">
                 <a class="series-author" href={`/users/${s.author_name}`} onclick="event.stopPropagation()">@{s.author_name}</a>
-                <span>更新于 {new Date(s.updated_at).toLocaleDateString('zh-CN')}</span>
+                <span>更新于 {new Date(s.updated_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}</span>
               </div>
             </a>
           ))}

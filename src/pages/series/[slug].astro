@@ -207,8 +207,8 @@ import Icon from '../../components/Icon.astro';
                 <h1 class="series-title"><Icon name="book" size={22} /> {series.title}</h1>
                 <div class="series-meta">
                   <span>作者 <a href={`/users/${series.author_name}`}>@{series.author_name}</a></span>
-                  <span>创建于 {new Date(series.created_at).toLocaleDateString('zh-CN')}</span>
-                  <span>更新于 {new Date(series.updated_at).toLocaleDateString('zh-CN')}</span>
+                  <span>创建于 {new Date(series.created_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}</span>
+                  <span>更新于 {new Date(series.updated_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}</span>
                 </div>
               </div>
               <span class="series-count-badge">{total} 篇文章</span>
@@ -235,7 +235,7 @@ import Icon from '../../components/Icon.astro';
                       {p.description && <p>{p.description}</p>}
                     </div>
                     <div class="toc-meta">
-                      {new Date(p.created_at).toLocaleDateString('zh-CN')}
+                      {new Date(p.created_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}
                     </div>
                   </a>
                 </li>

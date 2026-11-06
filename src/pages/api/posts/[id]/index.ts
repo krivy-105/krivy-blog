@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { postQueries, tagQueries, seriesQueries } from '../../../../lib/db';
+import { cnOpts, parseCNLocal } from '../../../../lib/time';
 
 function parseTags(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -109,8 +110,8 @@ export const PUT: APIRoute = async ({ request, locals, params, redirect }) => {
   // 定时发布：填写了未来时间则 scheduled，留空则按普通流程重新进入审核
   let publishAt: number | null | undefined;
   if (publishAtRaw && publishAtRaw.trim()) {
-    const ts = new Date(publishAtRaw).getTime();
-    if (!Number.isFinite(ts) || ts <= now) {
+    const ts = parseCNLocal(publishAtRaw);
+    if (ts === null || ts <= now) {
       return new Response(JSON.stringify({ error: '定时时间无效，必须是未来的时间' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
@@ -131,7 +132,7 @@ export const PUT: APIRoute = async ({ request, locals, params, redirect }) => {
     tagQueries.setForPost(id, tagList);
     seriesQueries.setForPost(id, seriesId, seriesOrder);
     const message = publishAt
-      ? `已保存，将于 ${new Date(publishAt).toLocaleString('zh-CN')} 自动发布`
+      ? `已保存，将于 ${new Date(publishAt).toLocaleString('zh-CN', cnOpts({ hour12: false }))} 自动发布`
       : '文章已更新，请耐心等待审核';
     return new Response(JSON.stringify({ success: true, message }), {
       status: 200,

@@ -2,6 +2,7 @@
 import Icon from './Icon.astro';
 import { SITE_TITLE } from '../consts';
 const today = new Date();
+const yearCN = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric' }).format(today);
 ---
 
 <footer>

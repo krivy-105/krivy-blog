@@ -23,6 +23,7 @@ const statusLabel: Record<string, string> = {
 };
 const formatTime = (ts: number) =>
   new Date(ts).toLocaleString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -260,7 +261,7 @@ import Icon from '../../components/Icon.astro';
                   <td><a href={`/users/${u.username}`}>{u.username}</a></td>
                   <td>{u.email}</td>
                   <td><span class={`tag ${u.role === 'admin' ? 'tag-approved' : ''}`}>{u.role === 'admin' ? '管理员' : '用户'}</span></td>
-                  <td>{new Date(u.created_at).toLocaleDateString('zh-CN')}</td>
+                  <td>{new Date(u.created_at).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}</td>
                   <td>
                     {u.id === user.id ? (
                       <span class="btn btn-outline btn-sm" style="opacity:.55;cursor:not-allowed;" title="不能删除当前登录账号">
