@@ -22,7 +22,9 @@
      保住「正文 → 次要 → 辅助」三级层次不至于糊成一片。 */
   --text-dark: #283947;
   --text-gray: #5a6c7c;
-  --text-light: #6b7883;
+  /* 再压一档：#657280 在 --bg-body(#f3f8fb) 上 4.6:1、纯白上 4.92:1，
+     原来的 #6b7883 在 --bg-body 上只有 4.23:1，卡在 WCAG AA 门外。 */
+  --text-light: #657280;
 
   /* 背景 */
   --bg-white: #ffffff;

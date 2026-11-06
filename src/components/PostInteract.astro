@@ -229,7 +229,7 @@ import Icon from './Icon.astro';
                   <ul class="reply-list">
                     {c.replies.map((r: any) => (
                       <li class="reply-item" data-comment-id={r.id} data-author-id={r.user_id} data-author-name={r.username}>
-                        <a href={`/users/${r.username}`} class="reply-avatar-link">
+                        <a href={`/users/${r.username}`} class="reply-avatar-link" aria-label={`${r.username} 的主页`}>
                           <Avatar name={r.username} src={r.avatar} class="reply-avatar" />
                         </a>
                         <div class="reply-body">
