@@ -108,6 +108,12 @@ import Icon from '../components/Icon.astro';
       }
       .msg-success { color: #27ae60; }
       .msg-error { color: #e74c3c; }
+      .draft-status {
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: #e74c3c;
+        margin-left: 0.3rem;
+      }
       .schedule-group {
         display: flex;
         align-items: center;
@@ -151,7 +157,7 @@ import Icon from '../components/Icon.astro';
       </header>
       <div class="write-container">
         <div class="write-panel">
-          <div class="panel-title">编辑</div>
+          <div class="panel-title">编辑 <span id="draftStatus" class="draft-status" role="status" aria-live="polite"></span></div>
           <form id="writeForm">
             <div class="form-group">
               <input type="text" name="title" placeholder="文章标题" required maxlength="100" />
@@ -225,6 +231,9 @@ import Icon from '../components/Icon.astro';
       const previewEl = document.getElementById('preview');
       const form = document.getElementById('writeForm') as HTMLFormElement;
       const msgEl = document.getElementById('submitMsg');
+      const draftStatusEl = document.getElementById('draftStatus');
+      // 草稿保存失败只提示一次，避免 15s 定时器把页面刷成警告墙
+      let draftSaveWarned = false;
       const titleEl = form.querySelector('[name="title"]') as HTMLInputElement;
       const descEl = form.querySelector('[name="description"]') as HTMLInputElement;
       const seriesSel = form.querySelector('#seriesId') as HTMLSelectElement | null;
@@ -316,7 +325,19 @@ import Icon from '../components/Icon.astro';
             return;
           }
           localStorage.setItem(STORAGE_KEY, JSON.stringify(cur));
-        } catch {}
+          if (draftSaveWarned) {
+            draftSaveWarned = false;
+            if (draftStatusEl) draftStatusEl.textContent = '';
+          }
+        } catch {
+          // 隐私模式 / 配额满：存不上必须让作者当场知道，否则刷新即丢字
+          if (!draftSaveWarned) {
+            draftSaveWarned = true;
+            if (draftStatusEl) {
+              draftStatusEl.textContent = '草稿保存失败：浏览器存储不可用，请勿关闭页面，先手动备份内容。';
+            }
+          }
+        }
       }
 
       function renderPreview() {
@@ -352,7 +373,12 @@ import Icon from '../components/Icon.astro';
               });
           }
         }
-      } catch {}
+      } catch {
+        // 读不出旧草稿也要说一声，否则作者以为「没有草稿」直接开始写，覆盖掉能救的内容
+        if (draftStatusEl) {
+          draftStatusEl.textContent = '上次未提交的草稿读取失败，无法恢复。';
+        }
+      }
 
       contentEl.addEventListener('input', renderPreview);
 

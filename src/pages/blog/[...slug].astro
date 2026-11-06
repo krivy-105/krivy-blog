@@ -470,6 +470,12 @@ if (seriesInfo) {
               btn.classList.remove('is-copied');
               if (textEl) textEl.textContent = '复制';
             }, 1600);
+          } else if (textEl) {
+            // 剪贴板 API 和 execCommand 都失败时给个反馈，别让按钮点了毫无动静
+            textEl.textContent = '复制失败';
+            setTimeout(() => {
+              textEl.textContent = '复制';
+            }, 1600);
           }
         });
       });
