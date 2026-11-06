@@ -36,7 +36,7 @@ if ($hasImage) {
 }
 
 Write-Host "[3/3] 发布并自检" -ForegroundColor Cyan
-$cmd = 'sudo hqb-publish /tmp/hqb-index.html'
+$cmd = 'sudo -S hqb-publish /tmp/hqb-index.html'
 if ($hasImage) {
     $cmd += ' && sudo cp /tmp/medical-room.jpg /opt/hqb-site/medical-room.jpg && sudo chown www-data:www-data /opt/hqb-site/medical-room.jpg'
 }
