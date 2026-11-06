@@ -66,7 +66,7 @@ import Icon from '../components/Icon.astro';
         ) : (
           entries.map((e) => (
             <article class="gb-entry card" data-id={e.id}>
-              <a href={`/users/${e.username}`} class="gb-avatar">
+              <a href={`/users/${e.username}`} class="gb-avatar" aria-label={`${e.username} 的主页`}>
                 <Avatar src={e.avatar} username={e.username} size={40} />
               </a>
               <div class="gb-body">

@@ -74,7 +74,7 @@ import Icon from '../components/Icon.astro';
         ) : (
           moments.map((m) => (
             <article class="m-entry card" data-id={m.id}>
-              <a href={`/users/${m.username}`} class="m-avatar">
+              <a href={`/users/${m.username}`} class="m-avatar" aria-label={`${m.username} 的主页`}>
                 <Avatar src={m.avatar} username={m.username} size={42} />
               </a>
               <div class="m-body">
