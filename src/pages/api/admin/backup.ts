@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { createBackupNow } from '../../../lib/db';
+import { dateKeyCN } from '../../../lib/time';
 
 // GET /api/admin/backup —— 立即生成一致性快照并下载，仅 admin
 // 用于把数据库备份异地保存到本地，避免持久卷故障导致数据丢失。
@@ -11,7 +12,7 @@ export const GET: APIRoute = async ({ locals, redirect }) => {
   try {
     const filePath = await createBackupNow();
     const data = readFileSync(filePath);
-    const stamp = new Date().toISOString().slice(0, 10);
+    const stamp = dateKeyCN();
 
     return new Response(new Uint8Array(data), {
       status: 200,

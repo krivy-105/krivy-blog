@@ -15,6 +15,7 @@ const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
 const formatDate = (ts: number) =>
   new Date(ts).toLocaleString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

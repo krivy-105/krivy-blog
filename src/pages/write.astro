@@ -226,6 +226,7 @@ import Icon from '../components/Icon.astro';
 
     <script>
       import { marked } from 'marked';
+      import { toCNLocalInput } from '../lib/time';
 
       const contentEl = document.getElementById('content') as HTMLTextAreaElement;
       const previewEl = document.getElementById('preview');
@@ -253,12 +254,8 @@ import Icon from '../components/Icon.astro';
       scheduleChk.addEventListener('change', () => {
         publishAt.disabled = !scheduleChk.checked;
         if (scheduleChk.checked) {
-          // 默认值：明天此刻
-          const d = new Date(Date.now() + 24 * 3600 * 1000);
-          d.setSeconds(0, 0);
-          const pad = (n: number) => String(n).padStart(2, '0');
-          publishAt.value =
-            `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+          // 默认值：北京时间「明天此刻」。容器是 UTC，不能就地取年月日时分
+          publishAt.value = toCNLocalInput(Date.now() + 24 * 3600 * 1000);
         }
       });
 

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { postQueries, tagQueries, seriesQueries } from '../../lib/db';
+import { cnOpts, parseCNLocal } from '../../lib/time';
 
 function slugify(title: string): string {
   const base = title
@@ -128,7 +129,7 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
       seriesQueries.setForPost(postId, seriesId, seriesOrder);
     }
     const message = publishAt
-      ? `已设定定时发布：${new Date(publishAt).toLocaleString('zh-CN')}`
+      ? `已设定定时发布：${new Date(publishAt).toLocaleString('zh-CN', cnOpts({ hour12: false }))}`
       : '文章已提交，等待审核';
     return new Response(JSON.stringify({ success: true, id: result.lastInsertRowid, message }), {
       status: 200,
@@ -145,7 +146,7 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
 // 解析 datetime-local 输入；返回未来时间戳，空串返回 undefined，无效/过去时间返回 null
 function parseFutureTime(raw: string | null | undefined): number | null | undefined {
   if (!raw || !raw.trim()) return undefined;
-  const ts = new Date(raw).getTime();
-  if (!Number.isFinite(ts)) return null;
+  const ts = parseCNLocal(raw);
+  if (ts === null) return null;
   return ts > Date.now() ? ts : null;
 }

@@ -327,7 +327,7 @@ import Icon from '../components/Icon.astro';
       }
       messagesEl.innerHTML = msgs.map(m => {
         const isSelf = m.sender_id === currentUserId;
-        const time = new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        const time = new Date(m.created_at).toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' });
         return '<div class="msg ' + (isSelf ? 'self' : 'other') + '">' + escapeHtml(m.content) + '<div class="msg-time">' + time + '</div></div>';
       }).join('');
       messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -336,7 +336,7 @@ import Icon from '../components/Icon.astro';
     function appendMessage(m) {
       if (m.sender_id === currentReceiver || m.receiver_id === currentReceiver) {
         const isSelf = m.sender_id === currentUserId;
-        const time = new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        const time = new Date(m.created_at).toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' });
         const div = document.createElement('div');
         div.className = 'msg ' + (isSelf ? 'self' : 'other');
         div.innerHTML = escapeHtml(m.content) + '<div class="msg-time">' + time + '</div>';

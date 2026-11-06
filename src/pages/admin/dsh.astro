@@ -24,7 +24,7 @@ let fileNote: string | null = null;
 const stored = getDshLink();
 if (stored) {
   accessUrl = stored.url;
-  updatedAt = stored.at ? new Date(stored.at).toLocaleString('zh-CN', { hour12: false }) : null;
+  updatedAt = stored.at ? new Date(stored.at).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }) : null;
   source = '电脑实时推送';
 } else {
   const ACCESS_FILE = join(homedir(), '.dsh', 'web-access.txt');
@@ -34,7 +34,7 @@ if (stored) {
       const m = raw.match(/https?:\/\/\S+token=\S+/);
       if (m) {
         accessUrl = m[0].replace(/[)\]>,]+$/, '');
-        updatedAt = new Date(statSync(ACCESS_FILE).mtimeMs).toLocaleString('zh-CN', { hour12: false });
+        updatedAt = new Date(statSync(ACCESS_FILE).mtimeMs).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
         source = '本机文件';
       } else {
         fileNote = '本机文件存在但没解析出带 token 的链接（dsh web 可能还没完成启动）';

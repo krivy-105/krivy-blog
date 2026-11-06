@@ -15,7 +15,7 @@ const terms = safeQ.split(' ').filter(Boolean).slice(0, 5);
 const results = safeQ ? searchPosts(safeQ, 50) : [];
 
 const formatDate = (ts: number) =>
-  new Date(ts).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  new Date(ts).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' });
 
 const highlightTitle = (text: string) => highlightText(text, terms);
 ---

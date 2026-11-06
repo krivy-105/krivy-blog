@@ -77,6 +77,7 @@ async function renderOgImage(post: {
   created_at: number;
 }): Promise<Buffer> {
   const date = new Date(post.created_at).toLocaleDateString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
     year: 'numeric',
     month: 'long',
     day: 'numeric',

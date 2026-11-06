@@ -63,6 +63,7 @@ import Icon from '../components/Icon.astro';
                   <span class="feed-author"><Icon name="pen" size={13} /> {p.author_name}</span>
                   <time datetime={new Date(p.created_at).toISOString()}>
                     {new Date(p.created_at).toLocaleDateString('zh-CN', {
+                      timeZone: 'Asia/Shanghai',
                       month: 'short',
                       day: 'numeric',
                     })}

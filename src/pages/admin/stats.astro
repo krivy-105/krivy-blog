@@ -4,6 +4,7 @@ import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
 import { SITE_TITLE } from '../../consts';
 import { statQueries } from '../../lib/db';
+import { dateKeyCN } from '../../lib/time';
 
 const user = Astro.locals.user;
 if (!user || user.role !== 'admin') {
@@ -12,7 +13,7 @@ if (!user || user.role !== 'admin') {
 
 const rows = statQueries.last30.all() as { date: string; pv: number; uv: number }[];
 const today = (statQueries.today.get() as { date: string; pv: number; uv: number } | undefined)
-  || { date: new Date().toISOString().slice(0, 10), pv: 0, uv: 0 };
+  || { date: dateKeyCN(), pv: 0, uv: 0 };
 
 // SVG 折线图：viewBox 600x180，归一化数据
 const W = 600;

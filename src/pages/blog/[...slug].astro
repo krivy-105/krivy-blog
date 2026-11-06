@@ -44,6 +44,7 @@ const interactionUser = currentUser
   ? { id: currentUser.id, username: currentUser.username, avatar: currentUser.avatar }
   : null;
 const dateStr = new Date(post.created_at).toLocaleDateString('zh-CN', {
+  timeZone: 'Asia/Shanghai',
   year: 'numeric',
   month: 'long',
   day: 'numeric',
@@ -173,7 +174,7 @@ if (seriesInfo) {
                 {post.status === 'pending'
                   ? '只有管理员能看到此页面，审核通过后才会公开发布。'
                   : post.status === 'scheduled'
-                    ? `将于 ${new Date(post.publish_at).toLocaleString('zh-CN')} 自动发布。`
+                    ? `将于 ${new Date(post.publish_at).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })} 自动发布。`
                     : '该文章已被驳回，不会公开展示。'}
               </span>
             </div>
@@ -442,11 +443,12 @@ if (seriesInfo) {
         btn.className = 'code-copy-btn';
         btn.setAttribute('aria-label', '复制代码');
         btn.innerHTML =
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span class="cc-text">复制</span>';
+          '<svg class="cc-i cc-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
+          '<svg class="cc-i cc-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+          '<svg class="cc-i cc-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
         pre.appendChild(btn);
         btn.addEventListener('click', async () => {
           const code = pre.querySelector('code')?.textContent ?? pre.textContent ?? '';
-          const textEl = btn.querySelector('.cc-text');
           let ok = false;
           try {
             await navigator.clipboard.writeText(code);
@@ -465,16 +467,18 @@ if (seriesInfo) {
           }
           if (ok) {
             btn.classList.add('is-copied');
-            if (textEl) textEl.textContent = '已复制';
+            btn.setAttribute('aria-label', '已复制');
             setTimeout(() => {
               btn.classList.remove('is-copied');
-              if (textEl) textEl.textContent = '复制';
+              btn.setAttribute('aria-label', '复制代码');
             }, 1600);
-          } else if (textEl) {
+          } else {
             // 剪贴板 API 和 execCommand 都失败时给个反馈，别让按钮点了毫无动静
-            textEl.textContent = '复制失败';
+            btn.classList.add('is-failed');
+            btn.setAttribute('aria-label', '复制失败');
             setTimeout(() => {
-              textEl.textContent = '复制';
+              btn.classList.remove('is-failed');
+              btn.setAttribute('aria-label', '复制代码');
             }, 1600);
           }
         });
@@ -777,56 +781,106 @@ if (seriesInfo) {
   }
   .code-copy-btn {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
-    border: 1px solid var(--border-light);
-    border-radius: 6px;
-    background: rgba(255, 255, 255, 0.88);
-    color: var(--text-gray);
-    font-size: 0.74rem;
-    font-family: inherit;
+    top: 0.55rem;
+    right: 0.55rem;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(232, 238, 241, 0.72);
     cursor: pointer;
     opacity: 0;
-    transition: opacity 0.2s var(--ease), background 0.2s var(--ease), color 0.2s var(--ease);
+    transform: translateY(-2px) scale(0.94);
+    transition:
+      opacity 0.22s var(--ease),
+      transform 0.22s var(--ease),
+      background 0.18s var(--ease),
+      color 0.18s var(--ease),
+      border-color 0.18s var(--ease);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     z-index: 2;
-    backdrop-filter: blur(4px);
   }
-  .article-content pre:hover .code-copy-btn {
+  .article-content pre:hover .code-copy-btn,
+  .article-content pre:focus-within .code-copy-btn {
     opacity: 1;
+    transform: none;
   }
   .code-copy-btn:hover {
-    background: var(--monet-blue-lighter);
-    color: var(--monet-blue-dark);
-    border-color: var(--monet-blue-light);
+    background: rgba(255, 255, 255, 0.19);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #e8eef1;
+  }
+  .code-copy-btn:active {
+    transform: scale(0.92);
+  }
+  .code-copy-btn:focus-visible {
+    outline: 2px solid #7dd3fc;
+    outline-offset: 2px;
+    opacity: 1;
+    transform: none;
+  }
+  /* 三个图标叠在同一格：切换状态时按钮尺寸不动，不会左右跳 */
+  .code-copy-btn .cc-i {
+    grid-area: 1 / 1;
+    width: 15px;
+    height: 15px;
+    transition: opacity 0.16s var(--ease), transform 0.16s var(--ease);
+  }
+  .code-copy-btn .cc-check,
+  .code-copy-btn .cc-x {
+    opacity: 0;
+    transform: scale(0.7);
   }
   .code-copy-btn.is-copied {
-    background: #e3f6e8;
-    color: #27ae60;
-    border-color: #a8e0b8;
+    background: rgba(110, 231, 163, 0.16);
+    border-color: rgba(110, 231, 163, 0.45);
+    color: #6ee7a3;
   }
-  .code-copy-btn svg {
-    width: 13px;
-    height: 13px;
+  .code-copy-btn.is-copied .cc-copy {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  .code-copy-btn.is-copied .cc-check {
+    opacity: 1;
+    transform: scale(1);
+  }
+  .code-copy-btn.is-failed {
+    background: rgba(248, 113, 113, 0.16);
+    border-color: rgba(248, 113, 113, 0.45);
+    color: #f87171;
+  }
+  .code-copy-btn.is-failed .cc-copy {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  .code-copy-btn.is-failed .cc-x {
+    opacity: 1;
+    transform: scale(1);
   }
   :global([data-theme="dark"]) .code-copy-btn {
-    background: rgba(40, 50, 56, 0.82);
-    color: var(--text-gray);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.16);
   }
   :global([data-theme="dark"]) .code-copy-btn:hover {
-    background: var(--monet-blue-lighter);
-  }
-  :global([data-theme="dark"]) .code-copy-btn.is-copied {
-    background: rgba(39, 174, 96, 0.18);
-    color: #6ee7a3;
-    border-color: rgba(39, 174, 96, 0.4);
+    background: rgba(255, 255, 255, 0.2);
   }
   /* 触屏设备常驻显示，无 hover */
   @media (hover: none) {
-    .code-copy-btn { opacity: 1; }
+    .code-copy-btn {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .code-copy-btn,
+    .code-copy-btn .cc-i {
+      transition: none;
+    }
   }
 
   .article-tags {

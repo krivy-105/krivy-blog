@@ -2,6 +2,7 @@ import { defineMiddleware } from 'astro:middleware';
 import crypto from 'node:crypto';
 import { getUserFromToken, COOKIE_NAME } from './lib/auth';
 import { recordPageView } from './lib/db';
+import { dateKeyCN } from './lib/time';
 
 // 文章合并 / 改名后的旧地址 → 新地址（301 永久跳转，保住外部链接与书签）
 const LEGACY_REDIRECTS: Record<string, string> = {
@@ -125,7 +126,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
               .digest('hex')
               .slice(0, 16)
           : '';
-        const date = new Date().toISOString().slice(0, 10);
+        const date = dateKeyCN();
         // 记录访客去重 + PV/UV，合并为单个事务（详见 db.ts 的 recordPageView）
         recordPageView(date, ipHash);
       }

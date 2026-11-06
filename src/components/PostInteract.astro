@@ -43,7 +43,7 @@ if (user) {
 const shareUrl = new URL(`/blog/${slug}/`, Astro.site).href;
 
 const formatDate = (ts: number) =>
-  new Date(ts).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+  new Date(ts).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric' });
 import Icon from './Icon.astro';
 ---
 
@@ -431,11 +431,12 @@ import Icon from './Icon.astro';
       if (diff < 60 * min) return `${Math.floor(diff / min)} 分钟前`;
       if (diff < 24 * 60 * min) return `${Math.floor(diff / (60 * min))} 小时前`;
       if (diff < 30 * 24 * 60 * min) return `${Math.floor(diff / (24 * 60 * min))} 天前`;
-      return new Date(ts).toLocaleDateString('zh-CN');
+      return new Date(ts).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
     }
 
     function formatLocalDate(ts: number) {
       return new Date(ts).toLocaleDateString('zh-CN', {
+        timeZone: 'Asia/Shanghai',
         year: 'numeric',
         month: 'long',
         day: 'numeric',

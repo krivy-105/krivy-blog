@@ -6,6 +6,7 @@ import MarkdownToolbar from '../../components/MarkdownToolbar.astro';
 import { SITE_TITLE } from '../../consts';
 import { postQueries, tagQueries, seriesQueries } from '../../lib/db';
 import { signPreview } from '../../lib/preview-token';
+import { toCNLocalInput } from '../../lib/time';
 
 const user = Astro.locals.user;
 if (!user) {
@@ -41,14 +42,11 @@ const previewUrl = post
   ? `${Astro.site?.toString().replace(/\/$/, '') || ''}/blog/${post.slug}/?p=${previewToken}`
   : '';
 const isScheduled = post?.status === 'scheduled';
+// 回填一律按北京时间：容器是 UTC，直接用 getFullYear()/getHours() 会整整差 8 小时
 const scheduleDefault =
-  isScheduled && post.publish_at
-    ? (() => {
-        const d = new Date(post.publish_at);
-        const pad = (n: number) => String(n).padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-      })()
-    : '';
+  isScheduled && post.publish_at ? toCNLocalInput(post.publish_at) : '';
+// 「明天此刻」也在这里算好传给客户端，浏览器时区不参与
+const scheduleTomorrow = toCNLocalInput(Date.now() + 24 * 3600 * 1000);
 import Icon from '../../components/Icon.astro';
 ---
 
@@ -275,7 +273,7 @@ import Icon from '../../components/Icon.astro';
     <Footer />
 
     {post && post.author_id === user.id && (
-      <script define:vars={{ postId: post.id, myUsername, previewUrl }}>
+      <script define:vars={{ postId: post.id, myUsername, previewUrl, scheduleTomorrow }}>
         import { marked } from 'marked';
 
         // 注意：define:vars 脚本不经过 TS 编译，以下全部使用纯 JavaScript（无 as 断言、无类型注解）
@@ -301,10 +299,8 @@ import Icon from '../../components/Icon.astro';
         scheduleChk.addEventListener('change', () => {
           publishAt.disabled = !scheduleChk.checked;
           if (scheduleChk.checked && !publishAt.value) {
-            const d = new Date(Date.now() + 24 * 3600 * 1000);
-            d.setSeconds(0, 0);
-            const pad = (n) => String(n).padStart(2, '0');
-            publishAt.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            // 北京时间「明天此刻」由服务端算好（define:vars），这里不碰时区
+            publishAt.value = scheduleTomorrow;
           }
         });
 
