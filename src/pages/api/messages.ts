@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { messageQueries, userQueries } from '../../lib/db';
+import { messageQueries, userQueries, type Message } from '../../lib/db';
 
 // GET /api/messages?with=userId - 获取与某用户的对话历史
 export const GET: APIRoute = async ({ url, locals }) => {
@@ -13,7 +13,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     return new Response(JSON.stringify({ error: '缺少 with 参数' }), { status: 400 });
   }
 
-  const messages = messageQueries.getConversation.all(user.id, withId, withId, user.id) as any[];
+  const messages = messageQueries.getConversation.all(user.id, withId, withId, user.id) as Message[];
   // 标记已读
   messageQueries.markAsRead.run(withId, user.id);
 

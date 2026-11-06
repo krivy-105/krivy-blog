@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { scheduleQueries } from '../../../lib/db';
+import { scheduleQueries, type ScheduleCourse } from '../../../lib/db';
 
 // ============================================================
 // POST /api/schedule/import
@@ -30,6 +30,16 @@ const json = (body: unknown, status = 200) =>
     headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
   });
 
+/** 抓取脚本推上来的单条课程。
+ *  weekday / start_section / end_section 声明为必填，是因为原有校验顺序
+ *  已经用 Number.isInteger 守住缺省值、比较放在其后；声明成可选会让
+ *  `c.weekday >= 1` 触发 possibly undefined 而不得不改校验逻辑。 */
+type RawCourseInput = Partial<ScheduleCourse> & {
+  weekday: number;
+  start_section: number;
+  end_section: number;
+};
+
 export const POST: APIRoute = async ({ request, locals }) => {
   // ---- 鉴权 ----
   const expected = process.env.SCHEDULE_TOKEN || '';
@@ -42,19 +52,28 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   // ---- 解析 ----
-  let body: any;
+  let rawBody: unknown;
   try {
-    body = await request.json();
+    rawBody = await request.json();
   } catch {
     return json({ error: '请求体不是合法 JSON' }, 400);
   }
 
-  const courses = Array.isArray(body?.courses) ? body.courses : null;
+  // JSON 体可能是任何值（null / 数组 / 标量）。统一收窄成对象字典：
+  // 非对象时退化成空字典，后续 body.xxx 一律读到 undefined，与原先 body?.xxx 等价。
+  const body: Record<string, unknown> =
+    rawBody !== null && typeof rawBody === 'object'
+      ? (rawBody as Record<string, unknown>)
+      : {};
+
+  const courses: RawCourseInput[] | null = Array.isArray(body?.courses)
+    ? (body.courses as RawCourseInput[])
+    : null;
   if (!courses) return json({ error: 'courses 必须是数组' }, 400);
 
   // 校验每一条：缺关键字段的直接丢弃并计数，不整批失败
   const bad: number[] = [];
-  const clean = courses.filter((c: any, i: number) => {
+  const clean = courses.filter((c: RawCourseInput, i: number) => {
     const ok =
       c &&
       typeof c.course === 'string' &&
@@ -79,7 +98,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   // 教室端不提供钟点，这份表由页面上展示、按学校实际情况配置。
   if (Array.isArray(body.section_times) && body.section_times.length > 0) {
     const cleaned = body.section_times
-      .map((t: any) => {
+      .map((t: unknown) => {
         if (Array.isArray(t) && t.length === 2) return [String(t[0]), String(t[1])];
         if (typeof t === 'string' && t.includes('-')) {
           const [a, b] = t.split('-');
