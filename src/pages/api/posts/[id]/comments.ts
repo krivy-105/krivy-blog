@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { commentQueries, postQueries, notificationQueries } from '../../../../lib/db';
+import { commentQueries, postQueries, notificationQueries, type CommentRow } from '../../../../lib/db';
 import { bumpRateLimit, getClientIp } from '../../../../lib/rate-limit';
 
 const json = (data: unknown, status = 200) =>
@@ -17,11 +17,11 @@ export const GET: APIRoute = async ({ params, url }) => {
   const sort = (url.searchParams.get('sort') || 'hot') as 'hot' | 'new';
   const sortSafe = sort === 'new' ? 'new' : 'hot';
 
-  let comments: any;
+  let comments: CommentRow[];
   if (mode === 'threaded') {
     comments = commentQueries.findThreadedByPost(postId, sortSafe);
   } else {
-    comments = commentQueries.findByPost.all(postId);
+    comments = commentQueries.findByPost.all(postId) as CommentRow[];
   }
   return json({ success: true, comments });
 };
@@ -80,7 +80,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   // 如果 parent_id 存在，校验 parent 是否属于本 post 且未被删
   let replyToUsername: string | null = null;
   if (parentId) {
-    const parent = commentQueries.findById.get(parentId) as any | undefined;
+    const parent = commentQueries.findById.get(parentId) as CommentRow | undefined;
     if (!parent || parent.post_id !== postId || parent.deleted_at || parent.hidden_at) {
       return json({ error: '被回复的评论不存在或已被移除' }, 400);
     }

@@ -988,7 +988,7 @@ export const commentQueries = {
        LEFT JOIN (SELECT comment_id, COUNT(*) AS cnt FROM comment_likes GROUP BY comment_id) cl ON cl.comment_id = c.id
        WHERE c.post_id = ? AND c.parent_id IS NULL AND c.deleted_at IS NULL AND c.hidden_at IS NULL
        ORDER BY ${sort === 'hot' ? 'like_count DESC, c.created_at DESC' : 'c.created_at DESC'}`
-    ).all(postId) as any[];
+    ).all(postId) as CommentNode[];
     const replies = db.prepare(
       `SELECT c.id, c.content, c.created_at, c.user_id, u.username, u.avatar, c.parent_id, c.reply_to_user_id,
               (SELECT username FROM users WHERE id = c.reply_to_user_id) AS reply_to_username,
@@ -998,8 +998,8 @@ export const commentQueries = {
        LEFT JOIN (SELECT comment_id, COUNT(*) AS cnt FROM comment_likes GROUP BY comment_id) cl ON cl.comment_id = c.id
        WHERE c.post_id = ? AND c.parent_id IS NOT NULL AND c.deleted_at IS NULL AND c.hidden_at IS NULL
        ORDER BY c.created_at ASC`
-    ).all(postId) as any[];
-    const byParent = new Map<number, any[]>();
+    ).all(postId) as (CommentRow & { parent_id: number })[];
+    const byParent = new Map<number, CommentRow[]>();
     for (const r of replies) {
       if (!byParent.has(r.parent_id)) byParent.set(r.parent_id, []);
       byParent.get(r.parent_id)!.push(r);
@@ -1305,7 +1305,7 @@ export const seriesQueries = {
        WHERE ps.series_id = ? AND ps.order_in_series < ? AND p.deleted_at IS NULL
          AND p.status = 'approved'
        ORDER BY ps.order_in_series DESC LIMIT 1`
-    ).get(seriesId, orderInSeries) as any;
+    ).get(seriesId, orderInSeries) as SeriesNeighborRow | undefined;
     const next = db.prepare(
       `SELECT p.id, p.slug, p.title, p.status, ps.order_in_series
        FROM post_series ps
@@ -1313,7 +1313,7 @@ export const seriesQueries = {
        WHERE ps.series_id = ? AND ps.order_in_series > ? AND p.deleted_at IS NULL
          AND p.status = 'approved'
        ORDER BY ps.order_in_series ASC LIMIT 1`
-    ).get(seriesId, orderInSeries) as any;
+    ).get(seriesId, orderInSeries) as SeriesNeighborRow | undefined;
     return { prev, next };
   },
   setForPost: (postId: number, seriesId: number | null | undefined, order: number | null | undefined) => {
@@ -1325,7 +1325,7 @@ export const seriesQueries = {
       del.run(postId);
       return;
     }
-    const s = seriesQueries.findById.get(seriesId) as any;
+    const s = seriesQueries.findById.get(seriesId) as SeriesRow | undefined;
     if (!s) {
       del.run(postId);
       return;
@@ -1346,7 +1346,7 @@ export const seriesQueries = {
   ): { id: number | null; error?: string } => {
     const { id, newTitle, newDesc } = opts;
     if (id && id > 0) {
-      const existing = seriesQueries.findById.get(id) as any;
+      const existing = seriesQueries.findById.get(id) as SeriesRow | undefined;
       if (!existing) return { id: null, error: '系列不存在' };
       if (existing.author_id !== authorId) return { id: null, error: '无权限使用该系列' };
       return { id: existing.id };
@@ -1390,6 +1390,85 @@ export type Post = {
   pinned_at: number | null;
   author_name?: string;
 };
+
+// ============================================================
+// SQLite 查询结果集的行类型
+// ------------------------------------------------------------
+// better-sqlite3 的 .get()/.all() 返回 unknown，之前调用处一律用 `as any`
+// 抹平，等于把整条查询链的字段都放生。这里按 SQL 的 SELECT 列表逐条
+// 描述真实列，调用处改成对应的断言。纯类型声明，不参与运行时。
+// ============================================================
+
+/** sessions JOIN users：sessionQueries.findByToken */
+export type SessionRow = {
+  id: number;
+  user_id: number;
+  token: string;
+  expires_at: number;
+  username?: string;
+  role?: string;
+};
+
+/** series 表整行（findById / s.*） */
+export type SeriesRow = {
+  id: number;
+  slug: string;
+  title: string;
+  description: string | null;
+  author_id: number;
+  created_at: number;
+  updated_at: number;
+};
+
+/** seriesQueries.neighbors：posts join post_series 的相邻文章行 */
+export type SeriesNeighborRow = {
+  id: number;
+  slug: string;
+  title: string;
+  status: string;
+  order_in_series: number;
+};
+
+/** comments JOIN users：评论列表 / 单条评论 */
+export type CommentRow = {
+  id: number;
+  post_id?: number;
+  content: string;
+  created_at: number;
+  user_id: number;
+  parent_id: number | null;
+  reply_to_user_id: number | null;
+  username?: string;
+  avatar?: string | null;
+  reply_to_username?: string | null;
+  reply_count?: number;
+  like_count?: number;
+  deleted_at?: number | null;
+  hidden_at?: number | null;
+};
+
+/** 楼中楼：顶层评论在内存里挂上自己的回复数组 */
+export type CommentNode = CommentRow & { replies: CommentRow[] };
+
+/** searchQueries.search / searchLike：FTS 与 LIKE 兜底共用的列 */
+export type SearchRow = {
+  id: number;
+  slug: string;
+  title: string;
+  description: string | null;
+  created_at: number;
+  author_name: string;
+  preview: string | null;
+};
+
+/** SELECT COUNT(*) AS count 这类聚合查询 */
+export type CountRow = { count: number };
+
+/** userQueries.list：公开字段（不含 password） */
+export type UserListRow = Pick<
+  User,
+  'id' | 'username' | 'email' | 'role' | 'avatar' | 'created_at'
+>;
 
 // ---- 每日自动备份 ----
 // 使用 SQLite online backup（db.backup），WAL 模式下可安全在线执行；

@@ -1,4 +1,4 @@
-import { searchQueries } from './db';
+import { searchQueries, type SearchRow } from './db';
 
 // 站内搜索的统一入口。
 // 原来 /api/search 和 /pages/search.astro 各自拼一遍 SQL 和 FTS 清洗逻辑，
@@ -124,7 +124,7 @@ export function searchPosts(safeQ: string, limit = 10): SearchHit[] {
   const hits: SearchHit[] = [];
   const seen = new Set<number>();
 
-  const push = (row: any, preview: string) => {
+  const push = (row: SearchRow, preview: string) => {
     if (seen.has(row.id) || hits.length >= limit) return;
     seen.add(row.id);
     hits.push({
@@ -140,7 +140,7 @@ export function searchPosts(safeQ: string, limit = 10): SearchHit[] {
 
   // 1) 全文索引（前缀匹配）
   try {
-    for (const row of searchQueries.search.all(`${safeQ}*`) as any[]) {
+    for (const row of searchQueries.search.all(`${safeQ}*`) as SearchRow[]) {
       push(row, cleanSnippet(row.preview || row.description || ''));
     }
   } catch {
@@ -154,7 +154,7 @@ export function searchPosts(safeQ: string, limit = 10): SearchHit[] {
   const likeTerm = [...terms].sort((a, b) => b.length - a.length)[0];
   const pattern = `%${escapeLike(likeTerm)}%`;
   try {
-    const rows = searchQueries.searchLike.all(pattern, pattern, pattern, pattern) as any[];
+    const rows = searchQueries.searchLike.all(pattern, pattern, pattern, pattern) as SearchRow[];
     for (const row of rows) {
       const haystack = `${row.title}\n${row.description || ''}\n${row.preview || ''}`.toLowerCase();
       if (!terms.every((t) => haystack.includes(t.toLowerCase()))) continue;

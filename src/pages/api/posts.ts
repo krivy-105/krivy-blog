@@ -134,7 +134,7 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
-  } catch (err: any) {
+  } catch {
     return new Response(JSON.stringify({ error: '提交失败，请重试' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

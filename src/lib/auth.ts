@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
-import { sessionQueries, userQueries, type User } from './db';
+import { sessionQueries, userQueries, type SessionRow, type User } from './db';
 
 const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 天
 const COOKIE_NAME = process.env.SESSION_COOKIE || 'blog_session';
@@ -29,7 +29,7 @@ export function destroySession(token: string): void {
 }
 
 export function getUserFromToken(token: string): User | null {
-  const row = sessionQueries.findByToken.get(token) as any;
+  const row = sessionQueries.findByToken.get(token) as SessionRow | undefined;
   if (!row) return null;
   if (row.expires_at < Date.now()) {
     destroySession(token);
