@@ -61,6 +61,8 @@ scripts/move-link.mjs
 # 会话产物：截图与工作区记忆，不入库
 .shots/
 .workbuddy/
+# dsh 交接文档 / 审计原始输出 / 构建日志
+.dsh-switchman/
 
 # 部署手册含明文 SSH 密码 / 后台密码 / cron key，公开仓库绝不能收
 /docs/DEPLOY-UBUNTU.md
