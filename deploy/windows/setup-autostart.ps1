@@ -1,4 +1,4 @@
-# 注册开机自启（免管理员权限）
+﻿# 注册开机自启（免管理员权限）
 #
 # 用法：powershell -ExecutionPolicy Bypass -File .\setup-autostart.ps1
 # 卸载：powershell -ExecutionPolicy Bypass -File .\setup-autostart.ps1 -Remove
