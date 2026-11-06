@@ -127,8 +127,12 @@
           signal: lastController.signal,
         });
         if (res.ok) renderResults(await res.json());
-      } catch {
-        /* abort 或网络抖动时忽略 */
+      } catch (e) {
+        // 主动 abort（用户还在打字）不算失败；真网络错误要让用户看见，否则会误以为「没有相关文章」
+        if ((e as Error)?.name === 'AbortError') return;
+        items = [];
+        active = -1;
+        list.innerHTML = '<li class="cmdk-hint">搜索失败，请检查网络后重试</li>';
       }
     }, 160);
   });

@@ -26,7 +26,9 @@ export const POST: APIRoute = ({ params, request }) => {
 
   try {
     viewQueries.record.run(postId, date, hash, Date.now());
-  } catch {}
+  } catch (err) {
+    console.error('[view] 记录浏览失败:', err);
+  }
 
   const count = (viewQueries.countForPost.get(postId) as { count: number }).count;
   return json({ success: true, views: count });

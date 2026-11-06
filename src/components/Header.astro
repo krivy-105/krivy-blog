@@ -783,7 +783,10 @@ const pendingCount = isAdmin
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ theme: next }),
-    }).catch(() => {});
+    }).catch(() => {
+      // 服务端没记住主题时，BaseHead 优先读 cookie，下次进站会退回旧主题 —— 得让用户知道
+      window.showToast?.('主题已切换，但没能保存，刷新后可能恢复原样', 'error');
+    });
   });
 </script>
 

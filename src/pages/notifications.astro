@@ -318,7 +318,7 @@ import Icon from '../components/Icon.astro';
       markBtn?.addEventListener('click', async () => {
         try {
           const res = await fetch('/api/notifications', { method: 'POST' });
-          if (!res.ok) return;
+          if (!res.ok) throw new Error('标记失败');
           // 视觉上立刻清掉未读状态
           document.querySelectorAll('.notif-item.is-unread').forEach((el) => {
             el.classList.remove('is-unread');
@@ -330,7 +330,10 @@ import Icon from '../components/Icon.astro';
           // 同步隐藏 Header 上的角标
           const badge = document.getElementById('notifBadge');
           if (badge) badge.style.display = 'none';
-        } catch {}
+        } catch {
+          // 让按钮自己说话：没清干净就别装作清干净了
+          markBtn.textContent = '标记失败，点这里重试';
+        }
       });
     </script>
   </body>
