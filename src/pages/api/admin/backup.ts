@@ -4,10 +4,43 @@ import { basename } from 'node:path';
 import { createBackupNow } from '../../../lib/db';
 import { dateKeyCN } from '../../../lib/time';
 
-// GET /api/admin/backup —— 立即生成一致性快照并下载，仅 admin
+/**
+ * 同源校验：备份是「按一下就生成整库文件」的操作，不能被跨站链接或预取触发。
+ * - 有 Origin：其 host 必须等于反代后的 host（x-forwarded-host 优先）
+ * - 无 Origin（部分客户端）：退回 Sec-Fetch-Site，仅放行 same-origin
+ * - 两者都缺：拒绝
+ */
+function isSameOrigin(request: Request): boolean {
+  const origin = request.headers.get('origin');
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
+  if (origin) {
+    if (origin === 'null' || !host) return false;
+    try {
+      return new URL(origin).host === host;
+    } catch {
+      return false;
+    }
+  }
+  return request.headers.get('sec-fetch-site') === 'same-origin';
+}
+
+// POST /api/admin/backup —— 立即生成一致性快照并下载，仅 admin
 // 用于把数据库备份异地保存到本地，避免持久卷故障导致数据丢失。
-export const GET: APIRoute = async ({ locals, redirect }) => {
-  if (!locals.user || locals.user.role !== 'admin') return redirect('/');
+// 刻意只导出 POST：GET 能被 <a href>、<img>、预取、CDN 代理触发，
+// 备份包含全部用户数据，一次跨站 GET 成功就等于把整库交出去。
+export const POST: APIRoute = async ({ locals, request }) => {
+  if (!locals.user || locals.user.role !== 'admin') {
+    return new Response(JSON.stringify({ error: '无权限' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    });
+  }
+  if (!isSameOrigin(request)) {
+    return new Response(JSON.stringify({ error: '非法请求来源' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    });
+  }
 
   try {
     const filePath = await createBackupNow();

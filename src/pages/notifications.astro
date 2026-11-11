@@ -40,53 +40,64 @@ function timeAgo(ts: number): string {
   return new Date(ts).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', month: 'short', day: 'numeric' });
 }
 
-function renderNotif(n: NotifRow) {
+interface NotifRender {
+  icon: string;
+  actor: string | null;
+  text: string;
+  href: string | null;
+}
+
+// 用户名 / 文章标题 / 驳回理由都是用户可控文本，这里只返回纯文本，
+// 输出侧走 Astro 的 {…} 插值（默认转义），彻底关掉 set:html 注入路径。
+function renderNotif(n: NotifRow): NotifRender {
   const actor = n.actor_name || '系统';
   switch (n.type) {
     case 'comment':
       return {
         icon: 'message',
-        text: n.post_slug
-          ? `<strong>${actor}</strong> 评论了你的文章《${n.post_title}》`
-          : `<strong>${actor}</strong> 给你留了评论`,
+        actor,
+        text: n.post_slug ? `评论了你的文章《${n.post_title ?? ''}》` : '给你留了评论',
         href: n.post_slug ? `/blog/${n.post_slug}/#comment-${n.comment_id}` : null,
       };
     case 'comment_like':
       return {
         icon: 'heart',
-        text: n.post_slug
-          ? `<strong>${actor}</strong> 赞了你在《${n.post_title}》中的评论`
-          : `<strong>${actor}</strong> 赞了你的评论`,
+        actor,
+        text: n.post_slug ? `赞了你在《${n.post_title ?? ''}》中的评论` : '赞了你的评论',
         href: n.post_slug ? `/blog/${n.post_slug}/#comment-${n.comment_id}` : null,
       };
     case 'post_like':
       return {
         icon: 'check',
-        text: `<strong>${actor}</strong> 赞了你的文章《${n.post_title ?? ''}》`,
+        actor,
+        text: `赞了你的文章《${n.post_title ?? ''}》`,
         href: n.post_slug ? `/blog/${n.post_slug}/` : null,
       };
     case 'new_follow':
       return {
         icon: 'star',
-        text: `<strong>${actor}</strong> 关注了你`,
+        actor,
+        text: '关注了你',
         href: n.actor_name ? `/users/${n.actor_name}` : null,
       };
     case 'avatar_approved':
       return {
         icon: 'image',
-        text: '你提交的新头像已<strong>审核通过</strong>，已全站生效',
+        actor: null,
+        text: '你提交的新头像已审核通过，已全站生效',
         href: null,
       };
     case 'avatar_rejected':
       return {
         icon: 'ban',
+        actor: null,
         text: n.content
-          ? `你提交的头像<strong>未通过审核</strong>，仍展示原头像。理由：${n.content}`
-          : '你提交的头像<strong>未通过审核</strong>，仍展示原头像，可修改后重新上传',
+          ? `你提交的头像未通过审核，仍展示原头像。理由：${n.content}`
+          : '你提交的头像未通过审核，仍展示原头像，可修改后重新上传',
         href: null,
       };
     default:
-      return { icon: 'bell', text: '收到一条新通知', href: null };
+      return { icon: 'bell', actor: null, text: '收到一条新通知', href: null };
   }
 }
 import Icon from '../components/Icon.astro';
@@ -129,13 +140,13 @@ import Icon from '../components/Icon.astro';
       ) : (
         <ul class="notif-list" id="notifList">
           {notifications.map((n, i) => {
-            const { icon, text, href } = renderNotif(n);
+            const { icon, actor, text, href } = renderNotif(n);
             const isUnread = !n.read_at;
             const inner = (
               <>
                 <span class="notif-icon" aria-hidden="true"><Icon name={icon} size={18} /></span>
                 <div class="notif-body">
-                  <p class="notif-text" set:html={text} />
+                  <p class="notif-text">{actor && <strong>{actor}</strong>}{actor ? ' ' : ''}{text}</p>
                   {n.content && (
                     <p class="notif-quote">"{n.content.slice(0, 80)}{n.content.length > 80 ? '…' : ''}"</p>
                   )}

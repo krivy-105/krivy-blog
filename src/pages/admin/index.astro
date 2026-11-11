@@ -163,7 +163,7 @@ import Icon from '../../components/Icon.astro';
           <Icon name="image" size={14} /> 头像{pendingAvatars > 0 && <span class="sublink-badge">{pendingAvatars}</span>}
         </a>
         <a href="/admin/dsh" title="DSH 手机通道实时链接，仅管理员可见"><Icon name="settings" size={14} /> DSH 通道</a>
-        <a href="/api/admin/backup" title="生成数据库快照并下载到本地，建议定期另存一份"><Icon name="download" size={13} /> 下载备份</a>
+        <a href="#" id="dl-backup" role="button" title="生成数据库快照并下载到本地，建议定期另存一份"><Icon name="download" size={13} /> 下载备份</a>
       </div>
 
       <div class="admin-tabs">
@@ -363,6 +363,41 @@ import Icon from '../../components/Icon.astro';
           }
         });
       });
+    </script>
+    <script is:inline>
+      // 备份接口已收紧为仅 POST + 同源校验：GET 链接会被拒，这里用 fetch 触发下载
+      (function () {
+        var btn = document.getElementById('dl-backup');
+        if (!btn) return;
+        btn.addEventListener('click', function (ev) {
+          ev.preventDefault();
+          if (btn.dataset.busy === '1') return;
+          btn.dataset.busy = '1';
+          fetch('/api/admin/backup', { method: 'POST', credentials: 'same-origin' })
+            .then(function (r) {
+              if (!r.ok) throw new Error('HTTP ' + r.status);
+              var cd = r.headers.get('Content-Disposition') || '';
+              var m = cd.match(/filename="?([^";]+)"?/i);
+              var name = m ? m[1] : 'blog-backup.db';
+              return r.blob().then(function (blob) {
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = name;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+              });
+            })
+            .catch(function (err) {
+              alert('备份失败：' + err.message);
+            })
+            .then(function () {
+              delete btn.dataset.busy;
+            });
+        });
+      })();
     </script>
   </body>
 </html>

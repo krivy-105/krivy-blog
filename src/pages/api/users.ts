@@ -7,10 +7,12 @@ export const GET: APIRoute = async ({ locals }) => {
     return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
   }
 
-  const users = userQueries.list.all() as UserListRow[];
-  // 排除自己
-  const filtered = users.filter((u) => u.id !== user.id);
-  return new Response(JSON.stringify(filtered), {
+  // 只投影公开字段：email 是隐私数据，created_at 无任何前端消费方
+  const users = (userQueries.list.all() as UserListRow[])
+    .filter((u) => u.id !== user.id)
+    .map((u) => ({ id: u.id, username: u.username, avatar: u.avatar, role: u.role }));
+
+  return new Response(JSON.stringify(users), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });

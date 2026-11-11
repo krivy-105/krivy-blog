@@ -32,7 +32,7 @@ D:\my-blog                 ← 仓库（2026-11-05 从 C 盘迁过来的）
 ```
 连接      ssh ubuntu            （密钥免密，Tailscale 内网 100.97.175.15）
 用户      krivy（sudo + docker 组）
-sudo 密码  <REDACTED-ROTATED-2026-11-11>（2026-11-04 换过，旧密码已作废）
+sudo 密码  见本机 D:\my-blog\.local-credentials.md（不入库；仓库里不再写明文）
 目录      /opt/krivy-blog       （容器 krivy-blog → 127.0.0.1:4321）
 凭据      D:\my-blog\.local-credentials.md（不进仓库）
 ```
@@ -101,7 +101,7 @@ CF 边缘缓存 **10 分钟**。改完看不到效果，要么等 10 分钟，�
 仓库        C:\Users\Airfa\my-blog → D:\my-blog
 more 站     彻底下线
 qd 签到     每天 08:10 → 10:00（crontab，服务器上）
-服务器密码  <REDACTED-ROTATED-2026-11-11>（旧的 20080623 已废弃）
+服务器密码  见 .local-credentials.md（不入库；本文件不再写明文）
 后勤站      上线，数据按学校官网核对过（原资料 20 多个电话是假的）
 主站        手机排版修好、图标统一、动效层、更新日志精简到 12 条
 ```

@@ -337,8 +337,77 @@ import Icon from '../components/Icon.astro';
         }
       }
 
+      // ---- 预览净化 ----
+      // marked 输出的 HTML 允许内联原始标签，直接塞进 innerHTML 等于执行他人的脚本。
+      // 这里走白名单：标签/属性按名单保留，URL 只放 http(s)/mailto/相对路径。
+      const PREVIEW_TAGS = new Set([
+        'P', 'BR', 'STRONG', 'EM', 'DEL', 'INS', 'UL', 'OL', 'LI',
+        'BLOCKQUOTE', 'CODE', 'PRE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+        'A', 'IMG', 'HR', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD',
+        'SPAN', 'DIV', 'INPUT', 'DETAILS', 'SUMMARY',
+      ]);
+      const PREVIEW_ATTRS: Record<string, string[]> = {
+        A: ['href', 'title', 'name', 'target', 'rel'],
+        IMG: ['src', 'srcset', 'sizes', 'alt', 'title', 'width', 'height', 'loading'],
+        CODE: ['class'],
+        PRE: ['class'],
+        SPAN: ['class', 'id'],
+        DIV: ['class'],
+        TH: ['align'],
+        TD: ['align'],
+        H2: ['id'],
+        H3: ['id'],
+        INPUT: ['type', 'checked', 'disabled'],
+        DETAILS: ['open'],
+        SUMMARY: ['class'],
+      };
+
+      function isSafePreviewUrl(value: string): boolean {
+        const compact = value.trim().replace(/[\u0000-\u0020]+/g, '').toLowerCase();
+        const scheme = compact.match(/^([a-z][a-z0-9+.-]*):/);
+        if (!scheme) return true; // 相对路径 / 锚点 / 查询串
+        return scheme[1] === 'http' || scheme[1] === 'https' || scheme[1] === 'mailto';
+      }
+
+      function sanitizePreview(raw: string): string {
+        const doc = new DOMParser().parseFromString(raw, 'text/html');
+        const walk = (parent: Element) => {
+          for (const el of Array.from(parent.children)) {
+            const tag = el.tagName;
+            if (!PREVIEW_TAGS.has(tag)) {
+              // script/style/iframe/svg 等整段丢弃，连内容一起
+              el.remove();
+              continue;
+            }
+            const allowed = PREVIEW_ATTRS[tag] || [];
+            for (const attr of Array.from(el.attributes)) {
+              const name = attr.name.toLowerCase();
+              if (!allowed.includes(name)) {
+                el.removeAttribute(attr.name);
+                continue;
+              }
+              if (name === 'href' || name === 'src') {
+                if (!isSafePreviewUrl(attr.value)) el.removeAttribute(attr.name);
+              } else if (name === 'srcset') {
+                const ok = attr.value
+                  .split(',')
+                  .every((part) => isSafePreviewUrl(part.trim().split(/\s+/)[0] || ''));
+                if (!ok) el.removeAttribute(attr.name);
+              }
+            }
+            if (tag === 'A') {
+              el.setAttribute('rel', 'noopener nofollow');
+              el.setAttribute('target', '_blank');
+            }
+            walk(el);
+          }
+        };
+        walk(doc.body);
+        return doc.body.innerHTML;
+      }
+
       function renderPreview() {
-        previewEl.innerHTML = marked.parse(contentEl.value) as string;
+        previewEl.innerHTML = sanitizePreview(marked.parse(contentEl.value) as string);
       }
 
       function restoreDraft(d: { title?: string; desc?: string; content?: string }) {

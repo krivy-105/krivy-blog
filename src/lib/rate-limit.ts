@@ -31,10 +31,11 @@ export function bumpRateLimit(
     buckets.set(key, { count: 1, resetAt: now + windowMs });
     return { ok: true, retryAfterSec: 0 };
   }
-  bucket.count++;
-  if (bucket.count > max) {
+  // 先比较再自增：原来的「先自增再比较」实际会多放行一次
+  if (bucket.count >= max) {
     return { ok: false, retryAfterSec: Math.ceil((bucket.resetAt - now) / 1000) };
   }
+  bucket.count++;
   return { ok: true, retryAfterSec: 0 };
 }
 
@@ -42,7 +43,7 @@ export function resetRateLimit(key: string) {
   buckets.delete(key);
 }
 
-// 经过 Caddy 反代后取真实客户端 IP：X-Forwarded-For 的第一个值
-export function getClientIp(headers: Headers): string {
-  return (headers.get('x-forwarded-for') || '').split(',')[0]?.trim() || 'unknown';
-}
+// 取真实客户端 IP：优先 Cloudflare 写入的 CF-Connecting-IP，
+// 兜底取 X-Forwarded-For 的最后一个值（详见 ./client-ip.ts）。
+// 保留函数名与签名，所有既有调用方无需改动。
+export { getClientIp } from './client-ip';

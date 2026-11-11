@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { getUserFromToken, COOKIE_NAME } from './lib/auth';
 import { recordPageView } from './lib/db';
 import { dateKeyCN } from './lib/time';
+import { getClientIp } from './lib/client-ip';
 
 // 文章合并 / 改名后的旧地址 → 新地址（301 永久跳转，保住外部链接与书签）
 const LEGACY_REDIRECTS: Record<string, string> = {
@@ -11,7 +12,42 @@ const LEGACY_REDIRECTS: Record<string, string> = {
   '数通学习资料集合-muc94793': '华为-ensp-模拟器安装教程win11-完整版-mudu8s5v',
 };
 
+// CSRF：Astro 的 security.checkOrigin 因反代 Host 不一致被关掉了，
+// 改在这里对「变更类方法」做同源校验：Origin 的 host 必须等于本站 host。
+// 只查 Origin（浏览器必然带上）；Origin 缺失时退回 Sec-Fetch-Site。
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function isSameOrigin(request: Request): boolean {
+  const site = request.headers.get('sec-fetch-site');
+  if (site && site !== 'same-origin' && site !== 'same-site' && site !== 'none') {
+    return false;
+  }
+
+  const origin = request.headers.get('origin');
+  if (!origin) {
+    // 没有 Origin 头：非浏览器客户端（curl / 服务端调用），放行交给各自的鉴权
+    return true;
+  }
+
+  const host =
+    request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
+  if (!host) return false;
+
+  try {
+    return new URL(origin).host === host.split(',')[0].trim();
+  } catch {
+    return false;
+  }
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
+  if (MUTATING_METHODS.has(context.request.method) && !isSameOrigin(context.request)) {
+    return new Response('Forbidden', {
+      status: 403,
+      headers: { 'content-type': 'text/plain; charset=utf-8' },
+    });
+  }
+
   // 旧文章地址跳转
   const legacyMatch = context.url.pathname.match(/^\/blog\/([^/]+)\/?$/);
   if (legacyMatch) {
@@ -116,9 +152,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
         !path.startsWith('/_astro/') &&
         !/\.[a-z0-9]+$/i.test(path)
       ) {
-        const ip = (context.request.headers.get('x-forwarded-for') || '')
-          .split(',')[0]
-          ?.trim();
+        const ip = getClientIp(context.request.headers);
         const ipHash = ip
           ? crypto
               .createHash('sha256')

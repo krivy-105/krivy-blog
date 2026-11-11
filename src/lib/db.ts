@@ -482,20 +482,32 @@ if (!db.prepare('SELECT value FROM meta WHERE key = ?').get(FINAL_CLEANUP_FLAG))
 }
 
 
-// 确保管理员账号存在，并与环境变量中的密码保持一致
-// （部署后修改 ADMIN_PASSWORD，重启服务即生效，无需手动操作数据库）
+// 确保管理员账号存在
+// 安全基线：不再「默认口令兜底 + 每次启动回写密码并提权」。
+//   1) 生产环境没配 ADMIN_PASSWORD → 直接启动失败，不给自己留后门；
+//   2) 生产环境弱口令（<12 位）→ 拒绝启动；
+//   3) 只在「账号不存在」时创建；
+//   4) 账号已存在时不再自动把 role 提回 admin，仅在密码与环境变量不一致时同步并打日志。
+const isProd = process.env.NODE_ENV === 'production';
 const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-const adminPassword = process.env.ADMIN_PASSWORD || 'admin123456';
+const adminPassword = process.env.ADMIN_PASSWORD;
 
-// 安全提醒：下面这段同步逻辑会在「环境变量密码 ≠ 库中密码」时直接覆写库里的密码。
-// 也就是说只要部署环境没配 ADMIN_PASSWORD，每次启动都会把管理员密码重置成
-// admin123456——线上等于把后台钥匙插在门上。这里只告警不改行为，
-// 避免把已经在用默认密码的人锁在门外。
-if (!process.env.ADMIN_PASSWORD && process.env.NODE_ENV === 'production') {
+if (!adminPassword) {
+  if (isProd) {
+    throw new Error(
+      '[db][致命] 生产环境必须设置 ADMIN_PASSWORD 环境变量，拒绝以默认口令启动'
+    );
+  }
+  // 只有开发环境允许回退默认口令，且每次启动都明确告警
   console.warn(
-    '[db][安全警告] 未设置 ADMIN_PASSWORD，管理员密码将（并持续）被同步为默认值 ' +
-      `${adminUsername}/admin123456。请立刻在部署平台设置 ADMIN_PASSWORD 并重启服务。`
+    '[db][开发] 未设置 ADMIN_PASSWORD，本地开发使用 admin123456（生产环境必须显式配置强口令）'
   );
+}
+
+const effectivePassword = adminPassword || 'admin123456';
+
+if (isProd && effectivePassword.length < 12) {
+  throw new Error('[db][致命] ADMIN_PASSWORD 长度不足 12 位，请更换为强密码');
 }
 
 const adminRow = db
@@ -503,20 +515,27 @@ const adminRow = db
   .get(adminUsername) as User | undefined;
 
 if (!adminRow) {
-  const hash = bcrypt.hashSync(adminPassword, 10);
+  // 仅在账号不存在时创建
+  const hash = bcrypt.hashSync(effectivePassword, 12);
   db.prepare(
     'INSERT INTO users (username, email, password, role, created_at) VALUES (?, ?, ?, ?, ?)'
   ).run(adminUsername, `${adminUsername}@blog.local`, hash, 'admin', Date.now());
   console.log(`[db] 管理员账号已创建: ${adminUsername}`);
-} else if (!bcrypt.compareSync(adminPassword, adminRow.password) || adminRow.role !== 'admin') {
-  // 环境变量密码与库中不一致（首次挂卷时可能用默认密码初始化过），或角色被降级
-  const hash = bcrypt.hashSync(adminPassword, 10);
-  db.prepare('UPDATE users SET password = ?, role = ? WHERE id = ?').run(
-    hash,
-    'admin',
-    adminRow.id
-  );
-  console.log(`[db] 管理员账号密码已按环境变量同步: ${adminUsername}`);
+} else {
+  // 已存在的账号：密码同步保留（方便通过环境变量改密），但不再强制提权。
+  // 角色被人工调整过就尊重数据库里的值，只告警交给人确认。
+  if (!bcrypt.compareSync(effectivePassword, adminRow.password)) {
+    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(
+      bcrypt.hashSync(effectivePassword, 12),
+      adminRow.id
+    );
+    console.log(`[db] 管理员密码已按环境变量同步: ${adminUsername}`);
+  }
+  if (adminRow.role !== 'admin') {
+    console.warn(
+      `[db][告警] 账号 ${adminUsername} 当前不是 admin 角色，请人工确认；程序不会自动提权`
+    );
+  }
 }
 
 // ---- 用户相关查询 ----

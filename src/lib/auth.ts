@@ -6,7 +6,7 @@ const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 天
 const COOKIE_NAME = process.env.SESSION_COOKIE || 'blog_session';
 
 export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10);
+  return bcrypt.hash(password, 12);
 }
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
